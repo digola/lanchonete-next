@@ -230,6 +230,14 @@ export const useAuthStore = create<AuthStore>()(
         // Remover token do localStorage
         setStoredToken(null);
 
+        // Limpar carrinho do localStorage
+        try {
+          localStorage.removeItem('lanchonete-cart-v2');
+          console.log('Carrinho limpo no logout');
+        } catch (error) {
+          console.error('Erro ao limpar carrinho no logout:', error);
+        }
+
         // Fazer logout na API (opcional, não bloquear se falhar)
         fetch('/api/auth/logout', { method: 'POST' }).catch(() => {
           // Ignorar erros no logout da API

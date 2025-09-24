@@ -1,23 +1,26 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 
 import { useProducts, useCategories } from '@/hooks/useApi';
-import { useCartPersistence } from '@/hooks/useCartPersistence';
 import { useApiAuth } from '@/hooks/useApiAuth';
+import { useCart } from '@/hooks/useCart';
 import { ProductCard, ProductList } from '@/components/ProductCard';
+import { CartIcon } from '@/components/CartIcon';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
 import { Product, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Search, ShoppingCart, User, LogIn, Filter, X } from 'lucide-react';
+import { Search, User, LogIn, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
   const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
-  const { addToCart, totalItems, totalPrice } = useCartPersistence();
+  const { addItem } = useCart();
+
   
   // Estados para filtros e busca
   const [searchTerm, setSearchTerm] = useState('');
@@ -47,7 +50,14 @@ export default function HomePage() {
   }, [searchTerm, selectedCategory, refetchProducts]);
 
   const handleAddToCart = (product: Product) => {
-    addToCart(product);
+    console.log('🛒 Adicionando produto ao carrinho:', {
+      productId: product.id,
+      productName: product.name,
+      price: product.price,
+      isAvailable: product.isAvailable
+    });
+    addItem(product);
+    console.log('✅ Produto adicionado com sucesso!');
   };
 
   const handleCategoryFilter = (categoryId: string) => {
@@ -93,22 +103,26 @@ export default function HomePage() {
 
             {/* User Actions */}
             <div className="flex items-center space-x-4">
-              {/* Cart */}
-              <Link href="/cart" className="relative">
-                <Button variant="outline" size="icon">
-                  <ShoppingCart className="h-5 w-5" />
-                </Button>
-                {totalItems > 0 && (
-                  <Badge 
-                    variant="destructive" 
-                    size="sm"
-                    className="absolute -top-2 -right-2 min-w-[20px] h-5 flex items-center justify-center"
-                  >
-                    {totalItems}
-                  </Badge>
-                )}
-              </Link>
-
+              {/* Debug Button */}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const cartData = localStorage.getItem('lanchonete-cart-v2');
+                  console.log('🔍 Debug - localStorage atual:', cartData);
+                  if (cartData) {
+                    const parsed = JSON.parse(cartData);
+                    console.log('🔍 Debug - Dados parseados:', parsed);
+                    console.log('🔍 Debug - Items no localStorage:', parsed.items?.length || 0);
+                  }
+                }}
+              >
+                🔍 Debug
+              </Button>
+              
+              {/* Cart Icon */}
+              <CartIcon />
+              
               {/* User Menu */}
               {isAuthenticated ? (
                 <div className="flex items-center space-x-3">
@@ -194,7 +208,19 @@ export default function HomePage() {
                         variant={selectedCategory === category.id ? 'primary' : 'outline'}
                         size="sm"
                         onClick={() => handleCategoryFilter(category.id)}
-                        leftIcon={<span>{category.icon}</span>}
+                        leftIcon={
+                          category.imageUrl ? (
+                            <Image 
+                              src={category.imageUrl} 
+                              alt={category.name}
+                              width={16}
+                              height={16}
+                              className="w-4 h-4 object-cover rounded"
+                            />
+                          ) : (
+                            <span>📦</span>
+                          )
+                        }
                       >
                         {category.name}
                       </Button>
@@ -206,22 +232,6 @@ export default function HomePage() {
           )}
         </div>
 
-        {/* Cart Summary (Fixed Bottom) */}
-        {totalItems > 0 && (
-          <div className="fixed bottom-6 right-6 bg-white rounded-lg shadow-lg border p-4 z-50">
-            <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <p className="text-sm text-gray-600">{totalItems} item(s)</p>
-                <p className="font-semibold text-gray-900">{formatCurrency(totalPrice)}</p>
-              </div>
-              <Link href="/cart">
-                <Button variant="primary" size="sm">
-                  Ver Carrinho
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
 
         {/* Products Grid */}
         {productsLoading ? (

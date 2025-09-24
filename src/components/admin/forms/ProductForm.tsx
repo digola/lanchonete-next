@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
@@ -318,48 +319,20 @@ export function ProductForm({
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  URL da Imagem
+                  Imagem do Produto
                 </label>
-                <Input
+                <ImageUpload
                   value={formData.imageUrl || ''}
-                  onChange={(e) => {
-                    handleInputChange('imageUrl', e.target.value);
-                    setImagePreview(e.target.value);
+                  onChange={(url) => {
+                    handleInputChange('imageUrl', url || '');
+                    setImagePreview(url);
                   }}
-                  placeholder="https://exemplo.com/imagem.jpg"
+                  placeholder="Clique para selecionar uma imagem do produto"
                   disabled={isReadOnly}
+                  error={errors.imageUrl || ''}
                 />
               </div>
 
-              {imagePreview && (
-                <div className="relative">
-                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-                    <div className="relative w-full h-48">
-                      <Image
-                        src={imagePreview}
-                        alt="Preview do produto"
-                        fill
-                        className="object-cover rounded-lg"
-                        onError={() => setImagePreview(null)}
-                      />
-                    </div>
-                  </div>
-                  {canEdit && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        handleInputChange('imageUrl', '');
-                        setImagePreview(null);
-                      }}
-                      className="absolute top-2 right-2"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>

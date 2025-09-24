@@ -10,7 +10,7 @@ import { RegisterData } from '@/types';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register, isLoading, error, clearError, isAuthenticated, getDefaultRoute } = useApiAuth();
+  const { register, isLoading, error, clearError, isAuthenticated, getDefaultRoute, getLoginRedirectRoute } = useApiAuth();
   
   const [formData, setFormData] = useState<RegisterData>({
     name: '',
@@ -25,10 +25,14 @@ export default function RegisterPage() {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      const redirectTo = getDefaultRoute();
+      // Verificar se há uma rota salva no sessionStorage
+      const savedRedirect = sessionStorage.getItem('redirectAfterLogin');
+      sessionStorage.removeItem('redirectAfterLogin'); // Limpar após usar
+      
+      const redirectTo = savedRedirect ? getLoginRedirectRoute(savedRedirect) : (getDefaultRoute ? getDefaultRoute() : '/');
       router.push(redirectTo);
     }
-  }, [isAuthenticated, router, getDefaultRoute]);
+  }, [isAuthenticated, router, getDefaultRoute, getLoginRedirectRoute]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;

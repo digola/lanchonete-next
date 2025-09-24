@@ -103,17 +103,26 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('📋 Dados recebidos para criar mesa:', body);
     const { number, capacity, assignedTo } = body;
 
     // Validações
     if (!number || !capacity) {
+      console.log('❌ Validação falhou - number:', number, 'capacity:', capacity);
       return NextResponse.json(
         { success: false, error: 'Número e capacidade são obrigatórios' },
         { status: 400 }
       );
     }
 
-    if (number < 1 || capacity < 1) {
+    // Converter para números
+    const numNumber = parseInt(number);
+    const numCapacity = parseInt(capacity);
+    
+    console.log('🔢 Valores convertidos - number:', numNumber, 'capacity:', numCapacity);
+
+    if (numNumber < 1 || numCapacity < 1) {
+      console.log('❌ Valores inválidos - number:', numNumber, 'capacity:', numCapacity);
       return NextResponse.json(
         { success: false, error: 'Número e capacidade devem ser maiores que zero' },
         { status: 400 }
@@ -122,7 +131,7 @@ export async function POST(request: NextRequest) {
 
     // Verificar se já existe mesa com este número
     const existingTable = await prisma.table.findUnique({
-      where: { number: parseInt(number) },
+      where: { number: numNumber },
     });
 
     if (existingTable) {
@@ -149,8 +158,8 @@ export async function POST(request: NextRequest) {
     // Criar mesa
     const table = await prisma.table.create({
       data: {
-        number: parseInt(number),
-        capacity: parseInt(capacity),
+        number: numNumber,
+        capacity: numCapacity,
         status: TableStatus.LIVRE,
         assignedTo: assignedTo || null,
       },

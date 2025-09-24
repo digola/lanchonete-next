@@ -79,8 +79,8 @@ const config: Config = {
       
       // Fontes personalizadas
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        display: ['Poppins', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-inter)', 'system-ui', 'sans-serif'],
+        display: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
       
       // Espaçamentos personalizados
@@ -143,35 +143,7 @@ const config: Config = {
       },
     },
   },
-  plugins: [
-    // Plugin para variantes de componentes
-    function({ addUtilities }: any) {
-      const newUtilities = {
-        '.btn': {
-          '@apply inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed': {},
-        },
-        '.btn-primary': {
-          '@apply bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500': {},
-        },
-        '.btn-secondary': {
-          '@apply bg-secondary-500 text-white hover:bg-secondary-600 focus:ring-secondary-500': {},
-        },
-        '.btn-outline': {
-          '@apply border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 focus:ring-primary-500': {},
-        },
-        '.input': {
-          '@apply block w-full rounded-lg border border-gray-300 px-3 py-2 text-gray-900 placeholder-gray-500 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 disabled:bg-gray-50 disabled:text-gray-500': {},
-        },
-        '.card': {
-          '@apply rounded-xl bg-white p-6 shadow-soft border border-gray-100': {},
-        },
-        '.badge': {
-          '@apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium': {},
-        },
-      };
-      addUtilities(newUtilities);
-    },
-  ],
+  plugins: [],
 };
 
 export default config;

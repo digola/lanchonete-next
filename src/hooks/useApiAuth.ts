@@ -214,6 +214,24 @@ export const useApiAuth = () => {
     }
   };
 
+  // Função para obter rota de login considerando contexto
+  const getLoginRedirectRoute = (fromPath?: string) => {
+    try {
+      if (!user) return '/login';
+
+      // Se veio da página inicial ou carrinho, manter no contexto de compra
+      if (fromPath === '/' || fromPath === '/cart') {
+        return fromPath;
+      }
+
+      // Para outros casos, usar rota padrão baseada no role
+      return getDefaultRoute();
+    } catch (error) {
+      console.error('Erro em getLoginRedirectRoute:', error);
+      return '/';
+    }
+  };
+
   return {
     // Estado
     user,
@@ -268,6 +286,7 @@ export const useApiAuth = () => {
     getRoleLabel,
     canAccessRoute,
     getDefaultRoute,
+    getLoginRedirectRoute,
     
     // Métodos internos (para casos especiais)
     _internal: {

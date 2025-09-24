@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency } from '@/lib/utils';
 import { Product } from '@/types';
-import { Plus, Clock, AlertTriangle } from 'lucide-react';
+import { Clock, AlertTriangle, Plus } from 'lucide-react';
 
 interface ProductCardProps {
   product: Product;
@@ -28,9 +28,23 @@ export const ProductCard = ({
 }: ProductCardProps) => {
   const [imageError, setImageError] = useState(false);
 
+
   const handleAddToCart = () => {
+    console.log('🔘 Botão "Adicionar" clicado:', {
+      productId: product.id,
+      productName: product.name,
+      isAvailable: product.isAvailable,
+      hasCallback: !!onAddToCart
+    });
+    
     if (onAddToCart && product.isAvailable) {
+      console.log('✅ Chamando callback onAddToCart');
       onAddToCart(product);
+    } else {
+      console.log('❌ Não foi possível adicionar:', {
+        hasCallback: !!onAddToCart,
+        isAvailable: product.isAvailable
+      });
     }
   };
 
@@ -56,6 +70,7 @@ export const ProductCard = ({
               src={product.imageUrl}
               alt={product.name}
               fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform duration-200 group-hover:scale-105"
               onError={() => setImageError(true)}
             />
@@ -78,7 +93,18 @@ export const ProductCard = ({
           {product.category && (
             <div className="absolute top-3 right-3">
               <Badge variant="secondary" size="sm">
-                {product.category.icon} {product.category.name}
+                {product.category.imageUrl ? (
+                  <Image 
+                    src={product.category.imageUrl} 
+                    alt={product.category.name}
+                    width={12}
+                    height={12}
+                    className="w-3 h-3 object-cover rounded mr-1"
+                  />
+                ) : (
+                  <span className="mr-1">📦</span>
+                )}
+                {product.category.name}
               </Badge>
             </div>
           )}

@@ -14,7 +14,7 @@ interface LoginFormData {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login, isLoading, error, clearError, isAuthenticated, getDefaultRoute } = useApiAuth();
+  const { login, isLoading, error, clearError, isAuthenticated, getDefaultRoute, getLoginRedirectRoute } = useApiAuth();
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -25,10 +25,14 @@ export default function LoginPage() {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
-      const redirectTo = getDefaultRoute();
+      // Verificar se há uma rota salva no sessionStorage
+      const savedRedirect = sessionStorage.getItem('redirectAfterLogin');
+      sessionStorage.removeItem('redirectAfterLogin'); // Limpar após usar
+      
+      const redirectTo = savedRedirect ? getLoginRedirectRoute(savedRedirect) : (getDefaultRoute ? getDefaultRoute() : '/');
       router.push(redirectTo);
     }
-  }, [isAuthenticated, router, getDefaultRoute]);
+  }, [isAuthenticated, router, getDefaultRoute, getLoginRedirectRoute]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -193,7 +197,7 @@ export default function LoginPage() {
               Credenciais de demonstração:
             </h3>
             <div className="text-xs text-gray-600 space-y-1">
-              <div><strong>Admin:</strong> admin@lanchonete.com / 123456</div>
+              <div><strong>Admin:</strong> admin@lanchonete.com / a123456</div>
               <div><strong>Funcionário:</strong> funcionario@lanchonete.com / 123456</div>
               <div><strong>Cliente:</strong> cliente@lanchonete.com / 123456</div>
             </div>

@@ -37,7 +37,7 @@ export default function OrderDetailsPage() {
     orderId ? `/api/orders/${orderId}` : ''
   );
 
-  const order = orderResponse?.data || null;
+  const order = orderResponse || null;
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {

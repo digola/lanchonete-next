@@ -49,7 +49,7 @@ export interface Category {
   id: string;
   name: string;
   description?: string;
-  icon: string;
+  imageUrl?: string;
   color: string;
   isActive: boolean;
   createdAt: Date;

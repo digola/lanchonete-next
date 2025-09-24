@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Image from 'next/image';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
 import { useToastHelpers } from '@/components/ui/Toast';
@@ -27,7 +29,7 @@ interface CategoryFormProps {
 export interface CategoryFormData {
   name: string;
   description: string;
-  icon: string;
+  imageUrl: string;
   color: string;
   isActive: boolean;
 }
@@ -44,7 +46,7 @@ export function CategoryForm({
   const [formData, setFormData] = useState<CategoryFormData>({
     name: category?.name || '',
     description: category?.description || '',
-    icon: category?.icon || '📦',
+    imageUrl: category?.imageUrl || '',
     color: category?.color || '#3B82F6',
     isActive: category?.isActive ?? true,
   });
@@ -56,7 +58,7 @@ export function CategoryForm({
       setFormData({
         name: category.name,
         description: category.description || '',
-        icon: category.icon || '📦',
+        imageUrl: category.imageUrl || '',
         color: category.color || '#3B82F6',
         isActive: category.isActive,
       });
@@ -119,13 +121,6 @@ export function CategoryForm({
     { name: 'Cinza', value: '#6B7280' },
   ];
 
-  // Ícones pré-definidos
-  const predefinedIcons = [
-    '🍔', '🍕', '🌭', '🥗', '🍜', '🍝', '🍱', '🥘',
-    '☕', '🥤', '🍹', '🍺', '🍷', '🥃', '🧊', '🍰',
-    '🧁', '🍪', '🍫', '🍬', '🍭', '🍮', '🍯', '🥜',
-    '📦', '🏷️', '⭐', '🔥', '💎', '🎯', '🌟', '💫'
-  ];
 
   return (
     <Modal
@@ -207,42 +202,18 @@ export function CategoryForm({
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Ícone */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Ícone
-              </label>
-              <div className="space-y-3">
-                <div className="flex items-center space-x-3">
-                  <span className="text-2xl">{formData.icon}</span>
-                  <Input
-                    value={formData.icon}
-                    onChange={(e) => handleInputChange('icon', e.target.value)}
-                    placeholder="Emoji ou texto"
-                    disabled={isReadOnly}
-                    className="flex-1"
-                  />
-                </div>
-                
-                {canEdit && (
-                  <div className="grid grid-cols-8 gap-2">
-                    {predefinedIcons.map((icon) => (
-                      <button
-                        key={icon}
-                        type="button"
-                        onClick={() => handleInputChange('icon', icon)}
-                        className={`p-2 text-lg rounded border-2 transition-colors ${
-                          formData.icon === icon
-                            ? 'border-primary-500 bg-primary-50'
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}
-                      >
-                        {icon}
-                      </button>
-                    ))}
-                  </div>
-                )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Imagem da Categoria
+                </label>
+                <ImageUpload
+                  value={formData.imageUrl}
+                  onChange={(url) => handleInputChange('imageUrl', url || '')}
+                  placeholder="Clique para selecionar uma imagem da categoria"
+                  disabled={isReadOnly}
+                  error={errors.imageUrl || ''}
+                />
               </div>
-            </div>
 
             {/* Cor */}
             <div>
@@ -301,7 +272,19 @@ export function CategoryForm({
           </CardHeader>
           <CardContent>
             <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-dashed border-gray-300">
-              <span className="text-2xl">{formData.icon}</span>
+              {formData.imageUrl ? (
+                <Image
+                  src={formData.imageUrl}
+                  alt="Preview da categoria"
+                  width={48}
+                  height={48}
+                  className="w-12 h-12 object-cover rounded-lg"
+                />
+              ) : (
+                <div className="w-12 h-12 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <Folder className="h-6 w-6 text-gray-400" />
+                </div>
+              )}
               <div className="flex-1">
                 <h3 
                   className="font-semibold text-lg"
