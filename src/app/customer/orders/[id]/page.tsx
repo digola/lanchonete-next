@@ -37,7 +37,7 @@ export default function OrderDetailsPage() {
     orderId ? `/api/orders/${orderId}` : ''
   );
 
-  const order = orderResponse;
+  const order = orderResponse?.data || null;
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -84,7 +84,7 @@ export default function OrderDetailsPage() {
     }
   };
 
-  if (orderLoading) {
+  if (orderLoading || !order) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -127,10 +127,10 @@ export default function OrderDetailsPage() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              Pedido #{order.id.slice(-8)}
+              Pedido #{order?.id?.slice(-8) || 'Carregando...'}
             </h1>
             <p className="text-gray-600">
-              {formatDateTime(order.createdAt)}
+              {order?.createdAt ? formatDateTime(order.createdAt) : 'Carregando...'}
             </p>
           </div>
         </div>
