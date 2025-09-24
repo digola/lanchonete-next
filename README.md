@@ -1,6 +1,12 @@
-# 🍔 Sistema Lanchonete - Next.js
+# 🍔 Lanchonete SBM - Sistema de Gestão
 
-Sistema completo de gestão para lanchonetes e restaurantes desenvolvido com Next.js 15, TypeScript, Prisma e Tailwind CSS.
+[![GitHub stars](https://img.shields.io/github/stars/digola/lanchonete_sbm?style=social)](https://github.com/digola/lanchonete_sbm)
+[![GitHub forks](https://img.shields.io/github/forks/digola/lanchonete_sbm?style=social)](https://github.com/digola/lanchonete_sbm)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Next.js](https://img.shields.io/badge/Next.js-15.5.2-black)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue)](https://www.typescriptlang.org/)
+
+Sistema completo de gestão para lanchonetes e restaurantes desenvolvido com Next.js 15, TypeScript, Prisma e Tailwind CSS. Sistema moderno, responsivo e totalmente funcional para gerenciamento de pedidos, produtos, usuários e mesas.
 
 ## 🚀 Funcionalidades
 
