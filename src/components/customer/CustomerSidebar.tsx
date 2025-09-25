@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { 
   LayoutDashboard,
   ShoppingBag,
+  ShoppingCart,
   User,
   Clock,
   CheckCircle,
@@ -20,6 +21,11 @@ const navigation = [
     name: 'Dashboard',
     href: '/customer/dashboard',
     icon: LayoutDashboard,
+  },
+  {
+    name: 'Cardápio',
+    href: '/customer/cart',
+    icon: ShoppingCart,
   },
   {
     name: 'Meus Pedidos',

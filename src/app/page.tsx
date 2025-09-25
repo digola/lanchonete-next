@@ -1,25 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 
-import { useProducts, useCategories } from '@/hooks/useApi';
-import { useApiAuth } from '@/hooks/useApiAuth';
+import { useBasicMenu } from '@/hooks/useBasicMenu';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useCart } from '@/hooks/useCart';
-import { ProductCard, ProductList } from '@/components/ProductCard';
-import { CartIcon } from '@/components/CartIcon';
+import { OptimizedProductCard, OptimizedProductList } from '@/components/OptimizedProductCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
 import { Product, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Search, User, LogIn, Filter, X } from 'lucide-react';
+import { Search, User, LogIn, Filter, X, ShoppingCart, Package } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
-  const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
-  const { addItem } = useCart();
+  const { isAuthenticated, user, logout, getRoleLabel } = useOptimizedAuth();
+  const { addItem, items, totalItems } = useCart();
 
   
   // Estados para filtros e busca
@@ -27,29 +26,24 @@ export default function HomePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Buscar categorias
-  const { data: categories, loading: categoriesLoading } = useCategories();
-
-  // Buscar produtos com filtros
-  const { data: productsResponse, loading: productsLoading, execute: refetchProducts } = useProducts({
+  // Buscar dados do menu com hook básico e estável
+  const {
+    categories,
+    products,
+    pagination,
+    loading: { categories: categoriesLoading, products: productsLoading },
+    refetch: refetchProducts,
+    isSearching,
+  } = useBasicMenu({
     ...(searchTerm && { search: searchTerm }),
     ...(selectedCategory && { categoryId: selectedCategory }),
     isAvailable: true,
   });
 
-  const products = productsResponse?.data || [];
-  const pagination = productsResponse?.pagination;
+  // Remover debounce manual - agora é feito no hook
+  // useEffect removido - o debounce é feito internamente no useOptimizedMenuStatic
 
-  // Aplicar filtros com debounce
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      refetchProducts();
-    }, 300);
-
-    return () => clearTimeout(timer);
-  }, [searchTerm, selectedCategory, refetchProducts]);
-
-  const handleAddToCart = (product: Product) => {
+  const handleAddToCart = useCallback((product: Product) => {
     console.log('🛒 Adicionando produto ao carrinho:', {
       productId: product.id,
       productName: product.name,
@@ -58,18 +52,19 @@ export default function HomePage() {
     });
     addItem(product);
     console.log('✅ Produto adicionado com sucesso!');
-  };
+  }, [addItem]);
 
-  const handleCategoryFilter = (categoryId: string) => {
+  const handleCategoryFilter = useCallback((categoryId: string) => {
     setSelectedCategory(categoryId === selectedCategory ? '' : categoryId);
-  };
+  }, [selectedCategory]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSearchTerm('');
     setSelectedCategory('');
-  };
+  }, []);
 
-  const filteredCategories = categories?.data || [];
+  // Memoizar categorias filtradas
+  const filteredCategories = useMemo(() => categories || [], [categories]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -103,25 +98,28 @@ export default function HomePage() {
 
             {/* User Actions */}
             <div className="flex items-center space-x-4">
-              {/* Debug Button */}
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => {
-                  const cartData = localStorage.getItem('lanchonete-cart-v2');
-                  console.log('🔍 Debug - localStorage atual:', cartData);
-                  if (cartData) {
-                    const parsed = JSON.parse(cartData);
-                    console.log('🔍 Debug - Dados parseados:', parsed);
-                    console.log('🔍 Debug - Items no localStorage:', parsed.items?.length || 0);
-                  }
-                }}
-              >
-                🔍 Debug
-              </Button>
-              
-              {/* Cart Icon */}
-              <CartIcon />
+              {/* Expedição Link - Pode ser removido facilmente */}
+              {isAuthenticated && (user?.role === 'FUNCIONARIO' || user?.role === 'ADMINISTRADOR') && (
+                <Link href="/expedicao">
+                  <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <Package className="h-4 w-4" />
+                    <span className="text-sm font-medium">Expedição</span>
+                  </button>
+                </Link>
+              )}
+
+              {/* Cart Indicator */}
+              {totalItems > 0 && (
+                <Link href="/cart" className="relative inline-block">
+                  <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                    <ShoppingCart className="h-4 w-4" />
+                    <span className="text-sm font-medium">Carrinho</span>
+                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                      {totalItems}
+                    </span>
+                  </button>
+                </Link>
+              )}
               
               {/* User Menu */}
               {isAuthenticated ? (
@@ -216,6 +214,9 @@ export default function HomePage() {
                               width={16}
                               height={16}
                               className="w-4 h-4 object-cover rounded"
+                              loading="lazy"
+                              placeholder="blur"
+                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
                             />
                           ) : (
                             <span>📦</span>
@@ -234,19 +235,31 @@ export default function HomePage() {
 
 
         {/* Products Grid */}
-        {productsLoading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[...Array(8)].map((_, i) => (
-              <ProductSkeleton key={i} />
-            ))}
-          </div>
-        ) : (
-          <ProductList
-            products={products}
-            onAddToCart={handleAddToCart}
-            showAddButton={true}
-          />
-        )}
+        <div className="transition-all duration-300 ease-in-out">
+          {(productsLoading || isSearching) ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
+              {[...Array(8)].map((_, i) => (
+                <ProductSkeleton key={i} />
+              ))}
+            </div>
+          ) : (
+            <div className="animate-fade-in">
+              <OptimizedProductList
+                products={products}
+                onAddToCart={handleAddToCart}
+                showAddButton={true}
+              />
+            </div>
+          )}
+          
+          {/* Indicador de busca */}
+          {isSearching && (
+            <div className="flex items-center justify-center py-4 text-sm text-muted-foreground">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              Buscando produtos...
+            </div>
+          )}
+        </div>
 
         {/* Empty State */}
         {!productsLoading && products.length === 0 && (

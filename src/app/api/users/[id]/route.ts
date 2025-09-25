@@ -133,6 +133,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const body = await request.json();
     const { name, email, password, role, isActive } = body;
+    
+    console.log('🔄 API PUT /users/[id] - Dados recebidos:', body);
+    console.log('🔄 API PUT /users/[id] - isActive type:', typeof isActive, 'value:', isActive);
 
     // Validações
     if (name !== undefined && !name.trim()) {
@@ -195,6 +198,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       updateData.isActive = isActive;
     }
 
+    console.log('🔄 API PUT /users/[id] - Dados para atualização:', updateData);
+
     // Atualizar usuário
     const updatedUser = await prisma.user.update({
       where: { id },
@@ -209,6 +214,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         updatedAt: true,
       },
     });
+
+    console.log('✅ API PUT /users/[id] - Usuário atualizado no banco:', updatedUser);
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
     // await prisma.activityLog.create({

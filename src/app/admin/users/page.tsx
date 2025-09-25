@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useApiAuth } from '@/hooks/useApiAuth';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { useApi } from '@/hooks/useApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -21,12 +21,16 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  User
+  User,
+  ToggleLeft,
+  ToggleRight,
+  Power,
+  PowerOff
 } from 'lucide-react';
 import { User as UserType, UserRole } from '@/types';
 
 export default function AdminUsersPage() {
-  const { user, token } = useApiAuth();
+  const { user, token } = useOptimizedAuth();
   const { success, error } = useToastHelpers();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'CLIENTE' | 'FUNCIONARIO' | 'ADMINISTRADOR'>('all');
@@ -120,6 +124,9 @@ export default function AdminUsersPage() {
   const handleUpdateUser = async (data: UserFormData) => {
     if (!selectedUser) return;
     
+    console.log('🔄 handleUpdateUser - Dados recebidos:', data);
+    console.log('🔄 handleUpdateUser - isActive type:', typeof data.isActive, 'value:', data.isActive);
+    
     setIsLoading(true);
     try {
       const response = await fetch(`/api/users/${selectedUser.id}`, {
@@ -132,14 +139,20 @@ export default function AdminUsersPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao atualizar usuário');
+        const errorData = await response.json();
+        console.error('❌ Erro na resposta da API:', errorData);
+        throw new Error(errorData.error || 'Erro ao atualizar usuário');
       }
+
+      const result = await response.json();
+      console.log('✅ Usuário atualizado com sucesso:', result);
 
       setShowEditModal(false);
       setSelectedUser(null);
       refetchUsers();
       success('Usuário atualizado com sucesso!');
     } catch (err: any) {
+      console.error('❌ Erro ao atualizar usuário:', err);
       error(err.message || 'Erro ao atualizar usuário');
     } finally {
       setIsLoading(false);
@@ -191,6 +204,7 @@ export default function AdminUsersPage() {
   const toggleUserStatus = async (user: UserType) => {
     setIsLoading(true);
     try {
+      const newStatus = !user.isActive;
       const response = await fetch(`/api/users/${user.id}`, {
         method: 'PUT',
         headers: {
@@ -199,15 +213,21 @@ export default function AdminUsersPage() {
         },
         body: JSON.stringify({
           ...user,
-          isActive: !user.isActive,
+          isActive: newStatus,
         }),
       });
       
       if (!response.ok) {
         throw new Error('Erro ao alterar status do usuário');
       }
+      
       refetchUsers();
-      success(`Usuário ${user.isActive ? 'desativado' : 'ativado'} com sucesso!`);
+      
+      // Feedback específico baseado no role
+      const roleLabel = getRoleLabel(user.role);
+      const action = newStatus ? 'ativado' : 'desativado';
+      
+      success(`${roleLabel} ${user.name} foi ${action} com sucesso!`);
     } catch (err: any) {
       error(err.message || 'Erro ao alterar status do usuário');
     } finally {
@@ -244,12 +264,37 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Gestão de Usuários</h1>
+          <p className="text-gray-600 mt-1">
+            Gerencie usuários, roles e status (ativo/inativo) do sistema
+          </p>
+        </div>
         <Button variant="primary" onClick={() => setShowCreateModal(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Novo Usuário
         </Button>
       </div>
+
+      {/* Instruções para o Admin */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="p-4">
+          <div className="flex items-start space-x-3">
+            <div className="p-2 bg-blue-100 rounded-lg">
+              <Power className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-semibold text-blue-900 mb-1">
+                Controle de Status dos Funcionários
+              </h3>
+              <p className="text-sm text-blue-700">
+                Use os botões <strong>Ativo/Inativo</strong> para controlar o acesso dos funcionários ao sistema. 
+                Funcionários inativos não conseguem fazer login.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Filtros e Busca */}
       <Card>
@@ -425,8 +470,25 @@ export default function AdminUsersPage() {
                       <Badge className={getRoleColor(user.role)}>
                         {getRoleLabel(user.role)}
                       </Badge>
-                      <Badge variant={user.isActive ? 'success' : 'destructive'}>
-                        {user.isActive ? 'Ativo' : 'Inativo'}
+                      <Badge 
+                        variant={user.isActive ? 'success' : 'destructive'}
+                        className={`flex items-center space-x-1 ${
+                          user.isActive 
+                            ? 'bg-green-100 text-green-800 border-green-200' 
+                            : 'bg-red-100 text-red-800 border-red-200'
+                        }`}
+                      >
+                        {user.isActive ? (
+                          <>
+                            <CheckCircle className="h-3 w-3" />
+                            <span>Ativo</span>
+                          </>
+                        ) : (
+                          <>
+                            <XCircle className="h-3 w-3" />
+                            <span>Inativo</span>
+                          </>
+                        )}
                       </Badge>
                       <span className="text-sm text-gray-500">
                         {formatDateTime(user.createdAt)}
@@ -434,16 +496,28 @@ export default function AdminUsersPage() {
                     </div>
                   </div>
                   <div className="flex items-center space-x-2">
+                    {/* Toggle de Status */}
                     <Button
-                      variant="ghost"
+                      variant={user.isActive ? "outline" : "ghost"}
                       size="sm"
                       onClick={() => toggleUserStatus(user)}
-                      title={user.isActive ? 'Desativar' : 'Ativar'}
+                      title={user.isActive ? 'Desativar usuário' : 'Ativar usuário'}
+                      className={`transition-all duration-200 ${
+                        user.isActive 
+                          ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' 
+                          : 'bg-red-50 text-red-700 border-red-200 hover:bg-red-100'
+                      }`}
                     >
                       {user.isActive ? (
-                        <XCircle className="h-4 w-4" />
+                        <>
+                          <Power className="h-4 w-4 mr-1" />
+                          Ativo
+                        </>
                       ) : (
-                        <CheckCircle className="h-4 w-4" />
+                        <>
+                          <PowerOff className="h-4 w-4 mr-1" />
+                          Inativo
+                        </>
                       )}
                     </Button>
                     <Button

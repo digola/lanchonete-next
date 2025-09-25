@@ -1,13 +1,16 @@
 'use client';
 
 import { useCart } from '@/hooks/useCart';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency } from '@/lib/utils';
-import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft } from 'lucide-react';
+import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function CartPage() {
   const {
@@ -21,9 +24,95 @@ export default function CartPage() {
     isEmpty,
   } = useCart();
 
+  const { isAuthenticated, user } = useOptimizedAuth();
+  const router = useRouter();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [orderCompleted, setOrderCompleted] = useState(false);
+  const [deliveryType, setDeliveryType] = useState('RETIRADA');
+  const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
+
+  // Função para finalizar o pedido
+  const handleFinalizeOrder = async () => {
+    if (!isAuthenticated) {
+      // Redirecionar para login se não estiver autenticado
+      router.push('/login?redirect=/cart');
+      return;
+    }
+
+    if (isEmpty || items.length === 0) {
+      alert('Carrinho vazio. Adicione produtos antes de finalizar.');
+      return;
+    }
+
+    setIsProcessing(true);
+
+    try {
+      console.log('🛒 Iniciando finalização do pedido:', {
+        items: items,
+        totalPrice: totalPrice,
+        userId: user?.id
+      });
+
+      // Preparar dados do pedido
+      const orderData = {
+        items: items.map(item => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          price: item.price,
+          notes: item.notes || null,
+          customizations: item.customizations || null
+        })),
+        deliveryType: deliveryType,
+        paymentMethod: paymentMethod,
+        deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
+        notes: orderNotes,
+        total: totalPrice
+      };
+
+      console.log('📦 Dados do pedido preparados:', orderData);
+
+      // Fazer requisição para criar o pedido no banco
+      const response = await fetch('/api/orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify(orderData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Erro ao criar pedido');
+      }
+
+      console.log('✅ Pedido criado com sucesso:', result);
+
+      // Limpar carrinho após sucesso
+      clearCart();
+      
+      // Mostrar mensagem de sucesso
+      setOrderCompleted(true);
+      
+      // Redirecionar para dashboard após 3 segundos
+      setTimeout(() => {
+        router.push('/customer/dashboard');
+      }, 3000);
+      
+    } catch (error) {
+      console.error('❌ Erro ao finalizar pedido:', error);
+      alert(`Erro ao finalizar pedido: ${error.message || 'Tente novamente.'}`);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   // Debug: Log detalhado na página /cart
   console.log('🛒 CartPage - Estado completo:', {
-    items: items.length,
+    itemsCount: items.length,
     totalItems,
     totalPrice,
     isEmpty,
@@ -211,9 +300,24 @@ export default function CartPage() {
           <div className="lg:col-span-1">
             <Card>
               <CardContent className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Resumo do Pedido
-                </h2>
+                {orderCompleted ? (
+                  <div className="text-center py-8">
+                    <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                    <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                      Pedido Enviado com Sucesso!
+                    </h2>
+                    <p className="text-gray-600 mb-4">
+                      Seu pedido foi enviado e está sendo processado.
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      Redirecionando para o dashboard...
+                    </p>
+                  </div>
+                ) : (
+                  <>
+                    <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                      Resumo do Pedido
+                    </h2>
                 
                 <div className="space-y-3 mb-6">
                   <div className="flex justify-between">
@@ -234,9 +338,120 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <Button variant="primary" size="lg" fullWidth className="mb-4">
-                  <ShoppingCart className="h-5 w-5 mr-2" />
-                  Finalizar Pedido
+                {/* Campos de seleção do pedido */}
+                <div className="space-y-4 mb-6">
+                  {/* Tipo de entrega */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Entrega
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('RETIRADA')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          deliveryType === 'RETIRADA'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        🏪 Retirada
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('DELIVERY')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          deliveryType === 'DELIVERY'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        🚚 Delivery
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Endereço de entrega (se delivery) */}
+                  {deliveryType === 'DELIVERY' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Endereço de Entrega
+                      </label>
+                      <textarea
+                        value={deliveryAddress}
+                        onChange={(e) => setDeliveryAddress(e.target.value)}
+                        placeholder="Digite seu endereço completo..."
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        rows={3}
+                      />
+                    </div>
+                  )}
+
+                  {/* Método de pagamento */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Método de Pagamento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('DINHEIRO')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          paymentMethod === 'DINHEIRO'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        💵 Dinheiro
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('CARTAO')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          paymentMethod === 'CARTAO'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        💳 Cartão
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Observações */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Observações (opcional)
+                    </label>
+                    <textarea
+                      value={orderNotes}
+                      onChange={(e) => setOrderNotes(e.target.value)}
+                      placeholder="Alguma observação especial para o pedido?"
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      rows={2}
+                    />
+                  </div>
+                </div>
+
+                <Button 
+                  variant="primary" 
+                  size="lg" 
+                  fullWidth 
+                  className="mb-4"
+                  onClick={handleFinalizeOrder}
+                  disabled={isProcessing || (deliveryType === 'DELIVERY' && !deliveryAddress.trim())}
+                >
+                  {isProcessing ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <ShoppingCart className="h-5 w-5 mr-2" />
+                      Finalizar Pedido
+                    </>
+                  )}
                 </Button>
 
                 <Link href="/">
@@ -244,6 +459,8 @@ export default function CartPage() {
                     Continuar Comprando
                   </Button>
                 </Link>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>

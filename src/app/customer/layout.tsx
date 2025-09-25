@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { useApiAuth } from '@/hooks/useApiAuth';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { UserRole } from '@/types';
 import { CustomerSidebar } from '@/components/customer/CustomerSidebar';

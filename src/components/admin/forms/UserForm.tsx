@@ -19,10 +19,18 @@ const userSchema = z.object({
   role: z.nativeEnum(UserRole, {
     errorMap: () => ({ message: 'Role inválido' }),
   }),
-  isActive: z.boolean().default(true),
+  isActive: z.union([z.boolean(), z.string()]).transform((val) => {
+    if (typeof val === 'boolean') return val;
+    return val === 'true';
+  }),
 });
 
 export type UserFormData = z.infer<typeof userSchema>;
+
+// Tipo para o formulário que aceita string no isActive
+type UserFormDataWithString = Omit<UserFormData, 'isActive'> & {
+  isActive: string;
+};
 
 interface UserFormProps {
   user?: UserType;
@@ -42,14 +50,14 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
     formState: { errors, isDirty },
     reset,
     watch,
-  } = useForm<UserFormData>({
+  } = useForm<UserFormDataWithString>({
     resolver: zodResolver(userSchema),
     defaultValues: {
       name: user?.name || '',
       email: user?.email || '',
       password: '',
       role: user?.role || UserRole.CLIENTE,
-      isActive: user?.isActive ?? true,
+      isActive: user?.isActive ? 'true' : 'false',
     },
   });
 
@@ -63,19 +71,25 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
         email: user.email,
         password: '',
         role: user.role,
-        isActive: user.isActive,
+        isActive: user.isActive ? 'true' : 'false',
       });
     }
   }, [user, reset]);
 
-  const handleFormSubmit = async (data: UserFormData) => {
+  const handleFormSubmit = async (data: UserFormDataWithString) => {
     try {
+      // Converter isActive de string para boolean
+      const processedData: UserFormData = {
+        ...data,
+        isActive: data.isActive === 'true',
+      };
+
       // Se é modo de edição e não há senha, remover do payload
-      if (mode === 'edit' && !data.password) {
-        const { password, ...dataWithoutPassword } = data;
+      if (mode === 'edit' && !processedData.password) {
+        const { password, ...dataWithoutPassword } = processedData;
         await onSubmit(dataWithoutPassword as UserFormData);
       } else {
-        await onSubmit(data);
+        await onSubmit(processedData);
       }
     } catch (err: any) {
       error(err.message || 'Erro ao salvar usuário');
@@ -141,10 +155,10 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
                 </span>
                 <span
                   className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    watchedIsActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    watchedIsActive === 'true' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                   }`}
                 >
-                  {watchedIsActive ? 'Ativo' : 'Inativo'}
+                  {watchedIsActive === 'true' ? 'Ativo' : 'Inativo'}
                 </span>
               </div>
             </div>
@@ -228,28 +242,16 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Status
             </label>
-            <div className="flex items-center space-x-4">
-              <label className="flex items-center">
-                <input
-                  {...register('isActive')}
-                  type="radio"
-                  value="true"
-                  className="form-radio h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                  disabled={isReadOnly}
-                />
-                <span className="ml-2 text-sm text-gray-700">Ativo</span>
-              </label>
-              <label className="flex items-center">
-                <input
-                  {...register('isActive')}
-                  type="radio"
-                  value="false"
-                  className="form-radio h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300"
-                  disabled={isReadOnly}
-                />
-                <span className="ml-2 text-sm text-gray-700">Inativo</span>
-              </label>
-            </div>
+            <select
+              {...register('isActive', { 
+                setValueAs: (value) => value === 'true' || value === true 
+              })}
+              className="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
+              disabled={isReadOnly}
+            >
+              <option value="true">Ativo</option>
+              <option value="false">Inativo</option>
+            </select>
             {errors.isActive && (
               <p className="mt-1 text-sm text-red-600">{errors.isActive.message}</p>
             )}

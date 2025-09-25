@@ -9,9 +9,12 @@ export function Skeleton({ className, children, ...props }: SkeletonProps) {
   return (
     <div
       className={cn(
-        'animate-pulse rounded-md bg-gray-200',
+        'animate-pulse rounded-md bg-gradient-to-r from-gray-200 via-gray-100 to-gray-200 bg-[length:200%_100%]',
         className
       )}
+      style={{
+        animation: 'shimmer 2s ease-in-out infinite',
+      }}
       {...props}
     >
       {children}
@@ -22,21 +25,29 @@ export function Skeleton({ className, children, ...props }: SkeletonProps) {
 // Skeleton específicos para diferentes componentes
 export function ProductSkeleton() {
   return (
-    <div className="border border-gray-200 rounded-lg p-6">
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <Skeleton className="h-6 w-48 mb-2" />
-          <Skeleton className="h-4 w-full mb-4" />
-          <div className="flex space-x-4">
-            <Skeleton className="h-4 w-20" />
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-4 w-16" />
-          </div>
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden group">
+      {/* Image skeleton */}
+      <div className="relative aspect-square bg-gray-100">
+        <Skeleton className="h-full w-full" />
+      </div>
+      
+      {/* Content skeleton */}
+      <div className="p-4 space-y-3">
+        {/* Title and description */}
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-3/4" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-2/3" />
         </div>
-        <div className="text-right ml-6 space-y-2">
-          <Skeleton className="h-6 w-16" />
-          <Skeleton className="h-8 w-8" />
+        
+        {/* Price and time */}
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-20" />
+          <Skeleton className="h-4 w-16" />
         </div>
+        
+        {/* Button */}
+        <Skeleton className="h-9 w-full rounded-lg" />
       </div>
     </div>
   );

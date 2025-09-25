@@ -28,7 +28,7 @@ export type CartAction =
 
 // Função reducer para gerenciar estado do carrinho
 export const cartReducer = (state: CartState, action: CartAction): CartState => {
-  console.log('🔄 cartReducer - Ação recebida:', action.type, action.payload);
+  console.log('🔄 cartReducer - Ação recebida:', action.type, 'payload' in action ? action.payload : 'N/A');
   
   switch (action.type) {
     case 'ADD_ITEM': {

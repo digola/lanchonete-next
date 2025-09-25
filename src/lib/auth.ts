@@ -80,7 +80,21 @@ export const generateTokenPair = (user: User): TokenPair => {
 
 export const verifyToken = (token: string): JWTPayload | null => {
   try {
-    const decoded = jwt.verify(token, JWT_SECRET) as JWTPayload;
+    // Validar se o token existe e não está vazio
+    if (!token || token.trim() === '') {
+      console.error('Token is empty or null');
+      return null;
+    }
+
+    // Verificar se o token tem o formato correto (Bearer token)
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    
+    if (!cleanToken || cleanToken.trim() === '') {
+      console.error('Token is empty after Bearer removal');
+      return null;
+    }
+
+    const decoded = jwt.verify(cleanToken, getJWTSecret()) as JWTPayload;
     return decoded;
   } catch (error) {
     console.error('Token verification failed:', error);
@@ -90,7 +104,7 @@ export const verifyToken = (token: string): JWTPayload | null => {
 
 export const refreshAccessToken = (refreshToken: string): string | null => {
   try {
-    const decoded = jwt.verify(refreshToken, JWT_SECRET) as JWTPayload;
+    const decoded = jwt.verify(refreshToken, getJWTSecret()) as JWTPayload;
     
     // Criar novo access token com os dados do refresh token
     const newPayload: JWTPayload = {

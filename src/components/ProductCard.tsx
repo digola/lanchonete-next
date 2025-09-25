@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, memo, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -18,18 +18,18 @@ interface ProductCardProps {
   className?: string;
 }
 
-export const ProductCard = ({
+export const ProductCard = memo(function ProductCard({
   product,
   onAddToCart,
   onViewDetails,
   showAddButton = true,
   showDetailsButton = false,
   className,
-}: ProductCardProps) => {
+}: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
 
-
-  const handleAddToCart = () => {
+  // Memoizar callbacks para evitar re-renderizações desnecessárias
+  const handleAddToCart = useCallback(() => {
     console.log('🔘 Botão "Adicionar" clicado:', {
       productId: product.id,
       productName: product.name,
@@ -46,19 +46,27 @@ export const ProductCard = ({
         isAvailable: product.isAvailable
       });
     }
-  };
+  }, [onAddToCart, product]);
 
-  const handleViewDetails = () => {
+  const handleViewDetails = useCallback(() => {
     if (onViewDetails) {
       onViewDetails(product);
     }
-  };
+  }, [onViewDetails, product]);
+
+  // Memoizar valores computados
+  const formattedPrice = useMemo(() => formatCurrency(product.price), [product.price]);
+  
+  const cardClassName = useMemo(() => 
+    `group transition-all duration-200 hover:shadow-medium ${
+      !product.isAvailable ? 'opacity-75' : ''
+    } ${className}`, 
+    [product.isAvailable, className]
+  );
 
   return (
     <Card 
-      className={`group transition-all duration-200 hover:shadow-medium ${
-        !product.isAvailable ? 'opacity-75' : ''
-      } ${className}`}
+      className={cardClassName}
       hover="lift"
       clickable
     >
@@ -73,6 +81,9 @@ export const ProductCard = ({
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform duration-200 group-hover:scale-105"
               onError={() => setImageError(true)}
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center bg-gray-100">
@@ -149,7 +160,7 @@ export const ProductCard = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <span className="text-2xl font-bold text-primary-600">
-                {formatCurrency(product.price)}
+                {formattedPrice}
               </span>
             </div>
             
@@ -200,7 +211,7 @@ export const ProductCard = ({
       </CardContent>
     </Card>
   );
-};
+});
 
 // Componente para lista de produtos
 interface ProductListProps {
@@ -212,15 +223,18 @@ interface ProductListProps {
   className?: string;
 }
 
-export const ProductList = ({
+export const ProductList = memo(function ProductList({
   products,
   onAddToCart,
   onViewDetails,
   showAddButton = true,
   showDetailsButton = false,
   className,
-}: ProductListProps) => {
-  if (products.length === 0) {
+}: ProductListProps) {
+  // Memoizar a lista de produtos para evitar re-renderizações desnecessárias
+  const memoizedProducts = useMemo(() => products, [products]);
+
+  if (memoizedProducts.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="text-6xl mb-4">🍽️</div>
@@ -236,7 +250,7 @@ export const ProductList = ({
 
   return (
     <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 ${className}`}>
-      {products.map((product) => (
+      {memoizedProducts.map((product) => (
         <ProductCard
           key={product.id}
           product={product}
@@ -248,6 +262,6 @@ export const ProductList = ({
       ))}
     </div>
   );
-};
+});
 
 export default ProductCard;
