@@ -56,7 +56,7 @@ const navigation = [
 const reportsItems = [
   {
     name: 'Relatórios',
-    href: '/admin/reports',
+    href: '/admin/relatorio',
     icon: BarChart3,
   },
   {

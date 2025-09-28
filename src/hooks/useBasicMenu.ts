@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useApiCache } from './useApiCache';
+// Removido useApiCache - não mais necessário
 import { useApiAuth } from './useApiAuth';
 
 /**
@@ -40,14 +40,24 @@ export const useBasicMenu = (filters?: {
     return response.json();
   }, [token]);
 
-  const { data: categoriesData, loading: categoriesLoading } = useApiCache(
-    'static:categories',
-    fetchCategories,
-    {
-      ttl: 60 * 60 * 1000, // 1 hora para categorias
-      staleWhileRevalidate: true,
-    }
-  );
+  const [categoriesData, setCategoriesData] = useState<any>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoriesLoading(true);
+      try {
+        const data = await fetchCategories();
+        setCategoriesData(data);
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, [token]); // Removido fetchCategories das dependências
 
   // Hook para produtos (dados dinâmicos - cache médio)
   const fetchProducts = useCallback(async () => {
@@ -72,16 +82,45 @@ export const useBasicMenu = (filters?: {
     return response.json();
   }, [searchTerm, filters?.categoryId, filters?.isAvailable, token]);
 
-  const cacheKey = `products:${searchTerm}:${filters?.categoryId}:${filters?.isAvailable}`;
-  
-  const { data: productsData, loading: productsLoading, error: productsError, refresh } = useApiCache(
-    cacheKey,
-    fetchProducts,
-    {
-      ttl: 5 * 60 * 1000, // 5 minutos para produtos
-      staleWhileRevalidate: true,
-    }
-  );
+  const [productsData, setProductsData] = useState<any>(null);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState<any>(null);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+      try {
+        const data = await fetchProducts();
+        setProductsData(data);
+      } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        setProductsError(error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [searchTerm, filters?.categoryId, filters?.isAvailable, token]); // Removido fetchProducts das dependências
+
+  const refresh = useCallback(() => {
+    const loadProducts = async () => {
+      setProductsLoading(true);
+      setProductsError(null);
+      try {
+        const data = await fetchProducts();
+        setProductsData(data);
+      } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        setProductsError(error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [fetchProducts]);
 
   // Dados memoizados para evitar re-renders
   const menuData = useMemo(() => ({

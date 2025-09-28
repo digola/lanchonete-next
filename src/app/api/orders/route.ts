@@ -8,18 +8,24 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const includeItems = searchParams.get('includeItems') === 'true';
+    const includeUser = searchParams.get('includeUser') === 'true';
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
+    console.log('🔍 Token recebido:', token ? 'presente' : 'ausente');
+    
     if (!token) {
+      console.log('❌ Token não encontrado');
       return NextResponse.json(
         { success: false, error: 'Token de acesso necessário' },
         { status: 401 }
@@ -27,7 +33,10 @@ export async function GET(request: NextRequest) {
     }
 
     const decoded = verifyToken(token);
+    console.log('🔍 Token decodificado:', decoded ? 'válido' : 'inválido');
+    
     if (!decoded) {
+      console.log('❌ Token inválido');
       return NextResponse.json(
         { success: false, error: 'Token inválido' },
         { status: 401 }
@@ -37,62 +46,98 @@ export async function GET(request: NextRequest) {
     // Construir filtros baseado no role
     const where: any = {};
     
-    if (decoded.role === UserRole.CLIENTE) {
-      // Clientes só podem ver seus próprios pedidos
-      where.userId = decoded.userId;
-    } else if (decoded.role === UserRole.FUNCIONARIO) {
-      // Funcionários podem ver todos os pedidos
-      // Sem filtro adicional
-    } else if (decoded.role === UserRole.ADMINISTRADOR) {
-      // Administradores podem ver todos os pedidos
-      // Sem filtro adicional
-    }
+          if (decoded.role === UserRole.CUSTOMER) {
+            // Clientes só podem ver seus próprios pedidos
+            where.userId = decoded.userId;
+          } else if (decoded.role === UserRole.STAFF || decoded.role === UserRole.ADMIN) {
+            // Staff e admins podem ver todos os pedidos
+            // Sem filtro adicional
+          }
+
+    console.log('🔍 Parâmetros recebidos:', { userId, tableId, status, limit, includeItems, includeUser });
 
     // Aplicar filtros adicionais
     if (userId) {
       where.userId = userId;
     }
+    if (tableId) {
+      where.tableId = tableId;
+    }
     if (status) {
-      where.status = status;
+      // Se o status contém vírgula, significa que são múltiplos status
+      if (status.includes(',')) {
+        const statusArray = status.split(',').map(s => s.trim());
+        where.status = {
+          in: statusArray
+        };
+        console.log('🔍 Status múltiplos:', statusArray);
+      } else {
+        where.status = status;
+        console.log('🔍 Status único:', status);
+      }
     }
 
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
+    console.log('🔍 Filtro WHERE construído:', where);
+
+    // Construir include baseado nos parâmetros
+    const include: any = {};
+    
+    if (includeUser) {
+      include.user = {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      };
+    }
+    
+    if (includeItems) {
+      include.items = {
         include: {
-          user: {
+          product: {
             select: {
               id: true,
               name: true,
-              email: true,
-            },
-          },
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  price: true,
-                  imageUrl: true,
-                },
-              },
-            },
-          },
-          table: {
-            select: {
-              id: true,
-              number: true,
-              capacity: true,
+              price: true,
+              imageUrl: true,
             },
           },
         },
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.order.count({ where }),
-    ]);
+      };
+    }
+    
+    include.table = {
+      select: {
+        id: true,
+        number: true,
+        capacity: true,
+      },
+    };
+
+    let orders;
+    let total;
+
+    try {
+      [orders, total] = await Promise.all([
+        prisma.order.findMany({
+          where,
+          include,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+        prisma.order.count({ where }),
+      ]);
+
+      console.log('✅ Orders loaded successfully:', { count: orders.length, total });
+    } catch (queryError: any) {
+      console.error('❌ Erro na query do Prisma:', queryError);
+      return NextResponse.json(
+        { success: false, error: 'Erro ao carregar pedidos', details: queryError.message },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({
       success: true,
@@ -208,49 +253,66 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Criar pedido
-    const order = await prisma.order.create({
-      data: {
-        userId: decoded.userId,
-        status: OrderStatus.PENDENTE,
-        total,
-        deliveryType,
-        deliveryAddress: deliveryAddress?.trim(),
-        paymentMethod,
-        notes: notes?.trim(),
-        tableId,
-        items: {
-          create: validatedItems,
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Criar pedido e atualizar status da mesa em uma transação
+    const result = await prisma.$transaction(async (tx) => {
+      // Criar pedido
+      const order = await tx.order.create({
+        data: {
+          userId: decoded.userId,
+          status: OrderStatus.PENDENTE,
+          total,
+          deliveryType,
+          deliveryAddress: deliveryAddress?.trim(),
+          paymentMethod,
+          notes: notes?.trim(),
+          tableId,
+          items: {
+            create: validatedItems,
           },
         },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                imageUrl: true,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  imageUrl: true,
+                },
               },
             },
           },
-        },
-        table: {
-          select: {
-            id: true,
-            number: true,
-            capacity: true,
+          table: {
+            select: {
+              id: true,
+              number: true,
+              capacity: true,
+            },
           },
         },
-      },
+      });
+
+      // Atualizar status da mesa para OCUPADA se tableId foi fornecido
+      if (tableId) {
+        await tx.table.update({
+          where: { id: tableId },
+          data: { 
+            status: 'OCUPADA',
+            assignedTo: decoded.userId 
+          },
+        });
+        console.log('✅ Status da mesa atualizado para OCUPADA');
+      }
+
+      return order;
     });
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
@@ -273,7 +335,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: order,
+      data: result,
     });
   } catch (error) {
     console.error('Erro ao criar pedido:', error);

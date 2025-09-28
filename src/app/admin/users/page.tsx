@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -30,10 +30,10 @@ import {
 import { User as UserType, UserRole } from '@/types';
 
 export default function AdminUsersPage() {
-  const { user, token } = useOptimizedAuth();
+  const { user, token } = useApiAuth();
   const { success, error } = useToastHelpers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'CLIENTE' | 'FUNCIONARIO' | 'ADMINISTRADOR'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'CUSTOMER' | 'STAFF' | 'ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'createdAt'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -77,16 +77,16 @@ export default function AdminUsersPage() {
     total: users.length,
     active: users.filter(u => u.isActive).length,
     inactive: users.filter(u => !u.isActive).length,
-    clients: users.filter(u => u.role === UserRole.CLIENTE).length,
-    staff: users.filter(u => u.role === UserRole.FUNCIONARIO).length,
-    admins: users.filter(u => u.role === UserRole.ADMINISTRADOR).length,
+    clients: users.filter(u => u.role === UserRole.CUSTOMER).length,
+    staff: users.filter(u => u.role === UserRole.STAFF).length,
+    admins: users.filter(u => u.role === UserRole.ADMIN).length,
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
   };
 
-  const handleRoleFilter = (role: 'all' | 'CLIENTE' | 'FUNCIONARIO' | 'ADMINISTRADOR') => {
+  const handleRoleFilter = (role: 'all' | 'CUSTOMER' | 'STAFF' | 'ADMIN') => {
     setRoleFilter(role);
   };
 
@@ -237,12 +237,12 @@ export default function AdminUsersPage() {
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
-        return 'Cliente';
-      case UserRole.FUNCIONARIO:
-        return 'Funcionário';
-      case UserRole.ADMINISTRADOR:
-        return 'Administrador';
+      case UserRole.CUSTOMER:
+        return 'Customer';
+      case UserRole.STAFF:
+        return 'Staff';
+      case UserRole.ADMIN:
+        return 'Admin';
       default:
         return role;
     }
@@ -250,11 +250,11 @@ export default function AdminUsersPage() {
 
   const getRoleColor = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
+      case UserRole.CUSTOMER:
         return 'bg-blue-100 text-blue-800';
-      case UserRole.FUNCIONARIO:
+      case UserRole.STAFF:
         return 'bg-green-100 text-green-800';
-      case UserRole.ADMINISTRADOR:
+      case UserRole.ADMIN:
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -312,9 +312,9 @@ export default function AdminUsersPage() {
               onChange={(e) => handleRoleFilter(e.target.value as any)}
             >
               <option value="all">Todos os Roles</option>
-              <option value="CLIENTE">Clientes</option>
-              <option value="FUNCIONARIO">Funcionários</option>
-              <option value="ADMINISTRADOR">Administradores</option>
+              <option value="CUSTOMER">Customers</option>
+              <option value="STAFF">Staff</option>
+              <option value="ADMIN">Admins</option>
             </select>
             <select
               className="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"

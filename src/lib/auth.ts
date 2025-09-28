@@ -80,24 +80,28 @@ export const generateTokenPair = (user: User): TokenPair => {
 
 export const verifyToken = (token: string): JWTPayload | null => {
   try {
+    console.log('🔍 Verificando token:', token ? 'presente' : 'ausente');
+    
     // Validar se o token existe e não está vazio
     if (!token || token.trim() === '') {
-      console.error('Token is empty or null');
+      console.error('❌ Token is empty or null');
       return null;
     }
 
     // Verificar se o token tem o formato correto (Bearer token)
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    console.log('🔍 Token limpo:', cleanToken ? 'presente' : 'ausente');
     
     if (!cleanToken || cleanToken.trim() === '') {
-      console.error('Token is empty after Bearer removal');
+      console.error('❌ Token is empty after Bearer removal');
       return null;
     }
 
     const decoded = jwt.verify(cleanToken, getJWTSecret()) as JWTPayload;
+    console.log('✅ Token verificado com sucesso:', decoded.userId);
     return decoded;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    console.error('❌ Token verification failed:', error);
     return null;
   }
 };
@@ -153,7 +157,7 @@ export const getTokenFromRequest = (request: NextRequest): string | null => {
 // Verificar se o usuário tem permissão específica
 export const hasPermission = (userRole: UserRole, permission: string): boolean => {
   const ROLE_PERMISSIONS = {
-    [UserRole.CLIENTE]: [
+    [UserRole.CUSTOMER]: [
       'menu:read',
       'orders:read',
       'orders:create',
@@ -164,7 +168,19 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'cart:write',
       'cart:delete',
     ],
-    [UserRole.FUNCIONARIO]: [
+    [UserRole.STAFF]: [
+      'menu:read',
+      'orders:read',
+      'orders:create',
+      'orders:update',
+      'orders:write',
+      'products:read',
+      'profile:read',
+      'profile:write',
+      'tables:read',
+      'tables:write',
+    ],
+    [UserRole.MANAGER]: [
       'menu:read',
       'orders:read',
       'orders:update',
@@ -172,8 +188,11 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'products:read',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'reports:read',
     ],
-    [UserRole.ADMINISTRADOR]: [
+    [UserRole.ADMIN]: [
       'users:read',
       'users:write',
       'users:delete',
@@ -203,9 +222,10 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
 // Verificar se o usuário tem role específico
 export const hasRole = (userRole: UserRole, requiredRole: UserRole): boolean => {
   const roleHierarchy = {
-    [UserRole.CLIENTE]: 1,
-    [UserRole.FUNCIONARIO]: 2,
-    [UserRole.ADMINISTRADOR]: 3,
+    [UserRole.CUSTOMER]: 1,
+    [UserRole.STAFF]: 2,
+    [UserRole.MANAGER]: 3,
+    [UserRole.ADMIN]: 4,
   };
 
   return roleHierarchy[userRole] >= roleHierarchy[requiredRole];

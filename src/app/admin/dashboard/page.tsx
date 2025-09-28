@@ -79,9 +79,9 @@ export default function AdminDashboard() {
   // Estatísticas dos usuários
   const userStats = {
     total: recentUsers.length,
-    customers: recentUsers.filter(user => user.role === 'CLIENTE').length,
-    staff: recentUsers.filter(user => user.role === 'FUNCIONARIO').length,
-    admins: recentUsers.filter(user => user.role === 'ADMINISTRADOR').length,
+    customers: recentUsers.filter(user => user.role === 'CUSTOMER').length,
+    staff: recentUsers.filter(user => user.role === 'STAFF').length,
+    admins: recentUsers.filter(user => user.role === 'ADMIN').length,
     active: recentUsers.filter(user => user.isActive).length,
   };
 
@@ -90,8 +90,6 @@ export default function AdminDashboard() {
     total: tables.length,
     free: tables.filter(table => table.status === TableStatus.LIVRE).length,
     occupied: tables.filter(table => table.status === TableStatus.OCUPADA).length,
-    reserved: tables.filter(table => table.status === TableStatus.RESERVADA).length,
-    maintenance: tables.filter(table => table.status === TableStatus.MANUTENCAO).length,
   };
 
   const getStatusIcon = (status: OrderStatus) => {
@@ -301,14 +299,14 @@ export default function AdminDashboard() {
                   <Clock className="h-4 w-4 text-yellow-600" />
                   <span className="text-sm">Reservadas</span>
                 </div>
-                <span className="font-semibold">{tableStats.reserved}</span>
+                <span className="font-semibold">0</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="h-4 w-4 text-gray-600" />
                   <span className="text-sm">Manutenção</span>
                 </div>
-                <span className="font-semibold">{tableStats.maintenance}</span>
+                <span className="font-semibold">0</span>
               </div>
             </div>
           </CardContent>

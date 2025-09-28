@@ -1,119 +1,226 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useApiAuth } from './useApiAuth';
 
 export interface Notification {
   id: string;
+  type: 'order_update' | 'order_new' | 'system';
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'error';
+  orderId?: string;
   timestamp: Date;
-  read: boolean;
-  actionUrl?: string;
+  isRead: boolean;
 }
 
-interface UseNotificationsOptions {
-  maxNotifications?: number;
-  autoRemove?: boolean;
-  autoRemoveDelay?: number;
+interface NotificationState {
+  notifications: Notification[];
+  unreadCount: number;
+  isLoading: boolean;
 }
 
-export function useNotifications(options: UseNotificationsOptions = {}) {
-  const {
-    maxNotifications = 50,
-    autoRemove = true,
-    autoRemoveDelay = 5000
-  } = options;
+const NOTIFICATION_STORAGE_KEY = 'lanchonete-notifications';
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [permission, setPermission] = useState<NotificationPermission>('default');
+export const useNotifications = () => {
+  const [state, setState] = useState<NotificationState>({
+    notifications: [],
+    unreadCount: 0,
+    isLoading: false,
+  });
+  
+  const { user, isAuthenticated } = useApiAuth();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastOrderCountRef = useRef<number>(0);
 
-  // Solicitar permissão para notificações
-  const requestPermission = useCallback(async () => {
-    if ('Notification' in window) {
-      const permission = await Notification.requestPermission();
-      setPermission(permission);
-      return permission === 'granted';
+  // Carregar notificações do localStorage
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      loadNotifications();
     }
-    return false;
-  }, []);
+  }, [isAuthenticated, user?.id]);
 
-  // Adicionar notificação
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+  // Monitorar mudanças nos pedidos
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      startOrderMonitoring();
+    }
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isAuthenticated, user?.id]);
+
+  const loadNotifications = useCallback(() => {
+    try {
+      const saved = localStorage.getItem(`${NOTIFICATION_STORAGE_KEY}-${user?.id}`);
+      if (saved) {
+        const data = JSON.parse(saved);
+        const notifications = data.notifications.map((n: any) => ({
+          ...n,
+          timestamp: new Date(n.timestamp),
+        }));
+        
+        setState({
+          notifications,
+          unreadCount: notifications.filter((n: Notification) => !n.isRead).length,
+          isLoading: false,
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar notificações:', error);
+    }
+  }, [user?.id]);
+
+  const saveNotifications = useCallback((notifications: Notification[]) => {
+    if (!user?.id) return;
+    
+    try {
+      localStorage.setItem(
+        `${NOTIFICATION_STORAGE_KEY}-${user.id}`,
+        JSON.stringify({ notifications })
+      );
+    } catch (error) {
+      console.error('Erro ao salvar notificações:', error);
+    }
+  }, [user?.id]);
+
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
     const newNotification: Notification = {
       ...notification,
-      id: Date.now().toString(),
+      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       timestamp: new Date(),
-      read: false
+      isRead: false,
     };
 
-    setNotifications(prev => {
-      const updated = [newNotification, ...prev].slice(0, maxNotifications);
-      return updated;
-    });
-
-    // Mostrar notificação do navegador se permitido
-    if (permission === 'granted') {
-      const browserNotification = new Notification(notification.title, {
-        body: notification.message,
-        icon: '/favicon.ico',
-        tag: newNotification.id
-      });
-
-      browserNotification.onclick = () => {
-        window.focus();
-        if (notification.actionUrl) {
-          window.location.href = notification.actionUrl;
-        }
+    setState(prev => {
+      const updated = [newNotification, ...prev.notifications];
+      saveNotifications(updated);
+      
+      return {
+        ...prev,
+        notifications: updated,
+        unreadCount: updated.filter(n => !n.isRead).length,
       };
-    }
+    });
+  }, [saveNotifications]);
 
-    // Auto-remover se configurado
-    if (autoRemove) {
-      setTimeout(() => {
-        removeNotification(newNotification.id);
-      }, autoRemoveDelay);
-    }
-  }, [permission, maxNotifications, autoRemove, autoRemoveDelay]);
+  const markAsRead = useCallback((notificationId: string) => {
+    setState(prev => {
+      const updated = prev.notifications.map(n =>
+        n.id === notificationId ? { ...n, isRead: true } : n
+      );
+      saveNotifications(updated);
+      
+      return {
+        ...prev,
+        notifications: updated,
+        unreadCount: updated.filter(n => !n.isRead).length,
+      };
+    });
+  }, [saveNotifications]);
 
-  // Remover notificação
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
-
-  // Marcar como lida
-  const markAsRead = useCallback((id: string) => {
-    setNotifications(prev => 
-      prev.map(n => n.id === id ? { ...n, read: true } : n)
-    );
-  }, []);
-
-  // Marcar todas como lidas
   const markAllAsRead = useCallback(() => {
-    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-  }, []);
+    setState(prev => {
+      const updated = prev.notifications.map(n => ({ ...n, isRead: true }));
+      saveNotifications(updated);
+      
+      return {
+        ...prev,
+        notifications: updated,
+        unreadCount: 0,
+      };
+    });
+  }, [saveNotifications]);
 
-  // Limpar todas as notificações
-  const clearAll = useCallback(() => {
-    setNotifications([]);
-  }, []);
-
-  // Verificar permissão ao montar
-  useEffect(() => {
-    if ('Notification' in window) {
-      setPermission(Notification.permission);
+  const clearNotifications = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      notifications: [],
+      unreadCount: 0,
+    }));
+    
+    if (user?.id) {
+      localStorage.removeItem(`${NOTIFICATION_STORAGE_KEY}-${user.id}`);
     }
-  }, []);
+  }, [user?.id]);
+
+  const startOrderMonitoring = useCallback(() => {
+    // Verificar mudanças nos pedidos a cada 30 segundos
+    intervalRef.current = setInterval(async () => {
+      if (!isAuthenticated || !user?.id) return;
+
+      try {
+        const response = await fetch(`/api/orders?customerId=${user.id}&limit=10`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const currentOrderCount = data.total || 0;
+
+          // Se houve mudança no número de pedidos
+          if (lastOrderCountRef.current > 0 && currentOrderCount > lastOrderCountRef.current) {
+            addNotification({
+              type: 'order_new',
+              title: 'Novo Pedido Recebido!',
+              message: 'Seu pedido foi confirmado e está sendo processado.',
+            });
+          }
+
+          lastOrderCountRef.current = currentOrderCount;
+
+          // Verificar mudanças de status nos pedidos ativos
+          const activeOrders = data.orders?.filter((order: any) => 
+            ['PENDENTE', 'CONFIRMADO', 'PREPARANDO'].includes(order.status)
+          ) || [];
+
+          for (const order of activeOrders) {
+            // Aqui você pode adicionar lógica para detectar mudanças específicas de status
+            // Por simplicidade, vamos adicionar uma notificação genérica
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao monitorar pedidos:', error);
+      }
+    }, 30000); // 30 segundos
+  }, [isAuthenticated, user?.id, addNotification]);
+
+  // Simular notificações para demonstração
+  const addDemoNotification = useCallback(() => {
+    const demos = [
+      {
+        type: 'order_update' as const,
+        title: 'Pedido Atualizado!',
+        message: 'Seu pedido #123 mudou para "Preparando".',
+        orderId: 'demo-123',
+      },
+      {
+        type: 'system' as const,
+        title: 'Promoção Especial!',
+        message: 'Desconto de 20% em todas as bebidas hoje!',
+      },
+    ];
+
+    const randomDemo = demos[Math.floor(Math.random() * demos.length)];
+    if (randomDemo) {
+      addNotification(randomDemo);
+    }
+  }, [addNotification]);
 
   return {
-    notifications,
-    permission,
-    requestPermission,
+    // Estado
+    notifications: state.notifications,
+    unreadCount: state.unreadCount,
+    isLoading: state.isLoading,
+    
+    // Ações
     addNotification,
-    removeNotification,
     markAsRead,
     markAllAsRead,
-    clearAll,
-    unreadCount: notifications.filter(n => !n.read).length
+    clearNotifications,
+    addDemoNotification, // Para testes
   };
-}
+};

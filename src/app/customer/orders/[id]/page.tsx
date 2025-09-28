@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useApiAuth } from '@/hooks/useApiAuth';
-import { useApi } from '@/hooks/useApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -22,22 +21,63 @@ import {
   XCircle,
   RefreshCw,
   Star,
-  Truck
+  Truck,
+  AlertCircle
 } from 'lucide-react';
 import { Order, OrderStatus } from '@/types';
 
 export default function OrderDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useApiAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useApiAuth();
   const orderId = params.id as string;
 
-  // Buscar detalhes do pedido
-  const { data: orderResponse, loading: orderLoading, execute: refetchOrder } = useApi<Order>(
-    orderId ? `/api/orders/${orderId}` : ''
-  );
+  const [order, setOrder] = useState<Order | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  const order = orderResponse || null;
+  // Função para buscar detalhes do pedido
+  const fetchOrderDetails = useCallback(async () => {
+    if (!orderId || !isAuthenticated || !user?.id) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const response = await fetch(`/api/orders/${orderId}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao carregar detalhes do pedido');
+      }
+
+      if (data.success && data.data) {
+        setOrder(data.data);
+        setHasLoaded(true);
+      } else {
+        throw new Error('Dados do pedido não encontrados');
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar pedido:', error);
+      setError(error.message || 'Erro ao carregar detalhes do pedido');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orderId, isAuthenticated, user?.id]);
+
+  // Carregar dados quando as condições estiverem prontas
+  useEffect(() => {
+    if (!authLoading && isAuthenticated && user?.id && orderId && !hasLoaded) {
+      fetchOrderDetails();
+    }
+  }, [authLoading, isAuthenticated, user?.id, orderId, hasLoaded, fetchOrderDetails]);
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -84,7 +124,11 @@ export default function OrderDetailsPage() {
     }
   };
 
-  if (orderLoading || !order) {
+  // Estado de loading combinado
+  const isPageLoading = authLoading || (isLoading && !hasLoaded);
+
+  // Mostrar loading
+  if (isPageLoading) {
     return (
       <div className="space-y-6">
         <div className="animate-pulse">
@@ -95,6 +139,34 @@ export default function OrderDetailsPage() {
     );
   }
 
+  // Mostrar erro
+  if (error) {
+    return (
+      <div className="text-center py-12">
+        <AlertCircle className="h-16 w-16 text-red-400 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900 mb-2">
+          Erro ao carregar pedido
+        </h3>
+        <p className="text-gray-600 mb-6">
+          {error}
+        </p>
+        <div className="space-x-4">
+          <Button variant="outline" onClick={fetchOrderDetails}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Tentar Novamente
+          </Button>
+          <Link href="/customer/dashboard">
+            <Button variant="primary">
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Voltar ao Dashboard
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  // Mostrar pedido não encontrado
   if (!order) {
     return (
       <div className="text-center py-12">
@@ -105,10 +177,10 @@ export default function OrderDetailsPage() {
         <p className="text-gray-600 mb-6">
           O pedido que você está procurando não existe ou não foi encontrado.
         </p>
-        <Link href="/customer/orders">
+        <Link href="/customer/dashboard">
           <Button variant="primary">
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Voltar aos Pedidos
+            Voltar ao Dashboard
           </Button>
         </Link>
       </div>
@@ -120,7 +192,7 @@ export default function OrderDetailsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Link href="/customer/orders">
+          <Link href="/customer/dashboard">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -136,9 +208,10 @@ export default function OrderDetailsPage() {
         </div>
         <Button
           variant="outline"
-          onClick={() => refetchOrder()}
+          onClick={fetchOrderDetails}
+          disabled={isLoading}
         >
-          <RefreshCw className="h-4 w-4 mr-2" />
+          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
           Atualizar
         </Button>
       </div>
@@ -309,10 +382,10 @@ export default function OrderDetailsPage() {
               <CardTitle>Ações</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <Link href="/customer/orders" className="block">
+              <Link href="/customer/dashboard" className="block">
                 <Button variant="outline" className="w-full">
                   <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar aos Pedidos
+                  Voltar ao Dashboard
                 </Button>
               </Link>
               

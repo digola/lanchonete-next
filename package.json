@@ -27,6 +27,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
   "dependencies": {
     "@heroicons/react": "^2.1.7",
     "@hookform/resolvers": "^3.9.1",

@@ -14,69 +14,64 @@ async function main() {
     update: {},
     create: {
       email: 'admin@lanchonete.com',
-      name: 'Administrador',
+      name: 'Admin User',
       password: hashedPassword,
-      role: 'ADMINISTRADOR',
+      role: 'ADMIN',
       isActive: true,
     },
   });
 
-  const funcionario = await prisma.user.upsert({
-    where: { email: 'funcionario@lanchonete.com' },
+  const staff = await prisma.user.upsert({
+    where: { email: 'staff@lanchonete.com' },
     update: {},
     create: {
-      email: 'funcionario@lanchonete.com',
-      name: 'João Funcionário',
+      email: 'staff@lanchonete.com',
+      name: 'John Staff',
       password: hashedPassword,
-      role: 'FUNCIONARIO',
+      role: 'STAFF',
       isActive: true,
     },
   });
 
-  const cliente = await prisma.user.upsert({
-    where: { email: 'cliente@lanchonete.com' },
+  const customer = await prisma.user.upsert({
+    where: { email: 'customer@lanchonete.com' },
     update: {},
     create: {
-      email: 'cliente@lanchonete.com',
-      name: 'Maria Cliente',
+      email: 'customer@lanchonete.com',
+      name: 'Mary Customer',
       password: hashedPassword,
-      role: 'CLIENTE',
+      role: 'CUSTOMER',
       isActive: true,
     },
   });
 
-  console.log('✅ Usuários criados:', { admin: admin.email, funcionario: funcionario.email, cliente: cliente.email });
+  console.log('✅ Usuários criados:', { admin: admin.email, staff: staff.email, customer: customer.email });
 
   // Criar categorias
   const categorias = [
     {
       name: 'Hambúrgueres',
       description: 'Deliciosos hambúrgueres artesanais',
-      icon: '🍔',
       color: '#f97316',
     },
     {
       name: 'Bebidas',
       description: 'Refrigerantes, sucos e bebidas geladas',
-      icon: '🥤',
       color: '#3b82f6',
     },
     {
       name: 'Acompanhamentos',
       description: 'Batatas, saladas e outros acompanhamentos',
-      icon: '🍟',
       color: '#10b981',
     },
     {
       name: 'Sobremesas',
       description: 'Doces e sobremesas deliciosas',
-      icon: '🍰',
       color: '#f59e0b',
     },
     {
       name: 'Pizzas',
       description: 'Pizzas artesanais com ingredientes frescos',
-      icon: '🍕',
       color: '#ef4444',
     },
   ];
@@ -268,9 +263,9 @@ async function main() {
   console.log('🎉 Seed concluído com sucesso!');
   console.log('\n📋 Dados criados:');
   console.log('👤 Usuários:');
-  console.log('  - admin@lanchonete.com (senha: 123456)');
-  console.log('  - funcionario@lanchonete.com (senha: 123456)');
-  console.log('  - cliente@lanchonete.com (senha: 123456)');
+  console.log('  - admin@lanchonete.com (senha: 123456) - Role: ADMIN');
+  console.log('  - staff@lanchonete.com (senha: 123456) - Role: STAFF');
+  console.log('  - customer@lanchonete.com (senha: 123456) - Role: CUSTOMER');
   console.log('📦 Categorias: 5 categorias');
   console.log('🍔 Produtos: 10 produtos');
   console.log('🪑 Mesas: 10 mesas');

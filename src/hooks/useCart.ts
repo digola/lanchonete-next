@@ -29,23 +29,30 @@ export const useCart = () => {
         const savedCart = localStorage.getItem(CART_STORAGE_KEY);
         console.log('🔄 Carregando carrinho do localStorage:', savedCart);
         
-        if (savedCart) {
-          const cartData = JSON.parse(savedCart);
-          console.log('📦 Dados parseados do localStorage:', cartData);
+        if (savedCart && savedCart.trim() !== '') {
+          // Verificar se o JSON é válido antes de fazer parse
+          if (savedCart.startsWith('{') || savedCart.startsWith('[')) {
+            const cartData = JSON.parse(savedCart);
+            console.log('📦 Dados parseados do localStorage:', cartData);
           
-          // Verificar se há itens para carregar
-          if (cartData.items && cartData.items.length > 0) {
-            console.log('✅ Itens encontrados, carregando...');
-            // Converter strings de data de volta para objetos Date
-            const itemsWithDates = cartData.items.map((item: any) => ({
-              ...item,
-              addedAt: new Date(item.addedAt),
-            }));
-            console.log('🔄 Enviando LOAD_CART com itens:', itemsWithDates);
-            dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
-            isInitializedRef.current = true;
+            // Verificar se há itens para carregar
+            if (cartData.items && cartData.items.length > 0) {
+              console.log('✅ Itens encontrados, carregando...');
+              // Converter strings de data de volta para objetos Date
+              const itemsWithDates = cartData.items.map((item: any) => ({
+                ...item,
+                addedAt: new Date(item.addedAt),
+              }));
+              console.log('🔄 Enviando LOAD_CART com itens:', itemsWithDates);
+              dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
+              isInitializedRef.current = true;
+            } else {
+              console.log('❌ Nenhum item encontrado no localStorage');
+              isInitializedRef.current = true;
+            }
           } else {
-            console.log('❌ Nenhum item encontrado no localStorage');
+            console.log('❌ JSON inválido no localStorage, removendo...');
+            localStorage.removeItem(CART_STORAGE_KEY);
             isInitializedRef.current = true;
           }
         } else {

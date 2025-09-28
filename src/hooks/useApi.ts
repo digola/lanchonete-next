@@ -1,5 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApiAuth } from './useApiAuth';
+
+// Cache global para requisições
+const requestCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+
+// Debounce para evitar requisições repetitivas
+const pendingRequests = new Map<string, Promise<any>>();
 
 interface ApiState<T = any> {
   data: T | null;
@@ -34,6 +40,32 @@ export const useApi = <T = any>(
 
     try {
       const requestUrl = customUrl || url;
+      const cacheKey = `${requestUrl}-${token || 'no-token'}`;
+      
+      // Verificar cache primeiro
+      const cached = requestCache.get(cacheKey);
+      if (cached && Date.now() - cached.timestamp < cached.ttl) {
+        setState({
+          data: cached.data,
+          loading: false,
+          error: null,
+        });
+        onSuccess?.(cached.data);
+        return cached.data;
+      }
+
+      // Verificar se já existe uma requisição pendente
+      if (pendingRequests.has(cacheKey)) {
+        const pendingResult = await pendingRequests.get(cacheKey);
+        setState({
+          data: pendingResult,
+          loading: false,
+          error: null,
+        });
+        onSuccess?.(pendingResult);
+        return pendingResult;
+      }
+
       const requestOptions: RequestInit = {
         headers: {
           'Content-Type': 'application/json',
@@ -43,11 +75,43 @@ export const useApi = <T = any>(
         ...customOptions,
       };
 
-      const response = await fetch(requestUrl, requestOptions);
-      const result = await response.json();
+      // Criar promise para requisição pendente
+      const requestPromise = (async () => {
+        try {
+          const response = await fetch(requestUrl, requestOptions);
+          
+          if (!response.ok) {
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+              const errorResult = await response.json();
+              errorMessage = errorResult.error || errorResult.message || errorMessage;
+            } catch (parseError) {
+              // Se não conseguir fazer parse do JSON, usar o status text
+              errorMessage = response.statusText || errorMessage;
+            }
+            throw new Error(errorMessage);
+          }
 
-      if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+          const result = await response.json();
+          return result;
+        } finally {
+          // Remover da lista de pendentes
+          pendingRequests.delete(cacheKey);
+        }
+      })();
+
+      // Adicionar à lista de pendentes
+      pendingRequests.set(cacheKey, requestPromise);
+      
+      const result = await requestPromise;
+
+      // Cachear resultado por 30 segundos para GET requests
+      if (requestOptions.method === 'GET' || !requestOptions.method) {
+        requestCache.set(cacheKey, {
+          data: result,
+          timestamp: Date.now(),
+          ttl: 30000, // 30 segundos
+        });
       }
 
       setState({
@@ -85,12 +149,18 @@ export const useApi = <T = any>(
     if (immediate && url) {
       execute();
     }
-  }, [execute, immediate, url]);
+  }, [immediate, url]); // Removido execute das dependências
+
+  // Função para limpar cache
+  const clearCache = useCallback(() => {
+    requestCache.clear();
+  }, []);
 
   return {
     ...state,
     execute,
     reset,
+    clearCache,
   };
 };
 

@@ -1,11 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 
 import { useBasicMenu } from '@/hooks/useBasicMenu';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { useCart } from '@/hooks/useCart';
+import { useApi } from '@/hooks/useApi';
 import { OptimizedProductCard, OptimizedProductList } from '@/components/OptimizedProductCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -13,18 +15,42 @@ import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
 import { Product, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Search, User, LogIn, Filter, X, ShoppingCart, Package } from 'lucide-react';
+import { Search, User, LogIn, X, ShoppingCart } from 'lucide-react';
 import Link from 'next/link';
 
 export default function HomePage() {
-  const { isAuthenticated, user, logout, getRoleLabel } = useOptimizedAuth();
+  const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
   const { addItem, items, totalItems } = useCart();
-
+  const searchParams = useSearchParams();
   
   // Estados para filtros e busca
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-  const [showFilters, setShowFilters] = useState(false);
+  const [tableId, setTableId] = useState<string | null>(null);
+  const [tableNumber, setTableNumber] = useState<number | null>(null);
+
+  // Verificar se é staff e se há mesa na URL
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
+  
+  // Buscar dados da mesa se tableId estiver disponível
+  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : null);
+  
+  useEffect(() => {
+    const tableIdParam = searchParams.get('tableId');
+    if (tableIdParam) {
+      setTableId(tableIdParam);
+      console.log('🪑 Mesa selecionada:', tableIdParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (tableData) {
+      console.log('🪑 Dados da mesa recebidos na página principal:', tableData);
+      const table = tableData.data || tableData;
+      console.log('🪑 Mesa extraída na página principal:', table);
+      setTableNumber(table?.number);
+    }
+  }, [tableData]);
 
   // Buscar dados do menu com hook básico e estável
   const {
@@ -58,10 +84,6 @@ export default function HomePage() {
     setSelectedCategory(categoryId === selectedCategory ? '' : categoryId);
   }, [selectedCategory]);
 
-  const clearFilters = useCallback(() => {
-    setSearchTerm('');
-    setSelectedCategory('');
-  }, []);
 
   // Memoizar categorias filtradas
   const filteredCategories = useMemo(() => categories || [], [categories]);
@@ -98,19 +120,10 @@ export default function HomePage() {
 
             {/* User Actions */}
             <div className="flex items-center space-x-4">
-              {/* Expedição Link - Pode ser removido facilmente */}
-              {isAuthenticated && (user?.role === 'FUNCIONARIO' || user?.role === 'ADMINISTRADOR') && (
-                <Link href="/expedicao">
-                  <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                    <Package className="h-4 w-4" />
-                    <span className="text-sm font-medium">Expedição</span>
-                  </button>
-                </Link>
-              )}
 
               {/* Cart Indicator */}
               {totalItems > 0 && (
-                <Link href="/cart" className="relative inline-block">
+                <Link href={isStaff && tableId ? `/cart?tableId=${tableId}` : '/cart'} className="relative inline-block">
                   <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                     <ShoppingCart className="h-4 w-4" />
                     <span className="text-sm font-medium">Carrinho</span>
@@ -158,79 +171,99 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="container-app py-8">
+        {/* Mesa Info para Staff */}
+        {isStaff && tableId && (
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="text-2xl">🪑</span>
+                <div>
+                  <h3 className="text-lg font-semibold text-blue-900">
+                    Mesa {tableNumber || 'N/A'}
+                  </h3>
+                  <p className="text-sm text-blue-700">
+                    Selecione produtos para adicionar ao pedido desta mesa
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Filters */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
-            <Button
-              variant="outline"
-              onClick={() => setShowFilters(!showFilters)}
-              leftIcon={<Filter className="h-4 w-4" />}
-            >
-              Filtros
-            </Button>
-          </div>
-
-          {/* Filter Panel */}
-          {showFilters && (
-            <div className="bg-white rounded-lg p-4 shadow-sm border mb-6">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-medium text-gray-900">Filtros</h3>
-                <Button variant="ghost" size="sm" onClick={clearFilters}>
-                  <X className="h-4 w-4 mr-1" />
-                  Limpar
-                </Button>
-              </div>
-
-              {/* Categories */}
-              <div className="space-y-3">
-                <h4 className="text-sm font-medium text-gray-700">Categorias</h4>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    variant={selectedCategory === '' ? 'primary' : 'outline'}
-                    size="sm"
-                    onClick={() => handleCategoryFilter('')}
-                  >
-                    Todas
-                  </Button>
-                  {categoriesLoading ? (
-                    <div className="flex space-x-2">
-                      {[...Array(3)].map((_, i) => (
-                        <div key={i} className="h-8 w-20 bg-gray-200 rounded animate-pulse" />
-                      ))}
-                    </div>
-                  ) : (
-                    filteredCategories.map((category: Category) => (
-                      <Button
-                        key={category.id}
-                        variant={selectedCategory === category.id ? 'primary' : 'outline'}
-                        size="sm"
-                        onClick={() => handleCategoryFilter(category.id)}
-                        leftIcon={
-                          category.imageUrl ? (
-                            <Image 
-                              src={category.imageUrl} 
-                              alt={category.name}
-                              width={16}
-                              height={16}
-                              className="w-4 h-4 object-cover rounded"
-                              loading="lazy"
-                              placeholder="blur"
-                              blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
-                            />
-                          ) : (
-                            <span>📦</span>
-                          )
-                        }
-                      >
-                        {category.name}
-                      </Button>
-                    ))
-                  )}
-                </div>
+            <div className="flex items-center space-x-4">
+              {/* Campo de Busca */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Buscar produtos..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10 w-64"
+                />
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Seleção Rápida por Categoria */}
+          <div className="mb-6">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Seleção Rápida</h3>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant={selectedCategory === '' ? 'primary' : 'outline'}
+                size="sm"
+                onClick={() => handleCategoryFilter('')}
+                className="transition-all duration-200 hover:scale-105"
+              >
+                🍽️ Todas
+              </Button>
+              {categoriesLoading ? (
+                <div className="flex space-x-2">
+                  {[...Array(4)].map((_, i) => (
+                    <div key={i} className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                filteredCategories.map((category: Category) => (
+                  <Button
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'primary' : 'outline'}
+                    size="sm"
+                    onClick={() => handleCategoryFilter(category.id)}
+                    className="transition-all duration-200 hover:scale-105"
+                    leftIcon={
+                      category.imageUrl ? (
+                        <Image 
+                          src={category.imageUrl} 
+                          alt={category.name}
+                          width={16}
+                          height={16}
+                          className="w-4 h-4 object-cover rounded"
+                          loading="lazy"
+                          placeholder="blur"
+                          blurDataURL="data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k="
+                        />
+                      ) : (
+                        <span className="text-sm">
+                          {category.name === 'Bebidas' ? '🥤' :
+                           category.name === 'Pratos' ? '🍽️' :
+                           category.name === 'Sobremesas' ? '🍰' :
+                           category.name === 'Pizzas' ? '🍕' :
+                           category.name === 'Lanches' ? '🍔' : '📦'}
+                        </span>
+                      )
+                    }
+                  >
+                    {category.name}
+                  </Button>
+                ))
+              )}
+            </div>
+          </div>
+
         </div>
 
 
@@ -271,7 +304,10 @@ export default function HomePage() {
             <p className="text-gray-600 mb-4">
               Tente ajustar os filtros ou verifique novamente mais tarde.
             </p>
-            <Button variant="outline" onClick={clearFilters}>
+            <Button variant="outline" onClick={() => {
+              setSearchTerm('');
+              setSelectedCategory('');
+            }}>
               Limpar Filtros
             </Button>
           </div>

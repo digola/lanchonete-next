@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         email: email.toLowerCase().trim(),
         password: hashedPassword,
-        role: role || UserRole.CLIENTE,
+        role: role || UserRole.CUSTOMER,
         isActive: true,
       },
       select: {

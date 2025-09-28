@@ -1,7 +1,8 @@
 'use client';
 
 import { useCart } from '@/hooks/useCart';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
+import { useApi } from '@/hooks/useApi';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -9,8 +10,8 @@ import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export default function CartPage() {
   const {
@@ -24,14 +25,43 @@ export default function CartPage() {
     isEmpty,
   } = useCart();
 
-  const { isAuthenticated, user } = useOptimizedAuth();
+  const { isAuthenticated, user } = useApiAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [deliveryType, setDeliveryType] = useState('RETIRADA');
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [tableId, setTableId] = useState<string | null>(null);
+  const [tableNumber, setTableNumber] = useState<number | null>(null);
+
+  // Verificar se é staff e se há mesa na URL
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
+  
+  // Buscar dados da mesa se tableId estiver disponível
+  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : null);
+  
+  useEffect(() => {
+    const tableIdParam = searchParams.get('tableId');
+    console.log('🔍 Parâmetros da URL:', searchParams.toString());
+    console.log('🔍 tableId encontrado:', tableIdParam);
+    if (tableIdParam) {
+      setTableId(tableIdParam);
+      console.log('✅ tableId definido:', tableIdParam);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (tableData) {
+      console.log('🪑 Dados da mesa recebidos:', tableData);
+      const table = tableData.data || tableData;
+      console.log('🪑 Mesa extraída:', table);
+      console.log('🪑 Número da mesa:', table?.number);
+      setTableNumber(table?.number);
+    }
+  }, [tableData]);
 
   // Função para finalizar o pedido
   const handleFinalizeOrder = async () => {
@@ -60,25 +90,30 @@ export default function CartPage() {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price,
-          notes: item.notes || null,
-          customizations: item.customizations || null
+          price: item.price
         })),
-        deliveryType: deliveryType,
+        ...(isStaff && tableId ? { tableId } : {
+          deliveryType: deliveryType,
+          deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
+        }),
         paymentMethod: paymentMethod,
-        deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
         notes: orderNotes,
         total: totalPrice
       };
 
       console.log('📦 Dados do pedido preparados:', orderData);
 
+      // Verificar token
+      const token = localStorage.getItem('auth-token');
+      console.log('🔑 Token disponível:', token ? 'sim' : 'não');
+      console.log('👤 Usuário:', user?.name, 'Role:', user?.role);
+
       // Fazer requisição para criar o pedido no banco
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(orderData)
       });
@@ -97,12 +132,18 @@ export default function CartPage() {
       // Mostrar mensagem de sucesso
       setOrderCompleted(true);
       
-      // Redirecionar para dashboard após 3 segundos
+      // Redirecionar baseado no tipo de usuário
       setTimeout(() => {
-        router.push('/customer/dashboard');
+        if (isStaff) {
+          // Staff vai para /staff após finalizar pedido
+          router.push('/staff');
+        } else {
+          // Clientes vão para dashboard
+          router.push('/customer/dashboard');
+        }
       }, 3000);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erro ao finalizar pedido:', error);
       alert(`Erro ao finalizar pedido: ${error.message || 'Tente novamente.'}`);
     } finally {
@@ -340,39 +381,63 @@ export default function CartPage() {
 
                 {/* Campos de seleção do pedido */}
                 <div className="space-y-4 mb-6">
-                  {/* Tipo de entrega */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Tipo de Entrega
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryType('RETIRADA')}
-                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          deliveryType === 'RETIRADA'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                        }`}
-                      >
-                        🏪 Retirada
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeliveryType('DELIVERY')}
-                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          deliveryType === 'DELIVERY'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                        }`}
-                      >
-                        🚚 Delivery
-                      </button>
+                  {/* Para Staff: Exibir número da mesa */}
+                  {isStaff && tableId && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Mesa Selecionada
+                      </label>
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-2xl">🪑</span>
+                          <div>
+                            <p className="font-semibold text-blue-900">
+                              Mesa {tableNumber || 'N/A'}
+                            </p>
+                            <p className="text-sm text-blue-700">
+                              Pedido será criado para esta mesa
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
-                  {/* Endereço de entrega (se delivery) */}
-                  {deliveryType === 'DELIVERY' && (
+                  {/* Para Clientes: Tipo de entrega */}
+                  {!isStaff && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Tipo de Entrega
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryType('RETIRADA')}
+                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                            deliveryType === 'RETIRADA'
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          🏪 Retirada
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryType('DELIVERY')}
+                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                            deliveryType === 'DELIVERY'
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          🚚 Delivery
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Endereço de entrega (se delivery e não for staff) */}
+                  {!isStaff && deliveryType === 'DELIVERY' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Endereço de Entrega

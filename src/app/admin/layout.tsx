@@ -12,7 +12,7 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
-    <ProtectedRoute requiredRole={UserRole.ADMINISTRADOR}>
+    <ProtectedRoute requiredRole={UserRole.ADMIN}>
       <div className="min-h-screen bg-gray-50">
         <AdminHeader />
         <div className="flex">

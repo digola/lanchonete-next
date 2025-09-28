@@ -2,9 +2,10 @@
 
 // Enums conforme Prisma schema
 export enum UserRole {
-  CLIENTE = 'CLIENTE',
-  FUNCIONARIO = 'FUNCIONARIO',
-  ADMINISTRADOR = 'ADMINISTRADOR',
+  CUSTOMER = 'CUSTOMER',
+  STAFF = 'STAFF',
+  MANAGER = 'MANAGER',
+  ADMIN = 'ADMIN',
 }
 
 export enum OrderStatus {
@@ -19,8 +20,6 @@ export enum OrderStatus {
 export enum TableStatus {
   LIVRE = 'LIVRE',
   OCUPADA = 'OCUPADA',
-  RESERVADA = 'RESERVADA',
-  MANUTENCAO = 'MANUTENCAO',
 }
 
 export enum DeliveryType {
@@ -250,9 +249,9 @@ export type Permission =
   | 'cart:delete';
 
 export interface RolePermissions {
-  [UserRole.CLIENTE]: Permission[];
-  [UserRole.FUNCIONARIO]: Permission[];
-  [UserRole.ADMINISTRADOR]: Permission[];
+  [UserRole.CUSTOMER]: Permission[];
+  [UserRole.STAFF]: Permission[];
+  [UserRole.ADMIN]: Permission[];
 }
 
 // Tipos para upload

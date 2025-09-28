@@ -16,13 +16,14 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("CLIENTE") // CLIENTE, FUNCIONARIO, ADMINISTRADOR
+  role      String   @default("CUSTOMER") // CUSTOMER, STAFF, ADMIN
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relacionamentos
   orders Order[]
+  finalizedOrders Order[] @relation("FinalizedOrders")
   tables Table[]
   cart   Cart?
   notifications Notification[]
@@ -92,6 +93,7 @@ model Order {
   paymentMethod         String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
   notes                 String?
   tableId               String?
+  finalizedBy           String?  // ID do funcionário que finalizou o pedido
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
@@ -99,6 +101,7 @@ model Order {
   user User @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
   items OrderItem[]
+  finalizedByUser User? @relation("FinalizedOrders", fields: [finalizedBy], references: [id])
 
   // Índices para performance
   @@index([userId])
@@ -106,6 +109,7 @@ model Order {
   @@index([createdAt])
   @@index([tableId])
   @@index([deliveryType])
+  @@index([finalizedBy])
   @@map("orders")
 }
 
@@ -174,7 +178,7 @@ model Table {
   id              String   @id @default(cuid())
   number          Int      @unique
   capacity        Int      @default(4)
-  status          String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
+  status          String   @default("LIVRE") // LIVRE, OCUPADA
   area            String?  // Área da mesa (ex: "Área VIP", "Terraço")
   qrCode          String?  // Código QR da mesa
   assignedTo      String?

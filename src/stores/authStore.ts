@@ -43,7 +43,7 @@ type AuthStore = AuthState & AuthActions;
 
 // Configuração das permissões por role
 const ROLE_PERMISSIONS = {
-  [UserRole.CLIENTE]: [
+  [UserRole.CUSTOMER]: [
     'menu:read',
     'orders:read',
     'orders:create',
@@ -54,7 +54,7 @@ const ROLE_PERMISSIONS = {
     'cart:write',
     'cart:delete',
   ],
-  [UserRole.FUNCIONARIO]: [
+  [UserRole.STAFF]: [
     'menu:read',
     'orders:read',
     'orders:update',
@@ -63,7 +63,19 @@ const ROLE_PERMISSIONS = {
     'profile:read',
     'profile:write',
   ],
-  [UserRole.ADMINISTRADOR]: [
+  [UserRole.MANAGER]: [
+    'menu:read',
+    'orders:read',
+    'orders:update',
+    'orders:write',
+    'products:read',
+    'profile:read',
+    'profile:write',
+    'tables:read',
+    'tables:write',
+    'reports:read',
+  ],
+  [UserRole.ADMIN]: [
     'users:read',
     'users:write',
     'users:delete',
@@ -87,29 +99,54 @@ const ROLE_PERMISSIONS = {
   ],
 };
 
-// Função para fazer requisições à API
+// Cache para debounce de requisições
+const requestCache = new Map<string, Promise<any>>();
+
+// Função para fazer requisições à API com debounce
 const apiRequest = async (url: string, options: RequestInit = {}) => {
-  const response = await fetch(url, {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  });
-
-  const data = await response.json();
+  const cacheKey = `${url}-${JSON.stringify(options)}`;
   
-  if (!response.ok) {
-    throw new Error(data.error || 'Erro na requisição');
+  // Se já existe uma requisição em andamento, aguardar ela
+  if (requestCache.has(cacheKey)) {
+    return requestCache.get(cacheKey);
   }
+  
+  const requestPromise = (async () => {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers,
+        },
+        ...options,
+      });
 
-  return data;
+      const data = await response.json();
+      return data;
+    } finally {
+      // Remover da cache após completar
+      requestCache.delete(cacheKey);
+    }
+  })();
+  
+  requestCache.set(cacheKey, requestPromise);
+  return requestPromise;
 };
 
 // Função para obter token do localStorage
 const getStoredToken = (): string | null => {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('auth-token');
+  try {
+    const token = localStorage.getItem('auth-token');
+    // Verificar se o token não está corrompido
+    if (token && token.trim() !== '' && !token.includes('undefined') && !token.includes('null')) {
+      return token;
+    }
+    return null;
+  } catch (error) {
+    console.error('❌ Erro ao acessar localStorage:', error);
+    return null;
+  }
 };
 
 // Função para salvar token no localStorage
@@ -382,9 +419,10 @@ export const useAuthStore = create<AuthStore>()(
         if (!user) return false;
         
         const roleHierarchy = {
-          [UserRole.CLIENTE]: 1,
-          [UserRole.FUNCIONARIO]: 2,
-          [UserRole.ADMINISTRADOR]: 3,
+          [UserRole.CUSTOMER]: 1,
+          [UserRole.STAFF]: 2,
+          [UserRole.MANAGER]: 3,
+          [UserRole.ADMIN]: 4,
         };
 
         return roleHierarchy[user.role] >= roleHierarchy[minimumRole];
@@ -403,6 +441,23 @@ export const useAuthStore = create<AuthStore>()(
         const { token } = get();
         if (!token) return;
 
+        // Cache para evitar consultas repetitivas
+        const cacheKey = `auth-check-${token}`;
+        const cached = sessionStorage.getItem(cacheKey);
+        const now = Date.now();
+        
+        if (cached) {
+          const { timestamp, user } = JSON.parse(cached);
+          // Se o cache é válido por menos de 2 minutos, usar cache
+          if (now - timestamp < 120000) {
+            set({
+              user,
+              isAuthenticated: true,
+            });
+            return;
+          }
+        }
+
         try {
           const data = await apiRequest('/api/auth/me', {
             headers: {
@@ -411,10 +466,17 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           if (data.success && data.data) {
+            const user = data.data.user;
             set({
-              user: data.data.user,
+              user,
               isAuthenticated: true,
             });
+            
+            // Cachear resultado por 2 minutos
+            sessionStorage.setItem(cacheKey, JSON.stringify({
+              timestamp: now,
+              user
+            }));
           } else {
             // Token inválido, tentar refresh
             await get().refreshAuth();

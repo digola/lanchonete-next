@@ -5,7 +5,21 @@ const nextConfig = {
   },
   
   images: {
-    domains: ['localhost', 'res.cloudinary.com'],
+    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+    ],
   },
 
   webpack: (config) => {
@@ -25,8 +39,8 @@ const nextConfig = {
         permanent: false,
       },
       {
-        source: '/staff',
-        destination: '/staff/dashboard',
+        source: '/staff/dashboard',
+        destination: '/staff',
         permanent: false,
       },
       {

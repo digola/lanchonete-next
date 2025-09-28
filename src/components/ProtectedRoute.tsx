@@ -8,6 +8,7 @@ import { UserRole } from '@/types';
 interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: UserRole;
+  requiredRoles?: UserRole[];
   requiredPermission?: string;
   fallback?: ReactNode;
   redirectTo?: string;
@@ -19,6 +20,7 @@ interface ProtectedRouteProps {
 export const ProtectedRoute = ({
   children,
   requiredRole,
+  requiredRoles,
   requiredPermission,
   fallback,
   redirectTo,
@@ -51,6 +53,16 @@ export const ProtectedRoute = ({
       const defaultRoute = getDefaultRoute();
       router.push(defaultRoute);
       return;
+    }
+
+    // Verificar múltiplos roles se especificado
+    if (requiredRoles && requiredRoles.length > 0) {
+      const hasAnyRequiredRole = requiredRoles.some(role => hasMinimumRole(role));
+      if (!hasAnyRequiredRole) {
+        const defaultRoute = getDefaultRoute();
+        router.push(defaultRoute);
+        return;
+      }
     }
 
     // Verificar permissão específica se especificada
@@ -88,6 +100,14 @@ export const ProtectedRoute = ({
     return fallback || <AccessDenied />;
   }
 
+  // Verificar múltiplos roles
+  if (requiredRoles && requiredRoles.length > 0) {
+    const hasAnyRequiredRole = requiredRoles.some(role => hasMinimumRole(role));
+    if (!hasAnyRequiredRole) {
+      return fallback || <AccessDenied />;
+    }
+  }
+
   // Verificar permissão específica
   if (requiredPermission && !hasPermission(requiredPermission)) {
     return fallback || <AccessDenied />;
@@ -101,7 +121,7 @@ export const ProtectedRoute = ({
  * Componente para rotas que requerem role de administrador
  */
 export const AdminRoute = ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
-  <ProtectedRoute requiredRole={UserRole.ADMINISTRADOR} fallback={fallback}>
+  <ProtectedRoute requiredRole={UserRole.ADMIN} fallback={fallback}>
     {children}
   </ProtectedRoute>
 );
@@ -110,7 +130,7 @@ export const AdminRoute = ({ children, fallback }: { children: ReactNode; fallba
  * Componente para rotas que requerem role de funcionário ou superior
  */
 export const StaffRoute = ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
-  <ProtectedRoute requiredRole={UserRole.FUNCIONARIO} fallback={fallback}>
+  <ProtectedRoute requiredRole={UserRole.STAFF} fallback={fallback}>
     {children}
   </ProtectedRoute>
 );
@@ -119,7 +139,7 @@ export const StaffRoute = ({ children, fallback }: { children: ReactNode; fallba
  * Componente para rotas que requerem role de cliente ou superior
  */
 export const CustomerRoute = ({ children, fallback }: { children: ReactNode; fallback?: ReactNode }) => (
-  <ProtectedRoute requiredRole={UserRole.CLIENTE} fallback={fallback}>
+  <ProtectedRoute requiredRole={UserRole.CUSTOMER} fallback={fallback}>
     {children}
   </ProtectedRoute>
 );

@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { UserRole } from '@/types';
 import { CustomerSidebar } from '@/components/customer/CustomerSidebar';
@@ -13,7 +13,7 @@ interface CustomerLayoutProps {
 
 export default function CustomerLayout({ children }: CustomerLayoutProps) {
   return (
-    <ProtectedRoute requiredRole={UserRole.CLIENTE}>
+    <ProtectedRoute requiredRole={UserRole.CUSTOMER}>
       <div className="min-h-screen bg-gray-50">
         <CustomerHeader />
         <div className="flex">

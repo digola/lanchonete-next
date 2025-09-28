@@ -8,10 +8,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   User,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Star,
   Settings,
   HelpCircle
 } from 'lucide-react';
@@ -28,47 +24,12 @@ const navigation = [
     icon: ShoppingCart,
   },
   {
-    name: 'Meus Pedidos',
-    href: '/customer/orders',
-    icon: ShoppingBag,
-  },
-  {
     name: 'Meu Perfil',
     href: '/customer/profile',
     icon: User,
   },
 ];
 
-const orderStatusItems = [
-  {
-    name: 'Pendentes',
-    href: '/customer/orders?status=pending',
-    icon: Clock,
-    color: 'text-yellow-600',
-    bgColor: 'bg-yellow-100',
-  },
-  {
-    name: 'Confirmados',
-    href: '/customer/orders?status=confirmed',
-    icon: CheckCircle,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-100',
-  },
-  {
-    name: 'Entregues',
-    href: '/customer/orders?status=delivered',
-    icon: Star,
-    color: 'text-green-600',
-    bgColor: 'bg-green-100',
-  },
-  {
-    name: 'Cancelados',
-    href: '/customer/orders?status=cancelled',
-    icon: XCircle,
-    color: 'text-red-600',
-    bgColor: 'bg-red-100',
-  },
-];
 
 export function CustomerSidebar() {
   const pathname = usePathname();
@@ -101,26 +62,6 @@ export function CustomerSidebar() {
           })}
         </nav>
 
-        {/* Status dos Pedidos */}
-        <div className="mt-8">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
-            Status dos Pedidos
-          </h3>
-          <nav className="space-y-1">
-            {orderStatusItems.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
-              >
-                <div className={cn('p-1 rounded mr-3', item.bgColor)}>
-                  <item.icon className={cn('h-4 w-4', item.color)} />
-                </div>
-                {item.name}
-              </Link>
-            ))}
-          </nav>
-        </div>
 
         {/* Links Úteis */}
         <div className="mt-8">
