@@ -55,11 +55,6 @@ export const OptimizedProductCard = memo(function OptimizedProductCard({
     [product.isAvailable, className]
   );
 
-  const imagePlaceholder = useMemo(() => 
-    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAv/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAAX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCdABmX/9k=",
-    []
-  );
-
   return (
     <Card 
       className={cardClassName}
@@ -77,8 +72,7 @@ export const OptimizedProductCard = memo(function OptimizedProductCard({
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="object-cover transition-transform duration-200 group-hover:scale-105"
               loading="lazy"
-              placeholder="blur"
-              blurDataURL={imagePlaceholder}
+              unoptimized
             />
           ) : (
             <div className="w-full h-full bg-gray-200 flex items-center justify-center">

@@ -66,7 +66,7 @@ export default function AdminProductsPage() {
     pagination: any 
   }>(buildProductsUrl());
 
-  // Buscar categorias
+  // Buscar categorias - apenas uma vez
   const { data: categoriesResponse, loading: categoriesLoading } = useApi<{ 
     data: Category[]; 
     pagination: any 
@@ -75,6 +75,16 @@ export default function AdminProductsPage() {
   const products = productsResponse?.data || [];
   const categories = categoriesResponse?.data || [];
   const pagination = productsResponse?.pagination;
+
+  // Debounce para busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== '') {
+        refetchProducts();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm, refetchProducts]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);

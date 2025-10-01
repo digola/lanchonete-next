@@ -68,12 +68,15 @@ export default function AdminTablesPage() {
   const users = usersResponse?.data || [];
   const pagination = tablesResponse?.pagination;
 
+  // Debounce otimizado - apenas para busca
   useEffect(() => {
     const timer = setTimeout(() => {
-      refetchTables();
-    }, 300);
+      if (searchTerm !== '') {
+        refetchTables();
+      }
+    }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, capacityFilter, sortBy, sortOrder, refetchTables]);
+  }, [searchTerm, refetchTables]);
 
   const stats = {
     total: tables.length,
@@ -88,10 +91,14 @@ export default function AdminTablesPage() {
 
   const handleStatusFilter = (status: 'all' | 'LIVRE' | 'OCUPADA' | 'RESERVADA' | 'MANUTENCAO') => {
     setStatusFilter(status);
+    // Refetch manual para filtros
+    setTimeout(() => refetchTables(), 100);
   };
 
   const handleCapacityFilter = (capacity: 'all' | 'small' | 'medium' | 'large') => {
     setCapacityFilter(capacity);
+    // Refetch manual para filtros
+    setTimeout(() => refetchTables(), 100);
   };
 
   // Funções CRUD

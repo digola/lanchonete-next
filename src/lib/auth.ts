@@ -106,6 +106,39 @@ export const verifyToken = (token: string): JWTPayload | null => {
   }
 };
 
+// Versão compatível com Edge Runtime para middleware
+export const verifyTokenEdge = (token: string): JWTPayload | null => {
+  try {
+    if (!token) {
+      return null;
+    }
+
+    // Verificar se o token tem o formato correto (Bearer token)
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    
+    if (!cleanToken || cleanToken.trim() === '') {
+      return null;
+    }
+
+    // Decodificar o token manualmente (sem verificação de assinatura no Edge Runtime)
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3 || !parts[1]) {
+      return null;
+    }
+
+    const payload = JSON.parse(atob(parts[1]!));
+    
+    // Verificar se o token não expirou
+    if (payload.exp && payload.exp < Date.now() / 1000) {
+      return null;
+    }
+
+    return payload as JWTPayload;
+  } catch (error) {
+    return null;
+  }
+};
+
 export const refreshAccessToken = (refreshToken: string): string | null => {
   try {
     const decoded = jwt.verify(refreshToken, getJWTSecret()) as JWTPayload;
@@ -183,6 +216,7 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
     [UserRole.MANAGER]: [
       'menu:read',
       'orders:read',
+      'orders:create',
       'orders:update',
       'orders:write',
       'products:read',

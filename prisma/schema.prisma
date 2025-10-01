@@ -33,6 +33,7 @@ model User {
   @@index([email])
   @@index([role])
   @@index([isActive])
+  @@index([role, isActive])
   @@map("users")
 }
 
@@ -77,6 +78,8 @@ model Product {
   @@index([isAvailable])
   @@index([price])
   @@index([name])
+  @@index([categoryId, isAvailable])
+  @@index([name, isAvailable])
   @@map("products")
 }
 
@@ -84,13 +87,17 @@ model Product {
 model Order {
   id                    String   @id @default(cuid())
   userId                String
-  status                String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
+  status                String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, FINALIZADO, CANCELADO
   total                 Float    // Usando Float em vez de Decimal para SQLite
   deliveryType          String   @default("RETIRADA") // RETIRADA, DELIVERY
   deliveryAddress       String?
   estimatedDeliveryTime Int?     // Tempo estimado de entrega em minutos
   deliveryFee           Float    @default(0) // Taxa de entrega
   paymentMethod         String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
+  paymentProcessedAt    DateTime? // Data/hora do pagamento
+  paymentAmount         Float?    // Valor pago
+  isPaid                Boolean  @default(false) // Status de pagamento
+  isReceived            Boolean  @default(false) // Se o pedido foi recebido pelo cliente
   notes                 String?
   tableId               String?
   finalizedBy           String?  // ID do funcionário que finalizou o pedido
@@ -110,6 +117,10 @@ model Order {
   @@index([tableId])
   @@index([deliveryType])
   @@index([finalizedBy])
+  @@index([status, tableId])
+  @@index([userId, status])
+  @@index([createdAt, status])
+  @@index([tableId, status])
   @@map("orders")
 }
 
@@ -130,6 +141,7 @@ model OrderItem {
   // Índices para performance
   @@index([orderId])
   @@index([productId])
+  @@index([orderId, productId])
   @@map("order_items")
 }
 
@@ -194,6 +206,7 @@ model Table {
   @@index([status])
   @@index([assignedTo])
   @@index([area])
+  @@index([status, assignedTo])
   @@map("tables")
 }
 

@@ -161,7 +161,6 @@ export const useCart = () => {
 
   // Limpar carrinho ao fazer logout
   const clearCartOnLogout = useCallback(() => {
-    console.log('Logout detectado, limpando carrinho...');
     dispatch({ type: 'CLEAR_CART' });
     localStorage.removeItem(CART_STORAGE_KEY);
   }, []);
@@ -170,7 +169,6 @@ export const useCart = () => {
   const reloadCartFromStorage = useCallback(() => {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-      console.log('useCart - Forçando recarregamento:', savedCart);
       if (savedCart) {
         const cartData = JSON.parse(savedCart);
         const itemsWithDates = cartData.items.map((item: any) => ({

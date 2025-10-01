@@ -3,12 +3,12 @@ import { prisma } from '@/lib/prisma';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 import { UserRole } from '@/types';
 
-export async function POST(
+export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
     
     if (!orderId) {
       return NextResponse.json(
@@ -34,8 +34,8 @@ export async function POST(
       );
     }
 
-    // Verificar permissão (staff, admins ou o próprio cliente para seus pedidos)
-    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN) {
+    // Verificar permissão (staff, admins, managers ou o próprio cliente para seus pedidos)
+    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN && decoded.role !== UserRole.MANAGER) {
       // Se for cliente, verificar se é o dono do pedido
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -81,12 +81,28 @@ export async function POST(
     }
 
     // Verificar se o pedido está em status que permite adicionar itens
-    const validStatuses = ['PENDENTE', 'CONFIRMADO'];
-    if (!validStatuses.includes(existingOrder.status)) {
-      return NextResponse.json(
-        { success: false, error: 'Não é possível adicionar itens a um pedido neste status' },
-        { status: 400 }
-      );
+    // STAFF e MANAGER podem adicionar em qualquer status ativo
+    // CUSTOMER só pode adicionar em PENDENTE ou CONFIRMADO
+    const isStaffOrManager = decoded.role === UserRole.STAFF || decoded.role === UserRole.ADMIN || decoded.role === UserRole.MANAGER;
+    
+    if (isStaffOrManager) {
+      // Staff e Manager podem adicionar itens em qualquer status, exceto ENTREGUE e CANCELADO
+      const invalidStatuses = ['ENTREGUE', 'CANCELADO'];
+      if (invalidStatuses.includes(existingOrder.status)) {
+        return NextResponse.json(
+          { success: false, error: 'Não é possível adicionar itens a um pedido finalizado ou cancelado' },
+          { status: 400 }
+        );
+      }
+    } else {
+      // Clientes só podem adicionar em status iniciais
+      const validStatusesForCustomer = ['PENDENTE', 'CONFIRMADO'];
+      if (!validStatusesForCustomer.includes(existingOrder.status)) {
+        return NextResponse.json(
+          { success: false, error: 'Não é possível adicionar itens a um pedido em preparo ou pronto' },
+          { status: 400 }
+        );
+      }
     }
 
     // Verificar se os produtos existem

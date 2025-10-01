@@ -91,6 +91,37 @@ interface ReportData {
     createdAt: string;
     updatedAt: string;
   }>;
+  // Métricas adicionais
+  peakHours?: Array<{
+    hour: string;
+    orders: number;
+    revenue: number;
+  }>;
+  topCategories?: Array<{
+    name: string;
+    revenue: number;
+    orders: number;
+    quantity: number;
+  }>;
+  cancellationRate?: number;
+  completionRate?: number;
+  paymentMethods?: Array<{
+    method: string;
+    count: number;
+    revenue: number;
+  }>;
+  counterMetrics?: {
+    totalOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    percentage: number;
+  };
+  tableMetrics?: {
+    totalOrders: number;
+    totalRevenue: number;
+    averageOrderValue: number;
+    percentage: number;
+  };
 }
 
 export default function AdminReportsPage() {
@@ -104,9 +135,12 @@ export default function AdminReportsPage() {
   const [performanceInfo, setPerformanceInfo] = useState<string>('');
 
   // Buscar dados de relatórios
-  const { data: reportData, loading: reportLoading, execute: refetchReports } = useApi<ReportData>(
+  const { data: apiResponse, loading: reportLoading, execute: refetchReports } = useApi<{ success: boolean; data: ReportData; meta: any }>(
     `/api/admin/reports?period=${selectedPeriod}&date=${selectedDate}&month=${selectedMonth}&year=${selectedYear}`
   );
+
+  // Extrair os dados da resposta da API
+  const reportData = apiResponse?.data;
 
   // Debug: Log dos dados recebidos
   useEffect(() => {
@@ -124,33 +158,31 @@ export default function AdminReportsPage() {
 
   // Capturar informações de performance
   useEffect(() => {
-    if (reportData && !reportLoading) {
-      // A API retorna { success: true, data: reportData, meta: {...} }
-      const response = reportData as any;
-      if (response.meta) {
-        setPerformanceInfo(`Dados carregados em ${response.meta.responseTime}`);
+    if (apiResponse && !reportLoading) {
+      if (apiResponse.meta) {
+        setPerformanceInfo(`Dados carregados em ${apiResponse.meta.responseTime}`);
       }
     }
-  }, [reportData, reportLoading]);
+  }, [apiResponse, reportLoading]);
 
   const getPeriodLabel = () => {
     switch (selectedPeriod) {
       case 'day':
-        return new Date(selectedDate).toLocaleDateString('pt-BR');
+        return selectedDate ? new Date(selectedDate).toLocaleDateString('pt-BR') : '';
       case 'month':
-        return new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+        return selectedMonth ? new Date(selectedMonth + '-01').toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }) : '';
       case 'year':
-        return selectedYear;
+        return selectedYear || '';
       default:
         return '';
     }
   };
 
   const getRevenueChange = () => {
-    if (!reportData?.data?.revenueByDay || reportData.data.revenueByDay.length < 2) return null;
+    if (!reportData?.revenueByDay || reportData.revenueByDay.length < 2) return null;
     
-    const current = reportData.data.revenueByDay[reportData.data.revenueByDay.length - 1]?.revenue || 0;
-    const previous = reportData.data.revenueByDay[reportData.data.revenueByDay.length - 2]?.revenue || 0;
+    const current = reportData.revenueByDay[reportData.revenueByDay.length - 1]?.revenue || 0;
+    const previous = reportData.revenueByDay[reportData.revenueByDay.length - 2]?.revenue || 0;
     
     if (previous === 0) return null;
     
@@ -163,10 +195,10 @@ export default function AdminReportsPage() {
   };
 
   const getOrdersChange = () => {
-    if (!reportData?.data?.revenueByDay || reportData.data.revenueByDay.length < 2) return null;
+    if (!reportData?.revenueByDay || reportData.revenueByDay.length < 2) return null;
     
-    const current = reportData.data.revenueByDay[reportData.data.revenueByDay.length - 1]?.orders || 0;
-    const previous = reportData.data.revenueByDay[reportData.data.revenueByDay.length - 2]?.orders || 0;
+    const current = reportData.revenueByDay[reportData.revenueByDay.length - 1]?.orders || 0;
+    const previous = reportData.revenueByDay[reportData.revenueByDay.length - 2]?.orders || 0;
     
     if (previous === 0) return null;
     
@@ -339,17 +371,17 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-600 mb-1">Receita Total</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-green-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-green-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        formatCurrency(reportData?.data?.totalRevenue || 0)
+                        formatCurrency(reportData?.totalRevenue || 0)
                       )}
-                    </p>
-                    {reportData?.data?.totalRevenue && reportData.data.totalRevenue > 0 && (
+                    </div>
+                    {reportData?.totalRevenue && reportData.totalRevenue > 0 && (
                       <div className="flex items-center mt-2">
                         <TrendingUp className="h-3 w-3 text-green-500 mr-1" />
                         <span className="text-xs text-green-600">Dados reais</span>
@@ -383,17 +415,17 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-blue-600 mb-1">Total de Pedidos</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-blue-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-blue-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        reportData?.data?.totalOrders || 0
+                        reportData?.totalOrders || 0
                       )}
-                    </p>
-                    {reportData?.data?.totalOrders && reportData.data.totalOrders > 0 && (
+                    </div>
+                    {reportData?.totalOrders && reportData.totalOrders > 0 && (
                       <div className="flex items-center mt-2">
                         <ShoppingBag className="h-3 w-3 text-blue-500 mr-1" />
                         <span className="text-xs text-blue-600">Dados reais</span>
@@ -427,16 +459,16 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-purple-600 mb-1">Ticket Médio</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-purple-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        formatCurrency(reportData?.data?.averageOrderValue || 0)
+                        formatCurrency(reportData?.averageOrderValue || 0)
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-purple-600 mt-1">
                       por pedido
                     </p>
@@ -454,16 +486,16 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-orange-600 mb-1">Total de Clientes</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-orange-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-orange-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        reportData?.data?.totalCustomers || 0
+                        reportData?.totalCustomers || 0
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-orange-600 mt-1">
                       únicos
                     </p>
@@ -484,18 +516,18 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-purple-600 mb-1">Total de Mesas</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-purple-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-purple-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        reportData?.data?.tablesMetrics?.total || 0
+                        reportData?.tablesMetrics?.total || 0
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-purple-600 mt-1">
-                      Capacidade total: {reportData?.data?.tablesMetrics?.totalCapacity || 0} pessoas
+                      Capacidade total: {reportData?.tablesMetrics?.totalCapacity || 0} pessoas
                     </p>
                   </div>
                   <div className="p-3 bg-purple-500 rounded-full">
@@ -511,18 +543,18 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-red-600 mb-1">Mesas Ocupadas</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-red-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-red-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        reportData?.data?.tablesMetrics?.occupied || 0
+                        reportData?.tablesMetrics?.occupied || 0
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-red-600 mt-1">
-                      {reportData?.data?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}% de ocupação
+                      {reportData?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}% de ocupação
                     </p>
                   </div>
                   <div className="p-3 bg-red-500 rounded-full">
@@ -538,16 +570,16 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-green-600 mb-1">Mesas Livres</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-green-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-green-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        reportData?.data?.tablesMetrics?.free || 0
+                        reportData?.tablesMetrics?.free || 0
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-green-600 mt-1">
                       Disponíveis para uso
                     </p>
@@ -565,18 +597,18 @@ export default function AdminReportsPage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-blue-600 mb-1">Taxa de Ocupação</p>
-                    <p className="text-2xl sm:text-3xl font-bold text-blue-900">
+                    <div className="text-2xl sm:text-3xl font-bold text-blue-900">
                       {reportLoading || isLoading ? (
                         <div className="flex items-center">
                           <RefreshCw className="h-6 w-6 animate-spin mr-2" />
                           Carregando...
                         </div>
                       ) : (
-                        `${reportData?.data?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}%`
+                        `${reportData?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}%`
                       )}
-                    </p>
+                    </div>
                     <p className="text-xs text-blue-600 mt-1">
-                      Capacidade média: {reportData?.data?.tablesMetrics?.averageCapacity?.toFixed(1) || 0} pessoas
+                      Capacidade média: {reportData?.tablesMetrics?.averageCapacity?.toFixed(1) || 0} pessoas
                     </p>
                   </div>
                   <div className="p-3 bg-blue-500 rounded-full">
@@ -604,7 +636,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Pendentes</span>
                     </div>
                     <Badge variant="outline" className="bg-gray-100">
-                      {reportData?.data?.ordersByStatus?.pending || 0}
+                      {reportData?.ordersByStatus?.pending || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -613,7 +645,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Confirmados</span>
                     </div>
                     <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                      {reportData?.data?.ordersByStatus?.confirmed || 0}
+                      {reportData?.ordersByStatus?.confirmed || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-yellow-50 rounded-lg">
@@ -622,7 +654,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Preparando</span>
                     </div>
                     <Badge variant="outline" className="bg-yellow-100 text-yellow-800">
-                      {reportData?.data?.ordersByStatus?.preparing || 0}
+                      {reportData?.ordersByStatus?.preparing || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
@@ -631,7 +663,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Prontos</span>
                     </div>
                     <Badge variant="outline" className="bg-green-100 text-green-800">
-                      {reportData?.data?.ordersByStatus?.ready || 0}
+                      {reportData?.ordersByStatus?.ready || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
@@ -640,7 +672,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Entregues</span>
                     </div>
                     <Badge variant="outline" className="bg-blue-100 text-blue-800">
-                      {reportData?.data?.ordersByStatus?.delivered || 0}
+                      {reportData?.ordersByStatus?.delivered || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
@@ -649,7 +681,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Cancelados</span>
                     </div>
                     <Badge variant="outline" className="bg-red-100 text-red-800">
-                      {reportData?.data?.ordersByStatus?.cancelled || 0}
+                      {reportData?.ordersByStatus?.cancelled || 0}
                     </Badge>
                   </div>
                 </div>
@@ -666,7 +698,7 @@ export default function AdminReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {reportData?.data?.topProducts?.slice(0, 5).map((product, index) => (
+                  {reportData?.topProducts?.slice(0, 5).map((product, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
@@ -704,7 +736,7 @@ export default function AdminReportsPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {reportData?.data?.topTables?.slice(0, 5).map((table, index) => (
+                  {reportData?.topTables?.slice(0, 5).map((table, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div className="flex items-center">
                         <div className="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
@@ -746,7 +778,7 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Mesas Livres</span>
                     </div>
                     <Badge variant="outline" className="bg-green-100 text-green-800">
-                      {reportData?.data?.tablesByStatus?.livre || 0}
+                      {reportData?.tablesByStatus?.livre || 0}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between p-3 bg-red-50 rounded-lg">
@@ -755,23 +787,342 @@ export default function AdminReportsPage() {
                       <span className="font-medium">Mesas Ocupadas</span>
                     </div>
                     <Badge variant="outline" className="bg-red-100 text-red-800">
-                      {reportData?.data?.tablesByStatus?.ocupada || 0}
+                      {reportData?.tablesByStatus?.ocupada || 0}
                     </Badge>
                   </div>
                   <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-sm font-medium text-blue-900">Taxa de Ocupação</span>
                       <span className="text-lg font-bold text-blue-900">
-                        {reportData?.data?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}%
+                        {reportData?.tablesMetrics?.occupancyRate?.toFixed(1) || 0}%
                       </span>
                     </div>
                     <div className="w-full bg-blue-200 rounded-full h-2">
                       <div 
                         className="bg-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ 
-                          width: `${Math.min(reportData?.data?.tablesMetrics?.occupancyRate || 0, 100)}%` 
+                          width: `${Math.min(reportData?.tablesMetrics?.occupancyRate || 0, 100)}%` 
                         }}
                       ></div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Métricas Balcão vs Mesa */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Pedidos de Balcão */}
+            <Card className="bg-gradient-to-br from-cyan-50 to-blue-50 border-cyan-200">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <ShoppingBag className="h-5 w-5 mr-2 text-cyan-600" />
+                    Pedidos de Balcão
+                  </span>
+                  <Badge className="bg-cyan-500 text-white">
+                    {reportData?.counterMetrics?.percentage?.toFixed(1) || 0}%
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Total de Pedidos</p>
+                      <p className="text-2xl font-bold text-cyan-900">
+                        {reportData?.counterMetrics?.totalOrders || 0}
+                      </p>
+                    </div>
+                    <ShoppingBag className="h-8 w-8 text-cyan-500" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Receita Total</p>
+                      <p className="text-2xl font-bold text-cyan-900">
+                        {formatCurrency(reportData?.counterMetrics?.totalRevenue || 0)}
+                      </p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-green-500" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Ticket Médio</p>
+                      <p className="text-2xl font-bold text-cyan-900">
+                        {formatCurrency(reportData?.counterMetrics?.averageOrderValue || 0)}
+                      </p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-500" />
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
+                    <div 
+                      className="bg-gradient-to-r from-cyan-500 to-blue-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${reportData?.counterMetrics?.percentage || 0}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-center text-gray-500">
+                    {reportData?.counterMetrics?.percentage?.toFixed(1) || 0}% do total de pedidos
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Pedidos de Mesa */}
+            <Card className="bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200">
+              <CardHeader>
+                <CardTitle className="flex items-center justify-between">
+                  <span className="flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-emerald-600" />
+                    Pedidos de Mesa
+                  </span>
+                  <Badge className="bg-emerald-500 text-white">
+                    {reportData?.tableMetrics?.percentage?.toFixed(1) || 0}%
+                  </Badge>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Total de Pedidos</p>
+                      <p className="text-2xl font-bold text-emerald-900">
+                        {reportData?.tableMetrics?.totalOrders || 0}
+                      </p>
+                    </div>
+                    <ShoppingBag className="h-8 w-8 text-emerald-500" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Receita Total</p>
+                      <p className="text-2xl font-bold text-emerald-900">
+                        {formatCurrency(reportData?.tableMetrics?.totalRevenue || 0)}
+                      </p>
+                    </div>
+                    <DollarSign className="h-8 w-8 text-green-500" />
+                  </div>
+                  <div className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
+                    <div>
+                      <p className="text-sm text-gray-600">Ticket Médio</p>
+                      <p className="text-2xl font-bold text-emerald-900">
+                        {formatCurrency(reportData?.tableMetrics?.averageOrderValue || 0)}
+                      </p>
+                    </div>
+                    <TrendingUp className="h-8 w-8 text-purple-500" />
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-3 mt-4">
+                    <div 
+                      className="bg-gradient-to-r from-emerald-500 to-green-600 h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${reportData?.tableMetrics?.percentage || 0}%` }}
+                    ></div>
+                  </div>
+                  <p className="text-xs text-center text-gray-500">
+                    {reportData?.tableMetrics?.percentage?.toFixed(1) || 0}% do total de pedidos
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Horários de Pico e Categorias */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Horários de Pico */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Clock className="h-5 w-5 mr-2" />
+                  Horários de Pico
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {reportData?.peakHours && reportData.peakHours.length > 0 ? (
+                    reportData.peakHours.map((hour, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-100">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{hour.hour}</p>
+                            <p className="text-sm text-gray-600">{hour.orders} pedidos</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">{formatCurrency(hour.revenue)}</p>
+                          <p className="text-xs text-gray-500">receita</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <Clock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Nenhum dado de horário disponível</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Categorias Mais Vendidas */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2" />
+                  Categorias Mais Vendidas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {reportData?.topCategories && reportData.topCategories.length > 0 ? (
+                    reportData.topCategories.slice(0, 5).map((category, index) => (
+                      <div key={index} className="flex items-center justify-between p-3 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-100">
+                        <div className="flex items-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">{category.name}</p>
+                            <p className="text-sm text-gray-600">{category.quantity} itens vendidos</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">{formatCurrency(category.revenue)}</p>
+                          <p className="text-xs text-gray-500">{category.orders} pedidos</p>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Nenhuma categoria vendida no período</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Formas de Pagamento e Taxas */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Formas de Pagamento */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <DollarSign className="h-5 w-5 mr-2" />
+                  Formas de Pagamento
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {reportData?.paymentMethods && reportData.paymentMethods.length > 0 ? (
+                    reportData.paymentMethods.map((payment, index) => {
+                      const percentage = reportData.totalOrders > 0 
+                        ? (payment.count / reportData.totalOrders) * 100 
+                        : 0;
+                      
+                      return (
+                        <div key={index} className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center">
+                              <DollarSign className="h-4 w-4 text-green-500 mr-2" />
+                              <span className="font-medium text-gray-900">{payment.method}</span>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-gray-900">{formatCurrency(payment.revenue)}</p>
+                              <p className="text-xs text-gray-500">{payment.count} pedidos</p>
+                            </div>
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-gradient-to-r from-green-500 to-emerald-600 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${percentage}%` }}
+                            ></div>
+                          </div>
+                          <p className="text-xs text-gray-500">{percentage.toFixed(1)}% dos pedidos</p>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-8 text-gray-500">
+                      <DollarSign className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                      <p>Nenhum pagamento registrado no período</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Taxas de Conclusão e Cancelamento */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <CheckCircle className="h-5 w-5 mr-2" />
+                  Taxas de Performance
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Taxa de Conclusão */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
+                        <span className="font-medium text-gray-900">Taxa de Conclusão</span>
+                      </div>
+                      <span className="text-2xl font-bold text-green-600">
+                        {reportData?.completionRate?.toFixed(1) || 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${reportData?.completionRate || 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Percentual de pedidos entregues com sucesso
+                    </p>
+                  </div>
+
+                  {/* Taxa de Cancelamento */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center">
+                        <XCircle className="h-4 w-4 text-red-500 mr-2" />
+                        <span className="font-medium text-gray-900">Taxa de Cancelamento</span>
+                      </div>
+                      <span className="text-2xl font-bold text-red-600">
+                        {reportData?.cancellationRate?.toFixed(1) || 0}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div 
+                        className="bg-gradient-to-r from-red-500 to-rose-600 h-3 rounded-full transition-all duration-300"
+                        style={{ width: `${reportData?.cancellationRate || 0}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Percentual de pedidos cancelados
+                    </p>
+                  </div>
+
+                  {/* Indicador de Qualidade */}
+                  <div className="p-4 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-blue-900">Índice de Qualidade</p>
+                        <p className="text-xs text-blue-600 mt-1">
+                          {(reportData?.completionRate || 0) >= 80 
+                            ? '✓ Excelente desempenho' 
+                            : (reportData?.completionRate || 0) >= 60 
+                            ? '• Bom desempenho' 
+                            : '⚠ Necessita melhoria'}
+                        </p>
+                      </div>
+                      <div className="text-3xl font-bold text-blue-900">
+                        {((reportData?.completionRate || 0) - (reportData?.cancellationRate || 0)).toFixed(0)}
+                      </div>
                     </div>
                   </div>
                 </div>

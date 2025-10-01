@@ -93,8 +93,9 @@ Após executar o seed, você terá os seguintes usuários:
 | Email | Senha | Role |
 |-------|-------|------|
 | admin@lanchonete.com | 123456 | Administrador |
-| funcionario@lanchonete.com | 123456 | Funcionário |
-| cliente@lanchonete.com | 123456 | Cliente |
+| gerente@lanchonete.com | 123456 | Manager (Expedição) |
+| staff@lanchonete.com | 123456 | Funcionário |
+| customer@lanchonete.com | 123456 | Cliente |
 
 ## 📁 Estrutura do Projeto
 
@@ -123,11 +124,18 @@ src/
 - Acompanhar pedidos
 - Gerenciar perfil
 
-### Funcionário
+### Funcionário (Staff)
 - Visualizar pedidos
 - Atualizar status dos pedidos
 - Gerenciar mesas
 - Visualizar cardápio
+
+### Manager (Expedição)
+- Gerenciar fluxo de pedidos
+- Controlar expedição
+- Visualizar relatórios
+- Gerenciar mesas
+- Atualizar status de pedidos
 
 ### Administrador
 - Acesso total ao sistema

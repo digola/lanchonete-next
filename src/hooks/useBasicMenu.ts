@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-// Removido useApiCache - não mais necessário
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useApiAuth } from './useApiAuth';
 
+// Cache global simples
+const cache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TIME = 2 * 60 * 1000; // 2 minutos
+
 /**
- * Hook básico e estável para dados do menu
- * Implementação simples sem debounce complexo
+ * Hook otimizado para dados do menu com cache e debounce
  */
 export const useBasicMenu = (filters?: {
   search?: string;
@@ -14,19 +16,40 @@ export const useBasicMenu = (filters?: {
   isAvailable?: boolean;
 }) => {
   const { token } = useApiAuth();
-  const [searchTerm, setSearchTerm] = useState(filters?.search || '');
+  const [debouncedSearch, setDebouncedSearch] = useState(filters?.search || '');
   const [isSearching, setIsSearching] = useState(false);
+  const searchTimerRef = useRef<NodeJS.Timeout>();
 
-  // Atualizar termo de busca quando filtros mudam
+  // Debounce do searchTerm
   useEffect(() => {
-    if (filters?.search !== searchTerm) {
-      setSearchTerm(filters?.search || '');
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
     }
-  }, [filters?.search, searchTerm]);
 
-  // Hook para categorias (dados estáticos - cache muito longo)
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(filters?.search || '');
+      setIsSearching(false);
+    }, 300); // 300ms de debounce
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, [filters?.search]);
+
+  // Hook para categorias com CACHE
   const fetchCategories = useCallback(async () => {
-    const response = await fetch('/api/categories', {
+    const cacheKey = '/api/categories';
+    
+    // Verificar cache
+    const cached = cache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_TIME * 5) { // 10 minutos para categorias
+      return cached.data;
+    }
+
+    const response = await fetch(cacheKey, {
       headers: {
         'Content-Type': 'application/json',
         ...(token && { 'Authorization': `Bearer ${token}` }),
@@ -37,7 +60,12 @@ export const useBasicMenu = (filters?: {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    return response.json();
+    const data = await response.json();
+    
+    // Armazenar no cache
+    cache.set(cacheKey, { data, timestamp: Date.now() });
+    
+    return data;
   }, [token]);
 
   const [categoriesData, setCategoriesData] = useState<any>(null);
@@ -45,7 +73,13 @@ export const useBasicMenu = (filters?: {
 
   useEffect(() => {
     const loadCategories = async () => {
-      setCategoriesLoading(true);
+      // Se já tem dados em cache, não mostra loading
+      const cacheKey = '/api/categories';
+      const cached = cache.get(cacheKey);
+      if (!cached) {
+        setCategoriesLoading(true);
+      }
+      
       try {
         const data = await fetchCategories();
         setCategoriesData(data);
@@ -57,16 +91,22 @@ export const useBasicMenu = (filters?: {
     };
 
     loadCategories();
-  }, [token]); // Removido fetchCategories das dependências
+  }, [token]);
 
-  // Hook para produtos (dados dinâmicos - cache médio)
+  // Hook para produtos com CACHE e debounce
   const fetchProducts = useCallback(async () => {
     const queryParams = new URLSearchParams();
-    if (searchTerm) queryParams.set('search', searchTerm);
+    if (debouncedSearch) queryParams.set('search', debouncedSearch);
     if (filters?.categoryId) queryParams.set('categoryId', filters.categoryId);
     if (filters?.isAvailable !== undefined) queryParams.set('isAvailable', filters.isAvailable.toString());
 
     const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    
+    // Verificar cache
+    const cached = cache.get(url);
+    if (cached && Date.now() - cached.timestamp < CACHE_TIME) {
+      return cached.data;
+    }
     
     const response = await fetch(url, {
       headers: {
@@ -79,8 +119,13 @@ export const useBasicMenu = (filters?: {
       throw new Error(`HTTP ${response.status}`);
     }
 
-    return response.json();
-  }, [searchTerm, filters?.categoryId, filters?.isAvailable, token]);
+    const data = await response.json();
+    
+    // Armazenar no cache
+    cache.set(url, { data, timestamp: Date.now() });
+
+    return data;
+  }, [debouncedSearch, filters?.categoryId, filters?.isAvailable, token]);
 
   const [productsData, setProductsData] = useState<any>(null);
   const [productsLoading, setProductsLoading] = useState(false);
@@ -88,7 +133,19 @@ export const useBasicMenu = (filters?: {
 
   useEffect(() => {
     const loadProducts = async () => {
-      setProductsLoading(true);
+      // Construir URL para verificar cache
+      const queryParams = new URLSearchParams();
+      if (debouncedSearch) queryParams.set('search', debouncedSearch);
+      if (filters?.categoryId) queryParams.set('categoryId', filters.categoryId);
+      if (filters?.isAvailable !== undefined) queryParams.set('isAvailable', filters.isAvailable.toString());
+      const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      // Se já tem dados em cache, não mostra loading
+      const cached = cache.get(url);
+      if (!cached) {
+        setProductsLoading(true);
+      }
+      
       setProductsError(null);
       try {
         const data = await fetchProducts();
@@ -102,7 +159,7 @@ export const useBasicMenu = (filters?: {
     };
 
     loadProducts();
-  }, [searchTerm, filters?.categoryId, filters?.isAvailable, token]); // Removido fetchProducts das dependências
+  }, [debouncedSearch, filters?.categoryId, filters?.isAvailable, token]);
 
   const refresh = useCallback(() => {
     const loadProducts = async () => {
@@ -137,17 +194,23 @@ export const useBasicMenu = (filters?: {
       products: productsError,
       any: !!productsError,
     },
-    isSearching: false, // Removido debounce por enquanto
+    isSearching, // Indica se está digitando
   }), [
     categoriesData,
     productsData,
     categoriesLoading,
     productsLoading,
-    productsError
+    productsError,
+    isSearching
   ]);
 
   return {
     ...menuData,
     refetch: refresh,
   };
+};
+
+// Função para limpar o cache manualmente
+export const clearMenuCache = () => {
+  cache.clear();
 };

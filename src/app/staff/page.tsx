@@ -17,6 +17,7 @@ import {
   User
 } from 'lucide-react';
 
+
 export default function StaffPage() {
   const { user } = useApiAuth();
   const router = useRouter();
@@ -60,131 +61,153 @@ export default function StaffPage() {
 
   return (
     <ProtectedRoute requiredRole={UserRole.STAFF}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900">Atendimento de Mesas</h1>
-            <p className="text-gray-600 mt-2">Gerencie mesas e crie pedidos para clientes</p>
+          {/* Header Moderno */}
+          <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-8 py-10 rounded-3xl shadow-2xl mb-8">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="bg-white/20 p-4 rounded-2xl">
+                  <User className="h-10 w-10 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-4xl font-bold text-white">Atendimento de Mesas</h1>
+                  <p className="text-blue-100 mt-2 text-lg">Gerencie mesas e crie pedidos para clientes</p>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Estatísticas */}
+          {/* Estatísticas Modernas */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
+            <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-14 h-14 rounded-xl bg-blue-100 flex items-center justify-center">
                   <TableIcon className="h-8 w-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total de Mesas</p>
-                    <p className="text-2xl font-bold text-gray-900">{tables.length}</p>
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Total de Mesas</p>
+              <p className="text-4xl font-bold text-blue-600">{tables.length}</p>
+            </div>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
+            <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-14 h-14 rounded-xl bg-green-100 flex items-center justify-center">
                   <CheckCircle className="h-8 w-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Mesas Livres</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {tables.filter(t => t.status === TableStatus.LIVRE).length}
-                    </p>
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Mesas Livres</p>
+              <p className="text-4xl font-bold text-green-600">
+                {tables.filter(t => t.status === TableStatus.LIVRE).length}
+              </p>
+            </div>
 
-            <Card>
-              <CardContent className="p-6">
-                <div className="flex items-center">
+            <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div className="w-14 h-14 rounded-xl bg-red-100 flex items-center justify-center">
                   <Clock className="h-8 w-8 text-red-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Mesas Ocupadas</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {tables.filter(t => t.status === TableStatus.OCUPADA).length}
-                    </p>
-                  </div>
                 </div>
-              </CardContent>
-            </Card>
-
+              </div>
+              <p className="text-sm font-medium text-gray-600 mb-1">Mesas Ocupadas</p>
+              <p className="text-4xl font-bold text-red-600">
+                {tables.filter(t => t.status === TableStatus.OCUPADA).length}
+              </p>
+            </div>
           </div>
 
-          {/* Grid de Mesas */}
+          {/* Grid de Mesas Moderno */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {tables.map((table) => (
-              <Card 
+              <div
                 key={table.id} 
-                className={`cursor-pointer transition-all duration-200 hover:shadow-lg ${
-                  table.status === TableStatus.LIVRE 
-                    ? 'hover:border-green-500' 
+                className={`
+                  bg-white border-2 rounded-2xl shadow-lg hover:shadow-2xl
+                  transition-all duration-300 cursor-pointer overflow-hidden
+                  ${table.status === TableStatus.LIVRE 
+                    ? 'border-green-200 hover:border-green-400 hover:scale-105' 
                     : table.status === TableStatus.OCUPADA
-                    ? 'hover:border-red-500'
-                    : 'hover:border-yellow-500'
-                }`}
+                    ? 'border-red-200 hover:border-red-400'
+                    : 'border-yellow-200 hover:border-yellow-400'
+                  }
+                `}
                 onClick={() => {
                   if (table.status === TableStatus.LIVRE) {
-                    console.log('🔄 Redirecionando para página principal com mesa:', table.number);
                     router.push(`/?tableId=${table.id}`);
+                  } else if (table.status === TableStatus.OCUPADA) {
+                    router.push(`/tables/${table.id}`);
                   }
                 }}
               >
-                <CardHeader className="pb-3">
+                {/* Header do Card */}
+                <div className={`
+                  p-4 border-b-2
+                  ${table.status === TableStatus.LIVRE 
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                    : table.status === TableStatus.OCUPADA
+                    ? 'bg-gradient-to-r from-red-50 to-rose-50 border-red-200'
+                    : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+                  }
+                `}>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">Mesa {table.number}</CardTitle>
-                    <Badge className={getTableStatusColor(table.status)}>
+                    <div className="flex items-center space-x-3">
+                      <div className={`
+                        w-12 h-12 rounded-xl flex items-center justify-center text-2xl font-bold
+                        ${table.status === TableStatus.LIVRE 
+                          ? 'bg-green-100 text-green-700' 
+                          : table.status === TableStatus.OCUPADA
+                          ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                        }
+                      `}>
+                        {table.number}
+                      </div>
+                      <div>
+                        <p className="font-bold text-gray-900">Mesa {table.number}</p>
+                        <p className="text-xs text-gray-600">{table.capacity} pessoas</p>
+                      </div>
+                    </div>
+                    <Badge className={`${getTableStatusColor(table.status)} font-semibold`}>
                       {getTableStatusLabel(table.status)}
                     </Badge>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-gray-600">
-                      <User className="h-4 w-4 mr-2" />
-                      Capacidade: {table.capacity} pessoas
+                </div>
+
+                {/* Conteúdo */}
+                <div className="p-4 space-y-3">
+                  {table.assignedUser && (
+                    <div className="flex items-center text-sm text-gray-600 bg-gray-50 p-2 rounded-lg">
+                      <User className="h-4 w-4 mr-2 text-blue-500" />
+                      <span className="font-medium">{table.assignedUser.name}</span>
                     </div>
-                    {table.assignedUser && (
-                      <div className="flex items-center text-sm text-gray-600">
-                        <User className="h-4 w-4 mr-2" />
-                        Atendido por: {table.assignedUser.name}
-                      </div>
-                    )}
-                    {table.status === TableStatus.LIVRE && (
-                      <div className="mt-4">
-                        <Button 
-                          className="w-full" 
-                          variant="primary"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            console.log('🔄 Botão "Criar Pedido" clicado para mesa:', table.number);
-                            router.push(`/?tableId=${table.id}`);
-                          }}
-                        >
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Criar Pedido
-                        </Button>
-                      </div>
-                    )}
-                    {table.status === TableStatus.OCUPADA && (
-                      <div className="mt-4">
-                        <Button 
-                          className="w-full" 
-                          variant="outline"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push(`/tables/${table.id}`);
-                          }}
-                        >
-                          <TableIcon className="h-4 w-4 mr-2" />
-                          Gerenciar Mesa
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                  
+                  {table.status === TableStatus.LIVRE && (
+                    <Button 
+                      className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold shadow-lg" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/?tableId=${table.id}`);
+                      }}
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Criar Pedido
+                    </Button>
+                  )}
+                  
+                  {table.status === TableStatus.OCUPADA && (
+                    <Button 
+                      className="w-full bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold shadow-lg"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        router.push(`/tables/${table.id}`);
+                      }}
+                    >
+                      <TableIcon className="h-4 w-4 mr-2" />
+                      Gerenciar Mesa
+                    </Button>
+                  )}
+                </div>
+              </div>
             ))}
           </div>
 

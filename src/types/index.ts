@@ -14,6 +14,7 @@ export enum OrderStatus {
   PREPARANDO = 'PREPARANDO',
   PRONTO = 'PRONTO',
   ENTREGUE = 'ENTREGUE',
+  FINALIZADO = 'FINALIZADO',
   CANCELADO = 'CANCELADO',
 }
 
@@ -89,6 +90,10 @@ export interface Order {
   deliveryType: DeliveryType;
   deliveryAddress?: string;
   paymentMethod: PaymentMethod;
+  paymentProcessedAt?: Date;
+  paymentAmount?: number;
+  isPaid: boolean;
+  isReceived: boolean;
   notes?: string;
   tableId?: string;
   table?: Table;
@@ -246,11 +251,18 @@ export type Permission =
   | 'profile:write'
   | 'cart:read'
   | 'cart:write'
-  | 'cart:delete';
+  | 'cart:delete'
+  | 'expedition:read'
+  | 'expedition:write'
+  | 'expedition:manage'
+  | 'tables:read'
+  | 'tables:write'
+  | 'tables:manage';
 
 export interface RolePermissions {
   [UserRole.CUSTOMER]: Permission[];
   [UserRole.STAFF]: Permission[];
+  [UserRole.MANAGER]: Permission[];
   [UserRole.ADMIN]: Permission[];
 }
 

@@ -57,11 +57,14 @@ const ROLE_PERMISSIONS = {
   [UserRole.STAFF]: [
     'menu:read',
     'orders:read',
+    'orders:create',
     'orders:update',
     'orders:write',
     'products:read',
     'profile:read',
     'profile:write',
+    'tables:read',
+    'tables:write',
   ],
   [UserRole.MANAGER]: [
     'menu:read',
@@ -73,6 +76,10 @@ const ROLE_PERMISSIONS = {
     'profile:write',
     'tables:read',
     'tables:write',
+    'tables:manage',
+    'expedition:read',
+    'expedition:write',
+    'expedition:manage',
     'reports:read',
   ],
   [UserRole.ADMIN]: [

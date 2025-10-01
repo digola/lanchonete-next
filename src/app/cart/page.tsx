@@ -41,24 +41,18 @@ export default function CartPage() {
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
   
   // Buscar dados da mesa se tableId estiver disponível
-  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : null);
+  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
   
   useEffect(() => {
     const tableIdParam = searchParams.get('tableId');
-    console.log('🔍 Parâmetros da URL:', searchParams.toString());
-    console.log('🔍 tableId encontrado:', tableIdParam);
     if (tableIdParam) {
       setTableId(tableIdParam);
-      console.log('✅ tableId definido:', tableIdParam);
     }
   }, [searchParams]);
 
   useEffect(() => {
     if (tableData) {
-      console.log('🪑 Dados da mesa recebidos:', tableData);
       const table = tableData.data || tableData;
-      console.log('🪑 Mesa extraída:', table);
-      console.log('🪑 Número da mesa:', table?.number);
       setTableNumber(table?.number);
     }
   }, [tableData]);
@@ -79,11 +73,10 @@ export default function CartPage() {
     setIsProcessing(true);
 
     try {
-      console.log('🛒 Iniciando finalização do pedido:', {
-        items: items,
-        totalPrice: totalPrice,
-        userId: user?.id
-      });
+      console.log('🚀 Iniciando finalização do pedido...');
+      console.log('📦 Itens do carrinho:', items);
+      console.log('🏪 É staff?', isStaff);
+      console.log('🪑 TableId:', tableId);
 
       // Preparar dados do pedido
       const orderData = {
@@ -96,19 +89,20 @@ export default function CartPage() {
           deliveryType: deliveryType,
           deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
         }),
-        paymentMethod: paymentMethod,
+        // Para staff, usar pagamento em dinheiro
+        ...(isStaff ? { paymentMethod: 'DINHEIRO' } : { paymentMethod: paymentMethod }),
         notes: orderNotes,
         total: totalPrice
       };
 
-      console.log('📦 Dados do pedido preparados:', orderData);
+      console.log('📋 Dados do pedido preparados:', orderData);
 
       // Verificar token
       const token = localStorage.getItem('auth-token');
-      console.log('🔑 Token disponível:', token ? 'sim' : 'não');
-      console.log('👤 Usuário:', user?.name, 'Role:', user?.role);
+      console.log('🔑 Token presente?', !!token);
 
       // Fazer requisição para criar o pedido no banco
+      console.log('🌐 Enviando requisição para /api/orders...');
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
@@ -118,13 +112,17 @@ export default function CartPage() {
         body: JSON.stringify(orderData)
       });
 
+      console.log('📡 Resposta recebida:', response.status, response.statusText);
       const result = await response.json();
+      console.log('📄 Resultado:', result);
 
       if (!response.ok) {
+        console.error('❌ Erro na resposta:', result);
         throw new Error(result.error || 'Erro ao criar pedido');
       }
 
-      console.log('✅ Pedido criado com sucesso:', result);
+      console.log('✅ Pedido criado com sucesso:', result.data);
+
 
       // Limpar carrinho após sucesso
       clearCart();
@@ -134,9 +132,12 @@ export default function CartPage() {
       
       // Redirecionar baseado no tipo de usuário
       setTimeout(() => {
-        if (isStaff) {
+        if (user?.role === 'STAFF' || user?.role === 'ADMIN') {
           // Staff vai para /staff após finalizar pedido
           router.push('/staff');
+        } else if (user?.role === 'MANAGER') {
+          // Manager vai para expedição após finalizar pedido
+          router.push('/expedicao');
         } else {
           // Clientes vão para dashboard
           router.push('/customer/dashboard');
@@ -151,15 +152,6 @@ export default function CartPage() {
     }
   };
 
-  // Debug: Log detalhado na página /cart
-  console.log('🛒 CartPage - Estado completo:', {
-    itemsCount: items.length,
-    totalItems,
-    totalPrice,
-    isEmpty,
-    items: items,
-    localStorage: typeof window !== 'undefined' ? localStorage.getItem('lanchonete-cart-v2') : 'N/A'
-  });
 
 
 
@@ -188,30 +180,12 @@ export default function CartPage() {
           <div className="text-center">
             <div className="text-6xl mb-6">🛒</div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-              Seu carrinho está vazio
+            você será Redirecionado...
             </h1>
             <p className="text-gray-600 mb-8">
               Que tal adicionar alguns produtos deliciosos?
             </p>
             
-            {/* Debug Panel */}
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 max-w-md mx-auto">
-              <h3 className="font-semibold text-yellow-800 mb-2">🔧 Debug Panel</h3>
-              <div className="text-sm text-yellow-700 space-y-1">
-                <p>Items: {items.length}</p>
-                <p>Total Items: {totalItems}</p>
-                <p>Total Price: R$ {totalPrice.toFixed(2)}</p>
-                <p>Is Empty: {isEmpty ? 'SIM' : 'NÃO'}</p>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => window.location.reload()}
-                className="mt-2"
-              >
-                🔄 Recarregar Página
-              </Button>
-            </div>
             
             <Link href="/">
               <Button variant="primary" size="lg" leftIcon={<ArrowLeft className="h-5 w-5" />}>
@@ -345,13 +319,16 @@ export default function CartPage() {
                   <div className="text-center py-8">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                      Pedido Enviado com Sucesso!
+                      {isStaff ? 'Pedido Enviado para Cozinha!' : 'Pedido Enviado com Sucesso!'}
                     </h2>
                     <p className="text-gray-600 mb-4">
-                      Seu pedido foi enviado e está sendo processado.
+                      {isStaff 
+                        ? `Pedido da Mesa ${tableNumber || 'N/A'} foi enviado para a cozinha e está sendo preparado.`
+                        : 'Seu pedido foi enviado e está sendo processado.'
+                      }
                     </p>
                     <p className="text-sm text-gray-500">
-                      Redirecionando para o dashboard...
+                      {isStaff ? 'Redirecionando para o painel de staff...' : 'Redirecionando para o dashboard...'}
                     </p>
                   </div>
                 ) : (
@@ -403,6 +380,7 @@ export default function CartPage() {
                     </div>
                   )}
 
+
                   {/* Para Clientes: Tipo de entrega */}
                   {!isStaff && (
                     <div>
@@ -452,36 +430,38 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {/* Método de pagamento */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Método de Pagamento
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('DINHEIRO')}
-                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          paymentMethod === 'DINHEIRO'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                        }`}
-                      >
-                        💵 Dinheiro
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPaymentMethod('CARTAO')}
-                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                          paymentMethod === 'CARTAO'
-                            ? 'border-primary-500 bg-primary-50 text-primary-700'
-                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                        }`}
-                      >
-                        💳 Cartão
-                      </button>
+                  {/* Método de pagamento - apenas para clientes */}
+                  {!isStaff && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Método de Pagamento
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('DINHEIRO')}
+                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                            paymentMethod === 'DINHEIRO'
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          💵 Dinheiro
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('CARTAO')}
+                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                            paymentMethod === 'CARTAO'
+                              ? 'border-primary-500 bg-primary-50 text-primary-700'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                          }`}
+                        >
+                          💳 Cartão
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  )}
 
                   {/* Observações */}
                   <div>
@@ -504,7 +484,7 @@ export default function CartPage() {
                   fullWidth 
                   className="mb-4"
                   onClick={handleFinalizeOrder}
-                  disabled={isProcessing || (deliveryType === 'DELIVERY' && !deliveryAddress.trim())}
+                  disabled={isProcessing || (!isStaff && deliveryType === 'DELIVERY' && !deliveryAddress.trim())}
                 >
                   {isProcessing ? (
                     <>
@@ -513,8 +493,17 @@ export default function CartPage() {
                     </>
                   ) : (
                     <>
-                      <ShoppingCart className="h-5 w-5 mr-2" />
-                      Finalizar Pedido
+                      {isStaff ? (
+                        <>
+                          <CheckCircle className="h-5 w-5 mr-2" />
+                          Enviar pra Cozinha
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingCart className="h-5 w-5 mr-2" />
+                          Finalizar Pedido
+                        </>
+                      )}
                     </>
                   )}
                 </Button>

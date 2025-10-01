@@ -53,7 +53,11 @@ export const useApiAuth = () => {
         const token = localStorage.getItem('auth-token');
         if (token) {
           try {
-            const payload = JSON.parse(atob(token.split('.')[1]));
+            const tokenParts = token.split('.');
+            if (tokenParts.length !== 3 || !tokenParts[1]) {
+              throw new Error('Token inválido');
+            }
+            const payload = JSON.parse(atob(tokenParts[1]));
             const now = Date.now() / 1000;
             const timeUntilExpiry = payload.exp - now;
             

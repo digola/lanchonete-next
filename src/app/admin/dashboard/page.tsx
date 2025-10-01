@@ -34,7 +34,7 @@ import { Order, OrderStatus, Product, Category, User, Table as TableType, TableS
 export default function AdminDashboard() {
   const { user, getUserDisplayName } = useApiAuth();
   
-  // Buscar dados para o dashboard
+  // Buscar dados para o dashboard - com cache otimizado
   const ordersUrl = '/api/orders?limit=10&sortBy=createdAt&sortOrder=desc';
   const { data: ordersResponse, loading: ordersLoading } = useApi<{ data: Order[]; pagination: any }>(ordersUrl);
 

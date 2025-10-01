@@ -33,7 +33,7 @@ export default function HomePage() {
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
   
   // Buscar dados da mesa se tableId estiver disponível
-  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : null);
+  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
   
   useEffect(() => {
     const tableIdParam = searchParams.get('tableId');
@@ -93,7 +93,7 @@ export default function HomePage() {
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="container-app">
-          <div className="flex items-center justify-between py-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-4 space-y-4 lg:space-y-0">
             {/* Logo */}
             <Link href="/" className="flex items-center space-x-3">
               <div className="h-10 w-10 bg-primary-500 rounded-lg flex items-center justify-center">
@@ -106,7 +106,7 @@ export default function HomePage() {
             </Link>
 
             {/* Search Bar */}
-            <div className="flex-1 max-w-md mx-8">
+            <div className="flex-1 max-w-md mx-0 lg:mx-8">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                 <Input
@@ -119,14 +119,13 @@ export default function HomePage() {
             </div>
 
             {/* User Actions */}
-            <div className="flex items-center space-x-4">
-
+            <div className="flex items-center justify-between lg:justify-end space-x-4">
               {/* Cart Indicator */}
               {totalItems > 0 && (
                 <Link href={isStaff && tableId ? `/cart?tableId=${tableId}` : '/cart'} className="relative inline-block">
                   <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                     <ShoppingCart className="h-4 w-4" />
-                    <span className="text-sm font-medium">Carrinho</span>
+                    <span className="hidden sm:inline text-sm font-medium">Carrinho</span>
                     <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                       {totalItems}
                     </span>
@@ -136,30 +135,33 @@ export default function HomePage() {
               
               {/* User Menu */}
               {isAuthenticated ? (
-                <div className="flex items-center space-x-3">
-                  <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                <div className="flex items-center space-x-2 lg:space-x-3">
+                  <div className="hidden sm:block text-right">
+                    <p className="text-sm font-medium text-gray-900 truncate max-w-32">{user?.name}</p>
                     <p className="text-xs text-gray-600">{getRoleLabel()}</p>
                   </div>
                   <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="icon">
+                    <Button variant="ghost" size="icon" className="hidden sm:flex">
                       <User className="h-5 w-5" />
                     </Button>
-                    <Button variant="outline" onClick={logout}>
-                      Sair
+                    <Button variant="outline" onClick={logout} size="sm">
+                      <span className="hidden sm:inline">Sair</span>
+                      <span className="sm:hidden">×</span>
                     </Button>
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center space-x-2">
                   <Link href="/login">
-                    <Button variant="outline" leftIcon={<LogIn className="h-4 w-4" />}>
-                      Entrar
+                    <Button variant="outline" size="sm" leftIcon={<LogIn className="h-4 w-4" />}>
+                      <span className="hidden sm:inline">Entrar</span>
+                      <span className="sm:hidden">Login</span>
                     </Button>
                   </Link>
                   <Link href="/register">
-                    <Button variant="primary">
-                      Cadastrar
+                    <Button variant="primary" size="sm">
+                      <span className="hidden sm:inline">Cadastrar</span>
+                      <span className="sm:hidden">Cadastro</span>
                     </Button>
                   </Link>
                 </div>
@@ -181,8 +183,11 @@ export default function HomePage() {
                   <h3 className="text-lg font-semibold text-blue-900">
                     Mesa {tableNumber || 'N/A'}
                   </h3>
-                  <p className="text-sm text-blue-700">
+                  <p className="text-sm text-blue-700 hidden sm:block">
                     Selecione produtos para adicionar ao pedido desta mesa
+                  </p>
+                  <p className="text-sm text-blue-700 sm:hidden">
+                    Adicionar produtos ao pedido
                   </p>
                 </div>
               </div>
@@ -192,17 +197,17 @@ export default function HomePage() {
 
         {/* Filters */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-4 sm:space-y-0">
             <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
             <div className="flex items-center space-x-4">
               {/* Campo de Busca */}
-              <div className="relative">
+              <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Buscar produtos..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 w-64"
+                  className="pl-10 w-full sm:w-64"
                 />
               </div>
             </div>
@@ -342,7 +347,7 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-16">
         <div className="container-app">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             <div>
               <h3 className="font-semibold mb-4">Lanchonete</h3>
               <p className="text-gray-400 text-sm">
@@ -357,7 +362,7 @@ export default function HomePage() {
                 <p>📍 Rua das Flores, 123 - Centro</p>
               </div>
             </div>
-            <div>
+            <div className="sm:col-span-2 lg:col-span-1">
               <h3 className="font-semibold mb-4">Horário de Funcionamento</h3>
               <div className="space-y-1 text-sm text-gray-400">
                 <p>Segunda a Sexta: 8h às 22h</p>

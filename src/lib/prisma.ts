@@ -10,7 +10,11 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./dev.db';
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: process.env.NODE_ENV === 'development' 
+    ? ['error', 'warn'] 
+    : ['error'],
+});
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
@@ -46,14 +50,19 @@ export const checkDatabaseHealth = async () => {
   }
 };
 
-// Middleware para logging de queries (apenas em desenvolvimento)
-if (process.env.NODE_ENV === 'development') {
+// Middleware para logging de queries (desabilitado por padrão)
+// Para habilitar, defina ENABLE_QUERY_LOGS=true no .env
+if (process.env.NODE_ENV === 'development' && process.env.ENABLE_QUERY_LOGS === 'true') {
   prisma.$use(async (params: any, next: any) => {
     const before = Date.now();
     const result = await next(params);
     const after = Date.now();
     
-    console.log(`🔍 Query ${params.model}.${params.action} took ${after - before}ms`);
+    // Log apenas queries muito lentas (>500ms)
+    if (after - before > 500) {
+      console.log(`⚠️ Very Slow Query: ${params.model}.${params.action} took ${after - before}ms`);
+      console.log(`   Model: ${params.model}, Action: ${params.action}`);
+    }
     
     return result;
   });

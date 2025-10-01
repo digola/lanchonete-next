@@ -33,7 +33,7 @@ export default function AdminUsersPage() {
   const { user, token } = useApiAuth();
   const { success, error } = useToastHelpers();
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'CUSTOMER' | 'STAFF' | 'ADMIN'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'createdAt'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -79,6 +79,7 @@ export default function AdminUsersPage() {
     inactive: users.filter(u => !u.isActive).length,
     clients: users.filter(u => u.role === UserRole.CUSTOMER).length,
     staff: users.filter(u => u.role === UserRole.STAFF).length,
+    managers: users.filter(u => u.role === UserRole.MANAGER).length,
     admins: users.filter(u => u.role === UserRole.ADMIN).length,
   };
 
@@ -86,7 +87,7 @@ export default function AdminUsersPage() {
     setSearchTerm(term);
   };
 
-  const handleRoleFilter = (role: 'all' | 'CUSTOMER' | 'STAFF' | 'ADMIN') => {
+  const handleRoleFilter = (role: 'all' | 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'ADMIN') => {
     setRoleFilter(role);
   };
 
@@ -241,6 +242,8 @@ export default function AdminUsersPage() {
         return 'Customer';
       case UserRole.STAFF:
         return 'Staff';
+      case UserRole.MANAGER:
+        return 'Manager';
       case UserRole.ADMIN:
         return 'Admin';
       default:
@@ -254,6 +257,8 @@ export default function AdminUsersPage() {
         return 'bg-blue-100 text-blue-800';
       case UserRole.STAFF:
         return 'bg-green-100 text-green-800';
+      case UserRole.MANAGER:
+        return 'bg-purple-100 text-purple-800';
       case UserRole.ADMIN:
         return 'bg-red-100 text-red-800';
       default:
@@ -314,6 +319,7 @@ export default function AdminUsersPage() {
               <option value="all">Todos os Roles</option>
               <option value="CUSTOMER">Customers</option>
               <option value="STAFF">Staff</option>
+              <option value="MANAGER">Managers</option>
               <option value="ADMIN">Admins</option>
             </select>
             <select
@@ -339,7 +345,7 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center">
@@ -405,6 +411,20 @@ export default function AdminUsersPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Funcionários</p>
                 <p className="text-lg font-bold text-gray-900">{stats.staff}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <User className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">Managers</p>
+                <p className="text-lg font-bold text-gray-900">{stats.managers}</p>
               </div>
             </div>
           </CardContent>

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:analyze": "ANALYZE=true next build",
+    "build:production": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
@@ -20,12 +22,15 @@
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
+    "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
     "db:setup": "npm run setup && npm run db:generate && npm run db:push && npm run db:seed",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postinstall": "prisma generate",
+    "vercel-build": "prisma generate && prisma migrate deploy && next build"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -52,7 +57,7 @@
     "react-hot-toast": "^2.4.1",
     "recharts": "^2.12.7",
     "sharp": "^0.33.5",
-    "tailwind-merge": "^2.6.0",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.4.14",
     "typescript": "^5.6.3",
     "zod": "^3.24.1",

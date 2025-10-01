@@ -102,6 +102,8 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
         return 'Customer';
       case UserRole.STAFF:
         return 'Staff';
+      case UserRole.MANAGER:
+        return 'Manager';
       case UserRole.ADMIN:
         return 'Admin';
       default:
@@ -115,6 +117,8 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
         return 'bg-blue-100 text-blue-800';
       case UserRole.STAFF:
         return 'bg-green-100 text-green-800';
+      case UserRole.MANAGER:
+        return 'bg-purple-100 text-purple-800';
       case UserRole.ADMIN:
         return 'bg-red-100 text-red-800';
       default:
@@ -229,7 +233,8 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
               disabled={isReadOnly}
             >
               <option value={UserRole.CUSTOMER}>Customer</option>
-              <option value={UserRole.STAFF}>Staff</option> 
+              <option value={UserRole.STAFF}>Staff</option>
+              <option value={UserRole.MANAGER}>Manager</option>
               <option value={UserRole.ADMIN}>Admin</option>
             </select>
             {errors.role && (
