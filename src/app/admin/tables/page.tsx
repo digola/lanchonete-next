@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { TableForm, type TableFormData } from '@/components/admin/forms';
-import { useToast } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -28,7 +28,7 @@ import { Table as TableType, TableStatus, UserRole } from '@/types';
 
 export default function AdminTablesPage() {
   const { user, token } = useApiAuth();
-  const { addToast } = useToast();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'LIVRE' | 'OCUPADA' | 'RESERVADA' | 'MANUTENCAO'>('all');
   const [capacityFilter, setCapacityFilter] = useState<'all' | 'small' | 'medium' | 'large'>('all');
@@ -120,9 +120,9 @@ export default function AdminTablesPage() {
 
       setShowCreateModal(false);
       refetchTables();
-      addToast({ type: 'success', title: 'Mesa criada com sucesso!' });
+      toast.success('Mesa criada com sucesso!');
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao criar mesa' });
+      toast.error(err.message || 'Erro ao criar mesa');
     } finally {
       setIsLoading(false);
     }
@@ -149,9 +149,9 @@ export default function AdminTablesPage() {
       setShowEditModal(false);
       setSelectedTable(null);
       refetchTables();
-      addToast({ type: 'success', title: 'Mesa atualizada com sucesso!' });
+      toast.success('Mesa atualizada com sucesso!');
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao atualizar mesa' });
+      toast.error(err.message || 'Erro ao atualizar mesa');
     } finally {
       setIsLoading(false);
     }
@@ -176,9 +176,9 @@ export default function AdminTablesPage() {
       setShowDeleteConfirm(false);
       setSelectedTable(null);
       refetchTables();
-      addToast({ type: 'success', title: 'Mesa deletada com sucesso!' });
+      toast.success('Mesa deletada com sucesso!');
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao deletar mesa' });
+      toast.error(err.message || 'Erro ao deletar mesa');
     } finally {
       setIsLoading(false);
     }

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { TableStatus, UserRole, Table as TableType } from '@/types';
 import { Table, Edit, Eye, Save, X, Users } from 'lucide-react';
 
@@ -33,7 +33,7 @@ interface TableFormProps {
 }
 
 export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, users = [] }: TableFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
 
   const {
     register,
@@ -69,7 +69,7 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
     try {
       await onSubmit(data);
     } catch (err: any) {
-      error(err.message || 'Erro ao salvar mesa');
+      toast.error(err.message || 'Erro ao salvar mesa');
     }
   };
 

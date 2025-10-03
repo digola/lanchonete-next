@@ -38,6 +38,9 @@ export default function HomePage() {
 
   // Verificar se é staff e se há mesa na URL
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  // Renderizar sempre o mesmo conteúdo no servidor e cliente
+  const shouldShowStaffFeatures = isHydrated && isStaff;
   
   // Buscar dados da mesa se tableId estiver disponível
   const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
@@ -196,7 +199,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="container-app py-8">
         {/* Mesa Info para Staff */}
-        {isHydrated && isStaff && tableId && (
+        {shouldShowStaffFeatures && tableId && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -223,7 +226,7 @@ export default function HomePage() {
             <div className="flex items-center space-x-4">
               <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
               {/* Mesa selecionada para Staff/Manager */}
-              {isHydrated && isStaff && tableId && (
+              {shouldShowStaffFeatures && tableId && (
                 <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                   <span>🪑</span>
                   <span>Mesa {tableNumber || 'N/A'}</span>
@@ -232,7 +235,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center space-x-4">
               {/* Botão de seleção de mesa para Staff/Manager */}
-              {isHydrated && isStaff && (
+              {shouldShowStaffFeatures && (
                 <Button
                   variant="outline"
                   onClick={() => router.push('/table-selection')}

@@ -7,7 +7,7 @@ import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { Product, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { 
@@ -51,7 +51,7 @@ export function ProductForm({
   isLoading = false,
   mode 
 }: ProductFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
   
   const [formData, setFormData] = useState<ProductFormData>({
     name: product?.name || '',
@@ -117,15 +117,15 @@ export function ProductForm({
     e.preventDefault();
     
     if (!validateForm()) {
-      error('Por favor, corrija os erros no formulário');
+      toast.error('Por favor, corrija os erros no formulário');
       return;
     }
 
     try {
       await onSubmit(formData);
-      success(mode === 'create' ? 'Produto criado com sucesso!' : 'Produto atualizado com sucesso!');
+      toast.success(mode === 'create' ? 'Produto criado com sucesso!' : 'Produto atualizado com sucesso!');
     } catch (err) {
-      error('Erro ao salvar produto');
+      toast.error('Erro ao salvar produto');
       console.error(err);
     }
   };

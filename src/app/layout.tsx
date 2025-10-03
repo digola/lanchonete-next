@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
-import { ToastProvider } from '@/components/ui/Toast';
+// import { ClientToastProvider } from '@/components/ui/ClientToastProvider';
 
 const inter = Inter({ 
   subsets: ['latin'],
@@ -48,11 +48,9 @@ export default function RootLayout({
         <meta name="theme-color" content="#f97316" />
       </head>
       <body className={`${inter.className} antialiased bg-gray-50`}>
-        <ToastProvider>
-          <div id="root">
-            {children}
-          </div>
-        </ToastProvider>
+        <div id="root">
+          {children}
+        </div>
       </body>
     </html>
   );

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { useApiAuth } from '@/hooks/useApiAuth';
+import { useApiAuthBackup as useApiAuth } from '@/hooks/useApiAuthBackup';
 import { useApi } from '@/hooks/useApi';
 import { UserRole, Order, OrderStatus, Table } from '@/types';
 import { 
@@ -25,7 +25,6 @@ import {
   Printer,
   CreditCard,
   DollarSign,
-  Smartphone,
   Trash2,
   User,
   Plus,
@@ -33,6 +32,29 @@ import {
   X
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+
+// Função utilitária para cálculos monetários precisos
+const preciseMoneyCalculation = {
+  // Converter para centavos (inteiro)
+  toCents: (value: number): number => Math.round(value * 100),
+  
+  // Converter de centavos para reais
+  fromCents: (cents: number): number => cents / 100,
+  
+  // Somar valores monetários
+  add: (a: number, b: number): number => {
+    return preciseMoneyCalculation.fromCents(
+      preciseMoneyCalculation.toCents(a) + preciseMoneyCalculation.toCents(b)
+    );
+  },
+  
+  // Subtrair valores monetários
+  subtract: (a: number, b: number): number => {
+    return preciseMoneyCalculation.fromCents(
+      Math.max(0, preciseMoneyCalculation.toCents(a) - preciseMoneyCalculation.toCents(b))
+    );
+  }
+};
 
 export default function ExpedicaoPage() {
   const { user, isAuthenticated, isLoading } = useApiAuth();
@@ -43,14 +65,25 @@ export default function ExpedicaoPage() {
   // Estados para modais de caixa
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showClearTableModal, setShowClearTableModal] = useState(false);
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'PIX' | 'CARTAO' | 'DINHEIRO'>('DINHEIRO');
-  const [splitPayment, setSplitPayment] = useState(false);
-  const [splitValue, setSplitValue] = useState(0);
-  const [calculatorValue, setCalculatorValue] = useState<string>('0');
-  const [calculatorExpression, setCalculatorExpression] = useState<string>('');
+  // Estados antigos removidos - usando apenas o novo modal de pagamento
+  
+  // Estados para o modal de pagamento (igual ao staff)
+  const [paymentInputValue, setPaymentInputValue] = useState<string>('');
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'PIX' | 'CARTAO' | 'DINHEIRO' | ''>('');
+  const [paymentSession, setPaymentSession] = useState<{
+    id: string;
+    orderId: string;
+    originalTotal: number;
+    currentTotal: number;
+    payments: Array<{
+      method: 'PIX' | 'CARTAO' | 'DINHEIRO';
+      amount: number;
+      timestamp: Date;
+    }>;
+    isActive: boolean;
+  } | null>(null);
 
   // Buscar pedidos
   const { data: ordersResponse, loading: ordersLoading, execute: refetchOrders } = useApi<{ 
@@ -181,106 +214,192 @@ export default function ExpedicaoPage() {
   };
 
   // Funções para modais
-  const openDetailsModal = (order: Order) => {
-    setSelectedOrder(order);
-    setShowDetailsModal(true);
-  };
-
-  const closeDetailsModal = () => {
-    setShowDetailsModal(false);
-    setSelectedOrder(null);
-  };
 
   const openPaymentModal = (order: Order) => {
     setSelectedOrder(order);
+    
+    // Criar nova sessão de pagamento (igual ao staff)
+    const newSession = {
+      id: `payment_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      orderId: order.id,
+      originalTotal: order.total,
+      currentTotal: order.total,
+      payments: [],
+      isActive: true
+    };
+    
+    setPaymentSession(newSession);
+    setSelectedOrder(order);
+    setPaymentInputValue('');
+    setSelectedPaymentMethod('');
     setShowPaymentModal(true);
   };
 
   const closePaymentModal = () => {
     setShowPaymentModal(false);
     setSelectedOrder(null);
-    setPaymentMethod('DINHEIRO');
-    setSplitPayment(false);
-    setSplitValue(0);
-    setCalculatorValue('0');
-    setCalculatorExpression('');
+    setPaymentInputValue('');
+    setSelectedPaymentMethod('');
+    setPaymentSession(null);
   };
 
-  // Funções da calculadora
-  const handleCalculatorClick = (value: string) => {
-    if (value === 'C') {
-      setCalculatorValue('0');
-      setCalculatorExpression('');
-    } else if (value === '←' || value === 'Backspace') {
-      setCalculatorValue(prev => prev.length > 1 ? prev.slice(0, -1) : '0');
-    } else if (value === '=') {
-      // Avaliar expressão
-      try {
-        const result = eval(calculatorValue);
-        setCalculatorExpression(calculatorValue + ' =');
-        setCalculatorValue(result.toString());
-      } catch {
-        setCalculatorValue('Erro');
+  // Funções do modal de pagamento (igual ao staff)
+  const handlePaymentInputChange = (value: string) => {
+    console.log('🔍 Input Change:', { originalValue: value, currentState: paymentInputValue });
+    console.log('🔍 Modal State:', { showPaymentModal, selectedOrder: !!selectedOrder, paymentSession: !!paymentSession });
+    
+    // Se o valor estiver vazio, permitir
+    if (value === '') {
+      setPaymentInputValue('');
+      return;
+    }
+    
+    // Permitir números, ponto e vírgula decimal
+    let cleanValue = value.replace(/[^0-9.,]/g, '');
+    
+    // Verificar se há múltiplos separadores decimais antes de converter
+    const commaCount = (cleanValue.match(/,/g) || []).length;
+    const dotCount = (cleanValue.match(/\./g) || []).length;
+    
+    if (commaCount > 1 || dotCount > 1 || (commaCount > 0 && dotCount > 0)) {
+      console.log('❌ Múltiplos separadores decimais rejeitados:', { commaCount, dotCount });
+      return;
+    }
+    
+    // Converter vírgula para ponto (padrão brasileiro)
+    cleanValue = cleanValue.replace(',', '.');
+    
+    // Não permitir que comece com ponto
+    if (cleanValue.startsWith('.')) {
+      cleanValue = '0' + cleanValue;
+    }
+    
+    // Limitar a 2 casas decimais
+    const parts = cleanValue.split('.');
+    if (parts[1] && parts[1].length > 2) {
+      console.log('❌ Mais de 2 casas decimais rejeitadas:', { decimalPart: parts[1], length: parts[1].length });
+      return; // Não permitir mais de 2 casas decimais
+    }
+    
+    // Não permitir valores muito grandes (mais de 999999.99)
+    const numericValue = parseFloat(cleanValue);
+    if (isNaN(numericValue)) {
+      console.log('❌ Valor inválido (NaN)');
+      return;
+    }
+    
+    if (numericValue > 999999.99) {
+      console.log('❌ Valor muito grande rejeitado:', { numericValue });
+      return;
+    }
+    
+    console.log('✅ Valor aceito:', { originalValue: value, cleanValue, numericValue });
+    setPaymentInputValue(cleanValue);
+  };
+
+  const handlePaymentMethodSelect = (method: 'PIX' | 'CARTAO' | 'DINHEIRO') => {
+    if (!paymentSession) return;
+    
+    setSelectedPaymentMethod(method);
+    
+    // Usar função utilitária para cálculos monetários precisos
+    console.log('🔍 Processando pagamento:', { paymentInputValue, type: typeof paymentInputValue });
+    
+    // Garantir que o valor não tenha vírgula antes do parseFloat
+    const cleanPaymentValue = paymentInputValue.replace(',', '.');
+    const numericValue = parseFloat(cleanPaymentValue) || 0;
+    
+    console.log('🔍 Valor processado:', { cleanPaymentValue, numericValue });
+    
+    // Adicionar pagamento à sessão
+    const newPayment = {
+      method,
+      amount: numericValue,
+      timestamp: new Date()
+    };
+    
+    // Calcular novo total usando função utilitária
+    const newTotal = preciseMoneyCalculation.subtract(paymentSession.currentTotal, numericValue);
+    
+    // Debug logs
+    console.log('🔍 Debug Pagamento:', {
+      method,
+      numericValue,
+      currentTotal: paymentSession.currentTotal,
+      newTotal,
+      isZero: newTotal === 0,
+      isLessThanZero: newTotal < 0,
+      calculation: `${paymentSession.currentTotal} - ${numericValue} = ${newTotal}`
+    });
+    
+    const updatedSession = {
+      ...paymentSession,
+      currentTotal: newTotal,
+      payments: [...paymentSession.payments, newPayment]
+    };
+    
+    setPaymentSession(updatedSession);
+    setPaymentInputValue('');
+    setSelectedPaymentMethod('');
+  };
+
+  const processTablePayment = async () => {
+    console.log('🔍 Processando pagamento:', { paymentSession, currentTotal: paymentSession?.currentTotal });
+    
+    if (!paymentSession || paymentSession.currentTotal > 0.01) {
+      console.log('❌ Pagamento não pode ser processado:', { 
+        hasSession: !!paymentSession, 
+        currentTotal: paymentSession?.currentTotal 
+      });
+      return;
+    }
+    
+    try {
+      const requestBody = {
+        paymentSession: {
+          payments: paymentSession.payments,
+          totalPaid: paymentSession.originalTotal
+        },
+        totalPaid: paymentSession.originalTotal
+      };
+      
+      console.log('🔍 Enviando pagamento:', { 
+        orderId: paymentSession.orderId, 
+        requestBody,
+        payments: paymentSession.payments,
+        originalTotal: paymentSession.originalTotal
+      });
+      
+      const response = await fetch(`/api/orders/${paymentSession.orderId}/payment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        console.error('❌ Erro na API:', { status: response.status, statusText: response.statusText, errorData });
+        throw new Error(`Erro ${response.status}: ${response.statusText}`);
       }
-    } else if (['+', '-', '*', '/'].includes(value)) {
-      setCalculatorValue(prev => prev + value);
-    } else if (value === '.') {
-      if (!calculatorValue.split(/[+\-*/]/).pop()?.includes('.')) {
-        setCalculatorValue(prev => prev + value);
-      }
-    } else if (/^[0-9]$/.test(value)) {
-      setCalculatorValue(prev => prev === '0' ? value : prev + value);
-    } else if (value === 'TOTAL') {
-      // Adicionar o total do pedido à expressão
-      setCalculatorValue(prev => prev === '0' ? selectedOrder?.total.toFixed(2) || '0' : prev + selectedOrder?.total.toFixed(2));
+
+      const result = await response.json();
+      console.log('✅ Pagamento processado com sucesso:', result);
+      
+      closePaymentModal();
+      refetchOrders();
+    } catch (error) {
+      console.error('❌ Erro ao processar pagamento:', error);
+      alert(`Erro ao processar pagamento: ${error.message || error}`);
     }
   };
 
-  const getCalculatedChange = () => {
-    const paid = parseFloat(calculatorValue) || 0;
-    const total = selectedOrder?.total || 0;
-    return Math.max(0, paid - total);
-  };
+  // Funções da calculadora (mantidas para compatibilidade)
+  // Função da calculadora antiga removida
 
-  const getRemainingAmount = () => {
-    const paid = parseFloat(calculatorValue) || 0;
-    const total = selectedOrder?.total || 0;
-    return Math.max(0, total - paid);
-  };
-
-  // Event listener para teclado físico
-  useEffect(() => {
-    if (!showPaymentModal) return;
-
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Prevenir ações padrão para teclas da calculadora
-      if (/^[0-9.]$/.test(e.key) || e.key === 'Backspace' || e.key === 'Delete' || e.key === 'Escape') {
-        e.preventDefault();
-      }
-
-      if (e.key === 'Escape') {
-        closePaymentModal();
-      } else if (e.key === 'Delete' || e.key === 'c' || e.key === 'C') {
-        setCalculatorValue('0');
-        setCalculatorExpression('');
-      } else if (e.key === 'Backspace') {
-        handleCalculatorClick('Backspace');
-      } else if (e.key === 'Enter' || e.key === '=') {
-        // Se tem operador, calcular. Senão, processar pagamento
-        if (/[+\-*/]/.test(calculatorValue)) {
-          handleCalculatorClick('=');
-        } else if (paymentMethod && parseFloat(calculatorValue) > 0) {
-          processPayment();
-        }
-      } else if (/^[0-9.+\-*/]$/.test(e.key)) {
-        handleCalculatorClick(e.key);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showPaymentModal, calculatorValue, paymentMethod]);
+  // Funções da calculadora antiga removidas - usando apenas o novo modal de pagamento
 
   const openClearTableModal = (order: Order) => {
     setSelectedOrder(order);
@@ -408,37 +527,7 @@ export default function ExpedicaoPage() {
     );
   };
 
-  // Função para processar pagamento
-  const processPayment = async () => {
-    if (!selectedOrder) return;
-
-    try {
-      const response = await fetch(`/api/orders/${selectedOrder.id}/payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        },
-        body: JSON.stringify({
-          paymentMethod,
-          paymentAmount: selectedOrder.total,
-          splitPayment,
-          splitValue: splitPayment ? splitValue : selectedOrder.total
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao processar pagamento');
-      }
-
-      alert('Pagamento processado com sucesso!');
-      closePaymentModal();
-      refetchOrders();
-    } catch (error) {
-      console.error('Erro ao processar pagamento:', error);
-      alert('Erro ao processar pagamento');
-    }
-  };
+  // Função para processar pagamento antiga removida - usando apenas processTablePayment
 
   // Função para limpar mesa
   const clearTable = async () => {
@@ -961,7 +1050,7 @@ export default function ExpedicaoPage() {
                             )}
                             
                             {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
-                            {order.status !== OrderStatus.FINALIZADO && (
+                            {order.status !== OrderStatus.FINALIZADO && !order.isPaid && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -971,6 +1060,20 @@ export default function ExpedicaoPage() {
                                 <CreditCard className="h-4 w-4 mr-1 sm:mr-2" />
                                 <span className="hidden sm:inline">Receber Pedido</span>
                                 <span className="sm:hidden">Receber</span>
+                              </Button>
+                            )}
+                            
+                            {/* Botão Liberar Mesa - para pedidos pagos de mesa */}
+                            {order.isPaid && order.table && order.status !== OrderStatus.FINALIZADO && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 col-span-2 sm:col-span-1 font-semibold"
+                                onClick={() => openClearTableModal(order)}
+                              >
+                                <CheckCircle className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Liberar Mesa</span>
+                                <span className="sm:hidden">Liberar</span>
                               </Button>
                             )}
                             
@@ -990,17 +1093,7 @@ export default function ExpedicaoPage() {
                           </>
                         )}
                         
-                        {/* Botões sempre visíveis - Ver Detalhes e Imprimir */}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openDetailsModal(order)}
-                        >
-                          <Eye className="h-4 w-4 mr-1 sm:mr-2" />
-                          <span className="hidden sm:inline">Ver Detalhes</span>
-                          <span className="sm:hidden">Detalhes</span>
-                        </Button>
-                        
+                        {/* Botões sempre visíveis - Imprimir */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -1020,352 +1113,114 @@ export default function ExpedicaoPage() {
         </div>
       </div>
 
-      {/* Modal de Detalhes do Pedido */}
-      {showDetailsModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="flex justify-between items-center p-4 sm:p-6 border-b bg-gradient-to-r from-blue-500 to-indigo-600">
-              <h3 className="text-lg sm:text-xl font-bold text-white">Detalhes do Pedido #{selectedOrder.id.slice(-8)}</h3>
-              <Button variant="ghost" onClick={closeDetailsModal} className="text-white hover:bg-white/20">
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            {/* Content - scrollável */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
-              <div className="space-y-6">
-                {/* Card de Informações Principais */}
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-4 sm:p-6 rounded-xl border-2 border-blue-200">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+      {/* Modal de Pagamento - Cópia do Staff */}
+      {showPaymentModal && selectedOrder && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+            {/* Header do Modal */}
+            <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
+              <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-blue-500 rounded-lg">
-                        <User className="h-5 w-5 text-white" />
+                  <div className="bg-white/20 p-2 rounded-lg">
+                    <CreditCard className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                        <p className="text-xs text-blue-700 font-medium">Cliente</p>
-                        <p className="font-bold text-gray-900">{selectedOrder.user?.name || 'N/A'}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${selectedOrder.table ? 'bg-gray-500' : 'bg-orange-500'}`}>
-                        {selectedOrder.table ? <Package className="h-5 w-5 text-white" /> : <ShoppingCart className="h-5 w-5 text-white" />}
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-700 font-medium">{selectedOrder.table ? 'Mesa' : 'Local'}</p>
-                        <p className={`font-bold ${selectedOrder.table ? 'text-gray-900' : 'text-orange-600'}`}>
+                    <h2 className="text-xl font-bold text-white">Processar Pagamento</h2>
+                    <p className="text-green-100 text-sm">
                           {selectedOrder.table 
                             ? `Mesa ${selectedOrder.table.number}` 
-                            : `Balcão ${new Date(selectedOrder.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                          }
+                        : `Balcão`} - Pedido #{selectedOrder.id.slice(-8)}
                         </p>
                       </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-purple-500 rounded-lg">
-                        <Clock className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-700 font-medium">Data/Hora</p>
-                        <p className="font-bold text-gray-900 text-sm">{new Date(selectedOrder.createdAt).toLocaleString('pt-BR')}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="flex items-center space-x-3">
-                      <div className="p-2 bg-indigo-500 rounded-lg">
-                        <AlertCircle className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-blue-700 font-medium">Status</p>
-                        <Badge className={getStatusColor(selectedOrder.status)}>
-                          {getStatusLabel(selectedOrder.status)}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Card de Pagamento */}
-                <div className={`p-4 sm:p-6 rounded-xl border-2 ${
-                  selectedOrder.isPaid 
-                    ? 'bg-gradient-to-br from-green-50 to-emerald-50 border-green-200' 
-                    : 'bg-gradient-to-br from-yellow-50 to-amber-50 border-yellow-200'
-                }`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-lg ${selectedOrder.isPaid ? 'bg-green-500' : 'bg-yellow-500'}`}>
-                        <CreditCard className="h-5 w-5 text-white" />
-                      </div>
-                      <div>
-                        <p className={`text-xs font-medium ${selectedOrder.isPaid ? 'text-green-700' : 'text-yellow-700'}`}>
-                          Pagamento
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <Badge className={selectedOrder.isPaid ? 'bg-green-100 text-green-800 border-green-200' : 'bg-yellow-100 text-yellow-800 border-yellow-200'}>
-                            {selectedOrder.isPaid ? '✓ Pago' : '⏳ Pendente'}
-                          </Badge>
-                          {selectedOrder.isPaid && (
-                            <span className="text-xs text-green-600 font-medium">
-                              {selectedOrder.paymentMethod}
-                            </span>
-                          )}
-                        </div>
-                        {selectedOrder.isPaid && selectedOrder.paymentProcessedAt && (
-                          <p className="text-xs text-gray-600 mt-1">
-                            {new Date(selectedOrder.paymentProcessedAt).toLocaleString('pt-BR')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              
-                {/* Itens do Pedido */}
-                <div>
-                  <h4 className="font-bold text-gray-900 mb-3 flex items-center">
-                    <Package className="h-5 w-5 mr-2 text-blue-600" />
-                    Itens do Pedido ({selectedOrder.items.length})
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200 hover:shadow-md transition-shadow">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold">
-                            {item.quantity}
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{item.product?.name || 'Produto'}</p>
-                            <p className="text-xs text-gray-600">{formatCurrency(item.price)} cada</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-lg font-bold text-blue-600">{formatCurrency(item.price * item.quantity)}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              
-                {/* Resumo Total */}
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-600 p-6 rounded-xl">
-                  <div className="flex justify-between items-center">
-                    <span className="text-lg font-bold text-white">TOTAL DO PEDIDO</span>
-                    <span className="text-3xl font-bold text-white">{formatCurrency(selectedOrder.total)}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Footer fixo */}
-            <div className="border-t p-4 sm:p-6 bg-gray-50">
-              <div className="flex flex-col sm:flex-row gap-3 sm:justify-between sm:items-center">
-                <div className="text-xs sm:text-sm text-gray-600 hidden sm:block">
-                  <p>📋 Visualização completa do pedido</p>
-                </div>
-                <Button onClick={closeDetailsModal} className="w-full sm:w-auto sm:px-8 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white font-bold">
-                  Fechar
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal de Recebimento de Pagamento com Calculadora */}
-      {showPaymentModal && selectedOrder && (
-        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-2 sm:p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col">
-            {/* Header com Gradiente */}
-            <div className="bg-gradient-to-r from-green-500 to-emerald-600 p-4 sm:p-6 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-2xl font-bold text-white flex items-center">
-                    💰 Receber Pagamento
-                  </h3>
-                  <p className="text-green-100 text-sm mt-1">
-                    Pedido #{selectedOrder.id.slice(-8)} - {selectedOrder.table 
-                      ? `Mesa ${selectedOrder.table.number}` 
-                      : `Balcão ${new Date(selectedOrder.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                    }
-                  </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={closePaymentModal}
-                  className="text-white hover:bg-white/20 rounded-full"
+                  className="text-white hover:bg-white/20"
                 >
-                  <X className="h-6 w-6" />
+                  <X className="h-5 w-5" />
               </Button>
               </div>
             </div>
 
-            {/* Content com scroll */}
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
-              {/* Total a Pagar */}
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-3 sm:p-4 rounded-xl border-2 border-gray-200">
+            {/* Conteúdo do Modal */}
+            <div className="p-6 overflow-y-auto max-h-[60vh]">
+              <div className="space-y-6">
+                {/* Total do Pedido */}
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-blue-200">
               <div className="text-center">
-                  <p className="text-xs sm:text-sm font-medium text-gray-600 mb-1">Total a Receber</p>
-                  <p className="text-2xl sm:text-3xl font-bold text-gray-900">
-                    {formatCurrency(selectedOrder.total)}
-                  </p>
+                    <p className="text-lg font-semibold text-blue-800 mb-2">Total do Pedido</p>
+                    <p className="text-4xl font-bold text-blue-900">
+                      {formatCurrency(paymentSession?.originalTotal || 0)}
+                    </p>
+                    {paymentSession && paymentSession.currentTotal < paymentSession.originalTotal && (
+                      <p className="text-sm text-blue-600 mt-1">
+                        Valor a pagar: {formatCurrency(paymentSession.currentTotal)}
+                      </p>
+                    )}
                 </div>
-              </div>
-              
-              {/* Display da Calculadora */}
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-3 sm:p-4 rounded-xl border-2 border-blue-200">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-medium text-blue-800">Valor Pago</p>
-                  <p className="text-xs text-blue-600 italic">💡 Use o teclado numérico</p>
-                </div>
-                <div className="bg-white p-3 sm:p-4 rounded-lg border-2 border-blue-300 mb-3">
-                  {calculatorExpression && (
-                    <p className="text-xs sm:text-sm text-gray-500 text-right mb-1">{calculatorExpression}</p>
-                  )}
-                  <p className="text-2xl sm:text-3xl font-bold text-right text-blue-900">
-                    {calculatorValue}
-                  </p>
-                </div>
-
-                {/* Calculadora */}
-                <div className="grid grid-cols-4 gap-2 sm:gap-3">
-                  {['7', '8', '9', '←'].map((btn) => (
-                    <button
-                      key={btn}
-                      onClick={() => handleCalculatorClick(btn)}
-                      className="p-3 sm:p-4 bg-white border-2 border-gray-300 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-50 hover:border-blue-400 transition-all active:scale-95"
-                    >
-                      {btn}
-                    </button>
-                  ))}
-                  {['4', '5', '6', 'C'].map((btn) => (
-                    <button
-                      key={btn}
-                      onClick={() => handleCalculatorClick(btn)}
-                      className="p-3 sm:p-4 bg-white border-2 border-gray-300 rounded-lg font-bold text-base sm:text-lg hover:bg-blue-50 hover:border-blue-400 transition-all active:scale-95"
-                    >
-                      {btn}
-                    </button>
-                  ))}
-                  {['1', '2', '3', '+'].map((btn) => (
-                    <button
-                      key={btn}
-                      onClick={() => handleCalculatorClick(btn)}
-                      className={`p-3 sm:p-4 border-2 rounded-lg font-bold text-base sm:text-lg transition-all active:scale-95 ${
-                        btn === '+' 
-                          ? 'bg-orange-500 text-white border-orange-600 hover:bg-orange-600'
-                          : 'bg-white border-gray-300 hover:bg-blue-50 hover:border-blue-400'
-                      }`}
-                    >
-                      {btn}
-                    </button>
-                  ))}
-                  {['0', '.', '-', '='].map((btn) => (
-                    <button
-                      key={btn}
-                      onClick={() => handleCalculatorClick(btn)}
-                      className={`p-3 sm:p-4 border-2 rounded-lg font-bold text-base sm:text-lg transition-all active:scale-95 ${
-                        btn === '-' 
-                          ? 'bg-orange-500 text-white border-orange-600 hover:bg-orange-600'
-                          : btn === '='
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-blue-600 hover:from-blue-600 hover:to-indigo-700'
-                          : 'bg-white border-gray-300 hover:bg-blue-50 hover:border-blue-400'
-                      }`}
-                    >
-                      {btn}
-                    </button>
-                  ))}
                 </div>
                 
-                {/* Botões Especiais */}
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  <button
-                    onClick={() => {
-                      setCalculatorValue(selectedOrder.total.toFixed(2));
-                      setCalculatorExpression('');
-                    }}
-                    className="p-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white border-2 border-green-600 rounded-lg font-bold text-xs sm:text-sm hover:from-green-600 hover:to-emerald-700 transition-all active:scale-95"
-                  >
-                    💰 Valor Exato
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCalculatorValue(`${selectedOrder.total.toFixed(2)}-`);
-                      setCalculatorExpression('Total -');
-                    }}
-                    className="p-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white border-2 border-blue-600 rounded-lg font-bold text-xs sm:text-sm hover:from-blue-600 hover:to-indigo-700 transition-all active:scale-95"
-                  >
-                    🧮 Total - Pago
-                  </button>
+                {/* Input de Valor */}
+                <div className="space-y-4">
+                  <label className="block text-lg font-semibold text-gray-900">
+                    Valor a Pagar
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">💰</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={paymentInputValue}
+                      onChange={(e) => handlePaymentInputChange(e.target.value)}
+                      className="w-full pl-12 pr-4 py-4 text-2xl font-bold text-center border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 bg-white text-gray-900"
+                      autoFocus
+                      style={{ pointerEvents: 'auto', userSelect: 'auto' }}
+                    />
                 </div>
               </div>
 
-              {/* Informações de Pagamento */}
-              {parseFloat(calculatorValue) > 0 && (
-                <div className="space-y-2">
-                  {/* Falta Pagar (se pagamento parcial) */}
-                  {getRemainingAmount() > 0 && (
-                    <div className="bg-gradient-to-r from-red-50 to-rose-50 border-2 border-red-300 p-3 sm:p-4 rounded-xl animate-fadeIn">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-2xl sm:text-3xl">⚠️</span>
-                          <span className="font-bold text-red-800 text-sm sm:text-base">Falta Pagar:</span>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-bold text-red-700">
-                          {formatCurrency(getRemainingAmount())}
+                {/* Status do Pagamento */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span className="font-semibold text-gray-700">Valor Pago:</span>
+                    <span className="text-xl font-bold text-green-600">
+                      {formatCurrency(paymentSession ? 
+                        paymentSession.payments.reduce((total, payment) => 
+                          preciseMoneyCalculation.add(total, payment.amount), 0) : 0)}
+                        </span>
+                      </div>
+                  
+                  <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                    <span className="font-semibold text-gray-700">Restante:</span>
+                    <span className={`text-xl font-bold ${(paymentSession?.currentTotal || 0) > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {formatCurrency(paymentSession?.currentTotal || 0)}
                         </span>
                       </div>
                     </div>
-                  )}
 
-                  {/* Troco (se pagamento for maior que o total) */}
-                  {paymentMethod === 'DINHEIRO' && getCalculatedChange() > 0 && (
-                    <div className="bg-gradient-to-r from-yellow-50 to-amber-50 border-2 border-yellow-300 p-3 sm:p-4 rounded-xl animate-fadeIn">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-2xl sm:text-3xl">💰</span>
-                          <span className="font-bold text-yellow-800 text-sm sm:text-base">Troco:</span>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-bold text-yellow-700">
-                          {formatCurrency(getCalculatedChange())}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Pagamento Completo */}
-                  {getRemainingAmount() === 0 && getCalculatedChange() === 0 && (
-                    <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 p-3 sm:p-4 rounded-xl animate-fadeIn">
-                      <div className="flex justify-center items-center space-x-2">
-                        <span className="text-2xl sm:text-3xl">✅</span>
-                        <span className="font-bold text-green-800 text-sm sm:text-base">Pagamento Exato!</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Método de Pagamento - Cards */}
-              <div>
-                <label className="block text-xs sm:text-sm font-semibold text-gray-700 mb-2">
+                {/* Seleção do Método de Pagamento */}
+                {paymentSession && paymentSession.currentTotal > 0.01 && (
+                  <div className="space-y-4">
+                    <label className="block text-lg font-semibold text-gray-900">
                   Método de Pagamento
                   </label>
-                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                    <div className="grid grid-cols-3 gap-4">
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('PIX')}
-                    className={`p-3 sm:p-4 rounded-xl border-2 transition-all ${
-                      paymentMethod === 'PIX'
+                        onClick={() => handlePaymentMethodSelect('PIX')}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          selectedPaymentMethod === 'PIX'
                         ? 'border-green-500 bg-green-50 shadow-lg scale-105'
                         : 'border-gray-200 bg-white hover:border-green-300 hover:shadow-md'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-2xl sm:text-3xl mb-1">💳</div>
-                      <p className={`text-xs sm:text-sm font-semibold ${
-                        paymentMethod === 'PIX' ? 'text-green-700' : 'text-gray-700'
+                          <div className="text-3xl mb-2">💳</div>
+                          <p className={`font-semibold ${
+                            selectedPaymentMethod === 'PIX' ? 'text-green-700' : 'text-gray-700'
                       }`}>
                         PIX
                       </p>
@@ -1374,17 +1229,17 @@ export default function ExpedicaoPage() {
 
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('CARTAO')}
-                    className={`p-3 sm:p-4 rounded-xl border-2 transition-all ${
-                      paymentMethod === 'CARTAO'
+                        onClick={() => handlePaymentMethodSelect('CARTAO')}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          selectedPaymentMethod === 'CARTAO'
                         ? 'border-blue-500 bg-blue-50 shadow-lg scale-105'
                         : 'border-gray-200 bg-white hover:border-blue-300 hover:shadow-md'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-2xl sm:text-3xl mb-1">💳</div>
-                      <p className={`text-xs sm:text-sm font-semibold ${
-                        paymentMethod === 'CARTAO' ? 'text-blue-700' : 'text-gray-700'
+                          <div className="text-3xl mb-2">💳</div>
+                          <p className={`font-semibold ${
+                            selectedPaymentMethod === 'CARTAO' ? 'text-blue-700' : 'text-gray-700'
                       }`}>
                         Cartão
                       </p>
@@ -1393,17 +1248,17 @@ export default function ExpedicaoPage() {
 
                   <button
                     type="button"
-                    onClick={() => setPaymentMethod('DINHEIRO')}
-                    className={`p-3 sm:p-4 rounded-xl border-2 transition-all ${
-                      paymentMethod === 'DINHEIRO'
+                        onClick={() => handlePaymentMethodSelect('DINHEIRO')}
+                        className={`p-4 rounded-xl border-2 transition-all ${
+                          selectedPaymentMethod === 'DINHEIRO'
                         ? 'border-yellow-500 bg-yellow-50 shadow-lg scale-105'
                         : 'border-gray-200 bg-white hover:border-yellow-300 hover:shadow-md'
                     }`}
                   >
                     <div className="text-center">
-                      <div className="text-2xl sm:text-3xl mb-1">💵</div>
-                      <p className={`text-xs sm:text-sm font-semibold ${
-                        paymentMethod === 'DINHEIRO' ? 'text-yellow-700' : 'text-gray-700'
+                          <div className="text-3xl mb-2">💵</div>
+                          <p className={`font-semibold ${
+                            selectedPaymentMethod === 'DINHEIRO' ? 'text-yellow-700' : 'text-gray-700'
                       }`}>
                         Dinheiro
                       </p>
@@ -1411,32 +1266,82 @@ export default function ExpedicaoPage() {
                   </button>
                 </div>
               </div>
-            </div>
+                )}
 
-            {/* Footer fixo */}
-            <div className="bg-gray-50 p-4 sm:p-6 rounded-b-2xl border-t border-gray-200 flex-shrink-0">
-              <div className="text-center mb-3 hidden sm:block">
-                <p className="text-xs text-gray-500">
-                  💡 Use o teclado numérico ou clique nos botões • "Total - Pago" calcula o que falta receber
-                </p>
+                {/* Histórico de Pagamentos */}
+                {paymentSession && paymentSession.payments.length > 0 && (
+                  <div className="space-y-3">
+                    <h3 className="text-lg font-semibold text-gray-900">Pagamentos Realizados</h3>
+                    <div className="space-y-2">
+                      {paymentSession.payments.map((payment, index) => (
+                        <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg">
+                              {payment.method === 'PIX' ? '📱' : payment.method === 'CARTAO' ? '💳' : '💰'}
+                            </span>
+                            <span className="font-medium">{payment.method}</span>
+            </div>
+                          <span className="font-bold text-green-600">
+                            {formatCurrency(payment.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Mensagem de Status */}
+                {paymentSession && paymentSession.currentTotal > 0.01 && (
+                  <div className="bg-yellow-50 border-2 border-yellow-300 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">⚠️</span>
+                      <span className="font-semibold text-yellow-800">
+                        Ainda falta {formatCurrency(paymentSession.currentTotal)} para completar o pagamento. Selecione um método para pagar o restante.
+                      </span>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
+                  </div>
+                )}
+
+                {paymentSession && paymentSession.currentTotal <= 0.01 && paymentSession.payments.length > 0 && (
+                  <div className="bg-green-50 border-2 border-green-300 p-4 rounded-xl">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-2xl">✅</span>
+                      <span className="font-semibold text-green-800">
+                        Pagamento completo! Pronto para processar.
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {/* Footer do Modal */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {paymentSession && paymentSession.currentTotal <= 0.01 && paymentSession.payments.length > 0 && (
+                    <span>Pronto para processar pagamento</span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-3">
                 <Button
                   variant="outline"
                   onClick={closePaymentModal}
-                  className="w-full sm:flex-1 py-3 font-semibold order-2 sm:order-1"
+                    className="px-6 py-2"
                 >
                   Cancelar
                 </Button>
-                <Button
-                  onClick={processPayment}
-                  disabled={!paymentMethod || parseFloat(calculatorValue) <= 0}
-                  className="w-full sm:flex-1 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-base shadow-lg disabled:opacity-50 disabled:cursor-not-allowed order-1 sm:order-2"
-                >
-                  <CheckCircle className="h-5 w-5 mr-2" />
-                  <span className="hidden sm:inline">Confirmar Pagamento</span>
-                  <span className="sm:hidden">Confirmar</span>
-                </Button>
+                {!selectedOrder?.isPaid && (
+                  <Button
+                    onClick={processTablePayment}
+                    disabled={(paymentSession?.currentTotal || 0) > 0.01 || !paymentSession || paymentSession.payments.length === 0}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <CreditCard className="h-4 w-4 mr-2" />
+                    Processar Pagamento
+                  </Button>
+                )}
+                </div>
               </div>
             </div>
           </div>
@@ -1450,21 +1355,40 @@ export default function ExpedicaoPage() {
             {/* Header */}
             <div className="flex justify-between items-center p-4 sm:p-6 border-b bg-gradient-to-r from-red-500 to-rose-600">
               <h3 className="text-lg sm:text-xl font-bold text-white">Limpar Mesa</h3>
-              <Button variant="ghost" onClick={closeClearTableModal} className="text-white hover:bg-white/20">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeClearTableModal}
+                className="text-white hover:bg-white/20 rounded-full"
+              >
                 <X className="h-5 w-5" />
               </Button>
             </div>
             
             {/* Content */}
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-4 sm:p-6">
               <div className="text-center">
-                <div className="text-5xl mb-4">🧹</div>
-                <p className="text-base sm:text-lg font-medium text-gray-900 mb-2">
-                  Deseja realmente limpar a mesa {selectedOrder.table?.number}?
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                  <Trash2 className="h-6 w-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Confirmar limpeza da mesa?
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Esta ação irá marcar a mesa como disponível e finalizar o pedido. 
+                  Esta ação não pode ser desfeita.
                 </p>
+                <div className="bg-gray-50 p-3 rounded-lg mb-4">
                 <p className="text-sm text-gray-600">
-                  Esta ação irá liberar a mesa para novos clientes.
-                </p>
+                    <strong>Pedido:</strong> #{selectedOrder.id.slice(-8)}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Mesa:</strong> {selectedOrder.table?.number || 'Balcão'}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Total:</strong> {formatCurrency(selectedOrder.total)}
+                  </p>
+                </div>
               </div>
             </div>
               
@@ -1494,185 +1418,44 @@ export default function ExpedicaoPage() {
       {showAddProductsModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-            {/* Header com Gradiente */}
-            <div className="flex items-center justify-between p-4 sm:p-6 border-b-0 bg-gradient-to-r from-purple-500 to-indigo-600">
-              <div>
-                <h3 className="text-lg sm:text-xl font-bold text-white flex items-center">
-                  <Plus className="h-5 w-5 mr-2 text-white" />
-                  Adicionar Produtos ao Pedido
-                </h3>
-                <p className="text-sm text-purple-100 mt-1">
-                  Pedido #{selectedOrder.id.slice(-8)} - {selectedOrder.table 
-                    ? `Mesa ${selectedOrder.table.number}` 
-                    : `Balcão ${new Date(selectedOrder.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
-                  }
-                </p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={() => addProductToOrder(selectedOrder.id)}
-                  disabled={selectedProducts.length === 0 || productsLoading || categoriesLoading}
-                  className="bg-white text-purple-600 hover:bg-purple-50 font-bold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  size="sm"
-                >
-                  {productsLoading || categoriesLoading ? (
-                    <>
-                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      <span className="hidden sm:inline">Carregando...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="h-4 w-4 mr-2" />
-                      <span className="hidden sm:inline">Adicionar ao Pedido</span>
-                      <span className="sm:hidden">Adicionar</span>
-                    </>
-                  )}
-                </Button>
+            {/* Header */}
+            <div className="flex justify-between items-center p-4 sm:p-6 border-b bg-gradient-to-r from-blue-500 to-indigo-600">
+              <h3 className="text-lg sm:text-xl font-bold text-white">Adicionar Produtos</h3>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={closeAddProductsModal}
-                  className="text-white hover:text-purple-100 hover:bg-white/20"
+                onClick={() => setShowAddProductsModal(false)}
+                className="text-white hover:bg-white/20 rounded-full"
                 >
                   <X className="h-5 w-5" />
                 </Button>
-              </div>
             </div>
 
             {/* Content */}
-            <div className="p-4 sm:p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
-              {/* Filtros */}
-              <div className="mb-6 space-y-4">
-                {/* Campo de Busca */}
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Buscar produtos..."
-                    value={productSearch}
-                    onChange={(e) => setProductSearch(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                {/* Filtro por Categoria */}
-                <div>
-                  <select
-                    value={selectedCategoryFilter}
-                    onChange={(e) => setSelectedCategoryFilter(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Todas as categorias</option>
-                    {categories.map((category: any) => (
-                      <option key={category.id} value={category.id}>
-                        {category.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Produtos Selecionados */}
-              {selectedProducts.length > 0 && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl shadow-md">
-                  <h4 className="text-sm font-bold text-purple-800 mb-3 flex items-center">
-                    <ShoppingCart className="h-4 w-4 mr-2" />
-                    Produtos Selecionados:
-                  </h4>
-                  <div className="space-y-2">
-                    {selectedProducts.map((item) => {
-                      const product = products.find((p: any) => p.id === item.productId);
-                      return (
-                        <div key={item.productId} className="flex items-center justify-between p-2 bg-white rounded border">
-                          <div className="flex-1">
-                            <span className="font-medium text-sm">{product?.name}</span>
-                            <span className="text-xs text-gray-600 ml-2">{formatCurrency(product?.price || 0)}</span>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateProductQuantity(item.productId, item.quantity - 1)}
-                              className="w-8 h-8 p-0"
-                            >
-                              -
-                            </Button>
-                            <span className="w-8 text-center font-medium">{item.quantity}</span>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => updateProductQuantity(item.productId, item.quantity + 1)}
-                              className="w-8 h-8 p-0"
-                            >
-                              +
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeProductFromSelection(item.productId)}
-                              className="text-red-600 hover:text-red-800"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Lista de Produtos */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {products
-                  .filter((product: any) => {
-                    const matchesSearch = product.name.toLowerCase().includes(productSearch.toLowerCase());
-                    const matchesCategory = !selectedCategoryFilter || product.categoryId === selectedCategoryFilter;
-                    return matchesSearch && matchesCategory && product.isAvailable;
-                  })
-                  .map((product: any) => (
-                    <div key={product.id} className="border-2 border-gray-200 rounded-xl p-4 hover:shadow-xl hover:scale-105 hover:border-purple-300 transition-all duration-300 bg-white">
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="font-bold text-gray-900 text-sm">{product.name}</h4>
-                        <span className="text-sm font-bold text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">{formatCurrency(product.price)}</span>
-                      </div>
-                      <p className="text-xs text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => addProductToSelection(product)}
-                        className="w-full text-xs bg-gradient-to-r from-purple-500 to-indigo-600 text-white hover:from-purple-600 hover:to-indigo-700 border-0 font-bold shadow-md"
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Adicionar
-                      </Button>
-                    </div>
-                  ))}
-              </div>
-
-              {products.length === 0 && (
-                <div className="text-center py-8">
-                  <Package className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                  <p className="text-gray-500">Nenhum produto encontrado</p>
-                </div>
-              )}
-            </div>
-
-            {/* Footer com Gradiente */}
-            <div className="p-4 sm:p-6 border-t-0 bg-gradient-to-r from-purple-50 to-indigo-50">
+            <div className="p-4 sm:p-6 overflow-y-auto max-h-[60vh]">
               <div className="text-center">
-                <p className="text-sm font-medium text-gray-700 mb-2">
-                  <span className="inline-flex items-center bg-white px-3 py-1 rounded-full shadow-sm">
-                    <ShoppingCart className="h-4 w-4 mr-2 text-purple-600" />
-                    {selectedProducts.length} produto(s) selecionado(s)
-                  </span>
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
+                  <Plus className="h-6 w-6 text-blue-600" />
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Adicionar produtos ao pedido
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Funcionalidade em desenvolvimento...
                 </p>
-                <p className="text-2xl font-bold text-purple-600">
-                  Total: {formatCurrency(selectedProducts.reduce((total, item) => {
-                    const product = products.find((p: any) => p.id === item.productId);
-                    return total + (product?.price || 0) * item.quantity;
-                  }, 0))}
-                </p>
+                </div>
+              </div>
+
+            {/* Footer */}
+            <div className="border-t p-4 sm:p-6 bg-gray-50">
+              <div className="flex justify-end">
+                            <Button
+                              variant="outline"
+                  onClick={() => setShowAddProductsModal(false)}
+                  className="px-6"
+                >
+                  Fechar
+                            </Button>
               </div>
             </div>
           </div>

@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { UserRole, User as UserType } from '@/types';
 import { User, Edit, Eye, Save, X } from 'lucide-react';
 
@@ -41,7 +41,7 @@ interface UserFormProps {
 }
 
 export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: UserFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -92,7 +92,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
         await onSubmit(processedData);
       }
     } catch (err: any) {
-      error(err.message || 'Erro ao salvar usuário');
+      toast.error(err.message || 'Erro ao salvar usuário');
     }
   };
 
