@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { RevenueChart, OrdersChart, ProductsChart, TablesChart } from '@/components/admin/charts';
 import { 
   Users,
   ShoppingBag,
@@ -541,6 +542,105 @@ export default function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Seção de Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico de Receita */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Evolução da Receita
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <RevenueChart 
+              data={recentOrders.map(order => ({
+                date: order.createdAt.toISOString().split('T')[0],
+                revenue: order.total,
+                orders: 1
+              }))}
+              height={250}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Pedidos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="h-5 w-5 mr-2" />
+              Pedidos por Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <OrdersChart 
+              data={recentOrders.map(order => ({
+                date: order.createdAt.toISOString().split('T')[0],
+                revenue: order.total,
+                orders: 1
+              }))}
+              height={250}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Top Produtos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2" />
+              Produtos Mais Vendidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ProductsChart 
+              data={recentOrders.flatMap(order => 
+                order.items?.map(item => ({
+                  name: item.product?.name || 'Produto',
+                  quantity: item.quantity,
+                  revenue: item.price * item.quantity
+                })) || []
+              ).reduce((acc, item) => {
+                const existing = acc.find(p => p.name === item.name);
+                if (existing) {
+                  existing.quantity += item.quantity;
+                  existing.revenue += item.revenue;
+                } else {
+                  acc.push(item);
+                }
+                return acc;
+              }, [] as any[])}
+              height={300}
+              maxItems={5}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Status das Mesas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Table className="h-5 w-5 mr-2" />
+              Ocupação das Mesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <TablesChart 
+              data={tables.map(table => ({
+                number: table.number,
+                orders: recentOrders.filter(order => order.tableId === table.id).length,
+                revenue: recentOrders
+                  .filter(order => order.tableId === table.id)
+                  .reduce((sum, order) => sum + order.total, 0),
+                capacity: table.capacity
+              }))}
+              height={300}
+              maxItems={6}
+            />
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
