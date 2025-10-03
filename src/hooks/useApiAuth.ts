@@ -221,19 +221,24 @@ export const useApiAuth = () => {
 
   // Função para obter rota padrão baseada no role
   const getDefaultRoute = () => {
-    if (!user) return '/login';
+    try {
+      if (!user) return '/login';
 
-    switch (user.role) {
-      case UserRole.ADMIN:
-        return '/admin/dashboard';
-      case UserRole.STAFF:
-        return '/staff';
-      case UserRole.MANAGER:
-        return '/expedicao';
-      case UserRole.CUSTOMER:
-        return '/customer/dashboard';
-      default:
-        return '/';
+      switch (user.role) {
+        case 'ADMIN':
+          return '/admin/dashboard';
+        case 'STAFF':
+          return '/staff';
+        case 'MANAGER':
+          return '/expedicao';
+        case 'CUSTOMER':
+          return '/customer/dashboard';
+        default:
+          return '/';
+      }
+    } catch (error) {
+      console.error('Erro em getDefaultRoute:', error);
+      return '/';
     }
   };
 

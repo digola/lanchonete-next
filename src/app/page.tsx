@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 
 import { useBasicMenu } from '@/hooks/useBasicMenu';
@@ -22,15 +22,22 @@ export default function HomePage() {
   const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
   const { addItem, items, totalItems } = useCart();
   const searchParams = useSearchParams();
+  const router = useRouter();
   
   // Estados para filtros e busca
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [tableId, setTableId] = useState<string | null>(null);
   const [tableNumber, setTableNumber] = useState<number | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  // Detectar quando a hidratação está completa
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Verificar se é staff e se há mesa na URL
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
   
   // Buscar dados da mesa se tableId estiver disponível
   const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
@@ -121,7 +128,7 @@ export default function HomePage() {
             {/* User Actions */}
             <div className="flex items-center justify-between lg:justify-end space-x-4">
               {/* Cart Indicator */}
-              {totalItems > 0 && (
+              {isHydrated && totalItems > 0 && (
                 <Link href={isStaff && tableId ? `/cart?tableId=${tableId}` : '/cart'} className="relative inline-block">
                   <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
                     <ShoppingCart className="h-4 w-4" />
@@ -134,7 +141,22 @@ export default function HomePage() {
               )}
               
               {/* User Menu */}
-              {isAuthenticated ? (
+              {!isHydrated ? (
+                <div className="flex items-center space-x-2">
+                  <Link href="/login">
+                    <Button variant="outline" size="sm" leftIcon={<LogIn className="h-4 w-4" />}>
+                      <span className="hidden sm:inline">Entrar</span>
+                      <span className="sm:hidden">Login</span>
+                    </Button>
+                  </Link>
+                  <Link href="/register">
+                    <Button variant="primary" size="sm">
+                      <span className="hidden sm:inline">Cadastrar</span>
+                      <span className="sm:hidden">Cadastro</span>
+                    </Button>
+                  </Link>
+                </div>
+              ) : isAuthenticated ? (
                 <div className="flex items-center space-x-2 lg:space-x-3">
                   <div className="hidden sm:block text-right">
                     <p className="text-sm font-medium text-gray-900 truncate max-w-32">{user?.name}</p>
@@ -174,7 +196,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="container-app py-8">
         {/* Mesa Info para Staff */}
-        {isStaff && tableId && (
+        {isHydrated && isStaff && tableId && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -198,8 +220,28 @@ export default function HomePage() {
         {/* Filters */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 space-y-4 sm:space-y-0">
-            <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
             <div className="flex items-center space-x-4">
+              <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
+              {/* Mesa selecionada para Staff/Manager */}
+              {isHydrated && isStaff && tableId && (
+                <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  <span>🪑</span>
+                  <span>Mesa {tableNumber || 'N/A'}</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center space-x-4">
+              {/* Botão de seleção de mesa para Staff/Manager */}
+              {isHydrated && isStaff && (
+                <Button
+                  variant="outline"
+                  onClick={() => router.push('/table-selection')}
+                  className="flex items-center space-x-2"
+                >
+                  <span>🪑</span>
+                  <span>{tableId ? 'Trocar Mesa' : 'Selecionar Mesa'}</span>
+                </Button>
+              )}
               {/* Campo de Busca */}
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />

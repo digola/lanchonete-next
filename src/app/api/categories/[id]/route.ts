@@ -91,7 +91,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const body = await request.json();
-    const { name, description, imageUrl, color, isActive } = body;
+    const { name, description, color, isActive } = body;
 
     // Validações
     if (name !== undefined && !name.trim()) {
@@ -129,7 +129,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       data: {
         ...(name !== undefined && { name: name.trim() }),
         ...(description !== undefined && { description: description?.trim() || null }),
-        ...(imageUrl !== undefined && { imageUrl: imageUrl?.trim() || null }),
         ...(color !== undefined && { color: color.trim() }),
         ...(isActive !== undefined && { isActive }),
       },

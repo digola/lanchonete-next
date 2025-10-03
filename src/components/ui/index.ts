@@ -23,7 +23,6 @@ export { ToastProvider, useToast, useToastHelpers } from './Toast';
 
 // Componentes específicos
 export { ProductCard, ProductList } from '../ProductCard';
-export { OrderCard, OrderList } from '../OrderCard';
 export { TableCard, TableGrid, TableList } from '../TableCard';
 
 // Componentes de autenticação

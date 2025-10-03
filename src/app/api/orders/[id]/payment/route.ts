@@ -1,78 +1,44 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { verifyToken } from '@/lib/auth';
-import { UserRole } from '@/types';
+import { OrderTableAPI } from '@/lib/order-table-manager';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id } = await params;
-    
-    // Verificar autenticação
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
-    }
-
-    const decoded = verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
-    }
-
-    // Verificar permissões (apenas MANAGER)
-    if (decoded.role !== UserRole.MANAGER) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
-
+    const orderId = params.id;
     const body = await request.json();
-    const { paymentMethod, paymentAmount, splitPayment, splitValue } = body;
+    const { paymentSession, totalPaid } = body;
 
-    // Buscar o pedido
-    const order = await prisma.order.findUnique({
-      where: { id },
-      include: { table: true }
-    });
+    console.log('🔍 API Payment Debug:', { orderId, paymentSession, totalPaid });
 
-    if (!order) {
-      return NextResponse.json({ error: 'Pedido não encontrado' }, { status: 404 });
+    if (!paymentSession || !paymentSession.payments || paymentSession.payments.length === 0) {
+      return NextResponse.json(
+        { message: 'Sessão de pagamento inválida' },
+        { status: 400 }
+      );
     }
 
-    // Atualizar o pedido com informações de pagamento
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data: {
-        status: 'FINALIZADO', // Marcar como FINALIZADO após pagamento
-        paymentMethod,
-        paymentProcessedAt: new Date(),
-        paymentAmount: paymentAmount || order.total,
-        isPaid: true,
-        updatedAt: new Date()
-      }
-    });
+    // Processar pagamento total (usar o primeiro método como principal)
+    const primaryMethod = paymentSession.payments[0].method;
+    const finalResult = await OrderTableAPI.processPayment(orderId, primaryMethod, totalPaid);
 
-    // Se o pedido tem mesa, atualizar status da mesa
-    if (order.table) {
-      await prisma.table.update({
-        where: { id: order.table.id },
-        data: {
-          status: 'OCUPADA',
-          assignedTo: decoded.userId
-        }
+    if (finalResult.success) {
+      return NextResponse.json({ 
+        message: 'Pagamento processado com sucesso',
+        data: finalResult.data 
       });
+    } else {
+      return NextResponse.json(
+        { message: finalResult.error },
+        { status: 400 }
+      );
     }
-
-    return NextResponse.json({
-      success: true,
-      order: updatedOrder,
-      message: 'Pagamento processado com sucesso'
-    });
 
   } catch (error) {
     console.error('Erro ao processar pagamento:', error);
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { message: 'Erro interno do servidor' },
       { status: 500 }
     );
   }

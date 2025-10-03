@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { ProductForm, type ProductFormData } from '@/components/admin/forms';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { useToast } from '@/components/ui/Toast';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -34,7 +34,7 @@ import { Product, Category } from '@/types';
 
 export default function AdminProductsPage() {
   const { user, token } = useApiAuth();
-  const { success, error } = useToastHelpers();
+  const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -171,9 +171,9 @@ export default function AdminProductsPage() {
       setShowDeleteConfirm(false);
       setSelectedProduct(null);
       refetchProducts();
-      success('Produto deletado com sucesso!');
+      addToast({ type: 'success', title: 'Produto deletado com sucesso!' });
     } catch (err) {
-      error('Erro ao deletar produto');
+      addToast({ type: 'error', title: 'Erro ao deletar produto' });
     } finally {
       setIsLoading(false);
     }

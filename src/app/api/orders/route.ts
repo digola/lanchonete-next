@@ -11,6 +11,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
+    const isActive = searchParams.get('isActive');
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
@@ -85,9 +86,12 @@ export async function GET(request: NextRequest) {
         where.status = status;
       }
     }
+    if (isActive !== null) {
+      where.isActive = isActive === 'true';
+    }
 
     // Verificar cache (baseado nos parâmetros da query)
-    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, page, limit, sortBy, sortOrder })}`;
+    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, page, limit, sortBy, sortOrder })}`;
     const cachedData = getCache(cacheKey, CACHE_DURATION.SHORT);
     
     if (cachedData) {

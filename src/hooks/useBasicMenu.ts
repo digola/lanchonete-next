@@ -15,29 +15,18 @@ export const useBasicMenu = (filters?: {
   categoryId?: string;
   isAvailable?: boolean;
 }) => {
-  const { token } = useApiAuth();
+  const auth = useApiAuth();
+  const token = auth?.token || null;
+  
+  // TODOS os hooks devem estar no topo
   const [debouncedSearch, setDebouncedSearch] = useState(filters?.search || '');
   const [isSearching, setIsSearching] = useState(false);
   const searchTimerRef = useRef<NodeJS.Timeout>();
-
-  // Debounce do searchTerm
-  useEffect(() => {
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-    }
-
-    setIsSearching(true);
-    searchTimerRef.current = setTimeout(() => {
-      setDebouncedSearch(filters?.search || '');
-      setIsSearching(false);
-    }, 300); // 300ms de debounce
-
-    return () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
-    };
-  }, [filters?.search]);
+  const [categoriesData, setCategoriesData] = useState<any>(null);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [productsData, setProductsData] = useState<any>(null);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError, setProductsError] = useState<any>(null);
 
   // Hook para categorias com CACHE
   const fetchCategories = useCallback(async () => {
@@ -66,31 +55,6 @@ export const useBasicMenu = (filters?: {
     cache.set(cacheKey, { data, timestamp: Date.now() });
     
     return data;
-  }, [token]);
-
-  const [categoriesData, setCategoriesData] = useState<any>(null);
-  const [categoriesLoading, setCategoriesLoading] = useState(false);
-
-  useEffect(() => {
-    const loadCategories = async () => {
-      // Se já tem dados em cache, não mostra loading
-      const cacheKey = '/api/categories';
-      const cached = cache.get(cacheKey);
-      if (!cached) {
-        setCategoriesLoading(true);
-      }
-      
-      try {
-        const data = await fetchCategories();
-        setCategoriesData(data);
-      } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
-      } finally {
-        setCategoriesLoading(false);
-      }
-    };
-
-    loadCategories();
   }, [token]);
 
   // Hook para produtos com CACHE e debounce
@@ -125,40 +89,6 @@ export const useBasicMenu = (filters?: {
     cache.set(url, { data, timestamp: Date.now() });
 
     return data;
-  }, [debouncedSearch, filters?.categoryId, filters?.isAvailable, token]);
-
-  const [productsData, setProductsData] = useState<any>(null);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [productsError, setProductsError] = useState<any>(null);
-
-  useEffect(() => {
-    const loadProducts = async () => {
-      // Construir URL para verificar cache
-      const queryParams = new URLSearchParams();
-      if (debouncedSearch) queryParams.set('search', debouncedSearch);
-      if (filters?.categoryId) queryParams.set('categoryId', filters.categoryId);
-      if (filters?.isAvailable !== undefined) queryParams.set('isAvailable', filters.isAvailable.toString());
-      const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      
-      // Se já tem dados em cache, não mostra loading
-      const cached = cache.get(url);
-      if (!cached) {
-        setProductsLoading(true);
-      }
-      
-      setProductsError(null);
-      try {
-        const data = await fetchProducts();
-        setProductsData(data);
-      } catch (error) {
-        console.error('Erro ao carregar produtos:', error);
-        setProductsError(error);
-      } finally {
-        setProductsLoading(false);
-      }
-    };
-
-    loadProducts();
   }, [debouncedSearch, filters?.categoryId, filters?.isAvailable, token]);
 
   const refresh = useCallback(() => {
@@ -203,6 +133,91 @@ export const useBasicMenu = (filters?: {
     productsError,
     isSearching
   ]);
+
+  // Debounce do searchTerm
+  useEffect(() => {
+    if (searchTimerRef.current) {
+      clearTimeout(searchTimerRef.current);
+    }
+
+    setIsSearching(true);
+    searchTimerRef.current = setTimeout(() => {
+      setDebouncedSearch(filters?.search || '');
+      setIsSearching(false);
+    }, 300); // 300ms de debounce
+
+    return () => {
+      if (searchTimerRef.current) {
+        clearTimeout(searchTimerRef.current);
+      }
+    };
+  }, [filters?.search]);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      // Se já tem dados em cache, não mostra loading
+      const cacheKey = '/api/categories';
+      const cached = cache.get(cacheKey);
+      if (!cached) {
+        setCategoriesLoading(true);
+      }
+      
+      try {
+        const data = await fetchCategories();
+        setCategoriesData(data);
+      } catch (error) {
+        console.error('Erro ao carregar categorias:', error);
+      } finally {
+        setCategoriesLoading(false);
+      }
+    };
+
+    loadCategories();
+  }, [token, fetchCategories]);
+
+  useEffect(() => {
+    const loadProducts = async () => {
+      // Construir URL para verificar cache
+      const queryParams = new URLSearchParams();
+      if (debouncedSearch) queryParams.set('search', debouncedSearch);
+      if (filters?.categoryId) queryParams.set('categoryId', filters.categoryId);
+      if (filters?.isAvailable !== undefined) queryParams.set('isAvailable', filters.isAvailable.toString());
+      const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      
+      // Se já tem dados em cache, não mostra loading
+      const cached = cache.get(url);
+      if (!cached) {
+        setProductsLoading(true);
+      }
+      
+      setProductsError(null);
+      try {
+        const data = await fetchProducts();
+        setProductsData(data);
+      } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        setProductsError(error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, [debouncedSearch, filters?.categoryId, filters?.isAvailable, token, fetchProducts]);
+
+  // Verificação de segurança após todos os hooks
+  if (!auth) {
+    console.warn('useApiAuth retornou undefined');
+    return {
+      categories: [],
+      products: [],
+      pagination: null,
+      loading: { categories: false, products: false, any: false },
+      errors: { categories: null, products: null, any: false },
+      isSearching: false,
+      refetch: () => {}
+    };
+  }
 
   return {
     ...menuData,

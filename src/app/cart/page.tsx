@@ -38,7 +38,7 @@ export default function CartPage() {
   const [tableNumber, setTableNumber] = useState<number | null>(null);
 
   // Verificar se é staff e se há mesa na URL
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN';
+  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
   
   // Buscar dados da mesa se tableId estiver disponível
   const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });

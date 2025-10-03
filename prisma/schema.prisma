@@ -26,8 +26,6 @@ model User {
   finalizedOrders Order[] @relation("FinalizedOrders")
   tables Table[]
   cart   Cart?
-  notifications Notification[]
-  activityLogs ActivityLog[]
 
   // Índices para performance
   @@index([email])
@@ -42,7 +40,6 @@ model Category {
   id          String    @id @default(cuid())
   name        String    @unique
   description String?
-  imageUrl    String?
   color       String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -85,24 +82,21 @@ model Product {
 
 // Modelo Order
 model Order {
-  id                    String   @id @default(cuid())
-  userId                String
-  status                String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, FINALIZADO, CANCELADO
-  total                 Float    // Usando Float em vez de Decimal para SQLite
-  deliveryType          String   @default("RETIRADA") // RETIRADA, DELIVERY
-  deliveryAddress       String?
-  estimatedDeliveryTime Int?     // Tempo estimado de entrega em minutos
-  deliveryFee           Float    @default(0) // Taxa de entrega
-  paymentMethod         String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
-  paymentProcessedAt    DateTime? // Data/hora do pagamento
-  paymentAmount         Float?    // Valor pago
-  isPaid                Boolean  @default(false) // Status de pagamento
-  isReceived            Boolean  @default(false) // Se o pedido foi recebido pelo cliente
-  notes                 String?
-  tableId               String?
-  finalizedBy           String?  // ID do funcionário que finalizou o pedido
-  createdAt             DateTime @default(now())
-  updatedAt             DateTime @updatedAt
+  id              String   @id @default(cuid())
+  userId          String
+  status          String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, FINALIZADO, CANCELADO
+  total           Float    // Usando Float em vez de Decimal para SQLite
+  deliveryType    String   @default("RETIRADA") // RETIRADA, DELIVERY
+  deliveryAddress String?
+  paymentMethod   String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
+  isPaid          Boolean  @default(false) // Status de pagamento
+  isReceived      Boolean  @default(false) // Se o pedido foi recebido pelo cliente
+  isActive        Boolean  @default(true) // Status do pedido ativo/inativo
+  notes           String?
+  tableId         String?
+  finalizedBy     String?  // ID do funcionário que finalizou o pedido
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   // Relacionamentos
   user User @relation(fields: [userId], references: [id])
@@ -117,10 +111,13 @@ model Order {
   @@index([tableId])
   @@index([deliveryType])
   @@index([finalizedBy])
+  @@index([isActive])
   @@index([status, tableId])
   @@index([userId, status])
   @@index([createdAt, status])
   @@index([tableId, status])
+  @@index([isActive, status])
+  @@index([userId, isActive])
   @@map("orders")
 }
 
@@ -210,66 +207,3 @@ model Table {
   @@map("tables")
 }
 
-// Modelo Notification (notificações do sistema)
-model Notification {
-  id          String   @id @default(cuid())
-  userId      String?  // null = notificação global
-  type        String   // ORDER, SYSTEM, PROMOTION
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
-
-  // Relacionamentos
-  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  // Índices para performance
-  @@index([userId])
-  @@index([type])
-  @@index([isRead])
-  @@index([createdAt])
-  @@index([priority])
-  @@map("notifications")
-}
-
-// Modelo SystemSettings (configurações do sistema)
-model SystemSettings {
-  id          String   @id @default(cuid())
-  key         String   @unique
-  value       String   // JSON string
-  type        String   @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
-  category    String   @default("GENERAL") // GENERAL, DELIVERY, PAYMENT, RESTAURANT
-  description String?
-  updatedAt   DateTime @updatedAt
-
-  // Índices para performance
-  @@index([key])
-  @@index([category])
-  @@map("system_settings")
-}
-
-// Modelo ActivityLog (logs de atividade)
-model ActivityLog {
-  id          String   @id @default(cuid())
-  userId      String?
-  action      String   // CREATE_ORDER, UPDATE_PRODUCT, etc.
-  entityType  String   // Order, Product, User
-  entityId    String
-  details     String?  // JSON com dados específicos
-  ipAddress   String?
-  userAgent   String?
-  createdAt   DateTime @default(now())
-
-  // Relacionamentos
-  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
-
-  // Índices para performance
-  @@index([userId])
-  @@index([action])
-  @@index([entityType])
-  @@index([entityId])
-  @@index([createdAt])
-  @@map("activity_logs")
-}

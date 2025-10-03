@@ -94,6 +94,7 @@ export interface Order {
   paymentAmount?: number;
   isPaid: boolean;
   isReceived: boolean;
+  isActive: boolean;
   notes?: string;
   tableId?: string;
   table?: Table;

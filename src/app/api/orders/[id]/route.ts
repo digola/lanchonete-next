@@ -53,12 +53,12 @@ export async function PUT(
 
     // Obter dados do corpo da requisição
     const body = await request.json();
-    const { status, paymentMethod, isReceived } = body;
+    const { status, paymentMethod, isReceived, isActive } = body;
 
-    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod, isReceived });
+    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod, isReceived, isActive });
 
     // Validar que pelo menos um campo foi fornecido
-    if (!status && paymentMethod === undefined && isReceived === undefined) {
+    if (!status && paymentMethod === undefined && isReceived === undefined && isActive === undefined) {
       return NextResponse.json(
         { success: false, error: 'Pelo menos um campo deve ser fornecido para atualização' },
         { status: 400 }
@@ -141,41 +141,92 @@ export async function PUT(
     
     if (isReceived !== undefined) {
       updateData.isReceived = isReceived;
+      // Se pedido foi recebido, marcar como inativo automaticamente
+      if (isReceived === true) {
+        updateData.isActive = false;
+        console.log('📦 Pedido recebido - marcando como inativo');
+      }
+    }
+    
+    if (isActive !== undefined) {
+      updateData.isActive = isActive;
     }
 
     console.log('🔍 Dados de atualização:', updateData);
 
-    const updatedOrder = await prisma.order.update({
-      where: { id: orderId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Verificar se precisa atualizar status da mesa
+    const shouldUpdateTable = status && (status === 'CANCELADO' || status === 'ENTREGUE' || status === 'FINALIZADO') || 
+                             (isReceived === true); // Também atualizar mesa quando pedido for recebido
+    
+    const updatedOrder = await prisma.$transaction(async (tx) => {
+      // Atualizar pedido
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: updateData,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
           },
-        },
-        table: {
-          select: {
-            id: true,
-            number: true,
-            capacity: true,
+          table: {
+            select: {
+              id: true,
+              number: true,
+              capacity: true,
+            },
           },
-        },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                imageUrl: true,
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  imageUrl: true,
+                },
               },
             },
           },
         },
-      },
+      });
+
+      // Atualizar status da mesa se necessário
+      if (shouldUpdateTable && existingOrder.tableId) {
+        console.log('🪑 Verificando se precisa liberar mesa:', existingOrder.tableId);
+        
+        // Verificar se há outros pedidos ativos para esta mesa
+        const activeOrdersCount = await tx.order.count({
+          where: {
+            tableId: existingOrder.tableId,
+            isActive: true,
+            status: {
+              notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
+            }
+          }
+        });
+
+        console.log('📊 Pedidos ativos na mesa:', activeOrdersCount);
+
+        if (activeOrdersCount === 0) {
+          // Liberar mesa se não há pedidos ativos
+          console.log('🆓 Liberando mesa:', existingOrder.tableId);
+          await tx.table.update({
+            where: { id: existingOrder.tableId },
+            data: { 
+              status: 'LIVRE',
+              assignedTo: null
+            },
+          });
+          console.log('✅ Mesa liberada com sucesso');
+        } else {
+          console.log('🔒 Mesa mantida ocupada - há pedidos ativos');
+        }
+      }
+
+      return order;
     });
 
     console.log('✅ Pedido atualizado com sucesso:', { 

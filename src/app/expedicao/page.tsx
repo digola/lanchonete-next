@@ -915,35 +915,82 @@ export default function ExpedicaoPage() {
 
                       {/* Ações de Status e Caixa */}
                       <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 pt-4 border-t">
-                        {/* Botões de Status - apenas para pedidos não finalizados */}
-                        {order.status !== OrderStatus.FINALIZADO && (
+                        {/* Se pedido NÃO estiver pago - mostrar todos os botões */}
+                        {!order.isPaid && (
                           <>
-                            {order.status === OrderStatus.CONFIRMADO && (
+                            {/* Botões de Status - apenas para pedidos não finalizados */}
+                            {order.status !== OrderStatus.FINALIZADO && (
+                              <>
+                                {order.status === OrderStatus.CONFIRMADO && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateOrderStatus(order.id, OrderStatus.PREPARANDO)}
+                                    className="col-span-2 sm:col-span-1"
+                                  >
+                                    <Clock className="h-4 w-4 mr-1" />
+                                    <span className="hidden sm:inline">Iniciar Preparo</span>
+                                    <span className="sm:hidden">Preparar</span>
+                                  </Button>
+                                )}
+                                {order.status === OrderStatus.PREPARANDO && (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => updateOrderStatus(order.id, OrderStatus.ENTREGUE)}
+                                    className="col-span-2 sm:col-span-1"
+                                  >
+                                    <CheckCircle className="h-4 w-4 mr-1" />
+                                    <span className="hidden sm:inline">Marcar Entregue</span>
+                                    <span className="sm:hidden">Entregar</span>
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                            
+                            {/* Botão Adicionar Produtos - apenas para pedidos de mesa não finalizados */}
+                            {order.table && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && (
                               <Button
                                 size="sm"
-                                onClick={() => updateOrderStatus(order.id, OrderStatus.PREPARANDO)}
-                                className="col-span-2 sm:col-span-1"
+                                variant="outline"
+                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 col-span-2 sm:col-span-1"
+                                onClick={() => openAddProductsModal(order)}
                               >
-                                <Clock className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">Iniciar Preparo</span>
-                                <span className="sm:hidden">Preparar</span>
+                                <Plus className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Adicionar Produtos</span>
+                                <span className="sm:hidden">Adicionar</span>
                               </Button>
                             )}
-                            {order.status === OrderStatus.PREPARANDO && (
+                            
+                            {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
+                            {order.status !== OrderStatus.FINALIZADO && (
                               <Button
                                 size="sm"
-                                onClick={() => updateOrderStatus(order.id, OrderStatus.ENTREGUE)}
+                                variant="outline"
+                                className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 col-span-2 sm:col-span-1 font-semibold"
+                                onClick={() => openPaymentModal(order)}
+                              >
+                                <CreditCard className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Receber Pedido</span>
+                                <span className="sm:hidden">Receber</span>
+                              </Button>
+                            )}
+                            
+                            {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
+                            {order.table && (order.status === OrderStatus.ENTREGUE || order.status === OrderStatus.FINALIZADO) && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openClearTableModal(order)}
                                 className="col-span-2 sm:col-span-1"
                               >
-                                <CheckCircle className="h-4 w-4 mr-1" />
-                                <span className="hidden sm:inline">Marcar Entregue</span>
-                                <span className="sm:hidden">Entregar</span>
+                                <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Limpar Mesa</span>
+                                <span className="sm:hidden">Limpar</span>
                               </Button>
                             )}
                           </>
                         )}
                         
-                        {/* Botões de Caixa - sempre visíveis */}
+                        {/* Botões sempre visíveis - Ver Detalhes e Imprimir */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -963,48 +1010,6 @@ export default function ExpedicaoPage() {
                           <span className="hidden sm:inline">Imprimir</span>
                           <span className="sm:hidden">🖨️</span>
                         </Button>
-                        
-                        {/* Botão Adicionar Produtos - apenas para pedidos de mesa não finalizados */}
-                        {order.table && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 col-span-2 sm:col-span-1"
-                            onClick={() => openAddProductsModal(order)}
-                          >
-                            <Plus className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Adicionar Produtos</span>
-                            <span className="sm:hidden">Adicionar</span>
-                          </Button>
-                        )}
-                        
-                        {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
-                        {order.status !== OrderStatus.FINALIZADO && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="bg-green-50 border-green-200 text-green-700 hover:bg-green-100 col-span-2 sm:col-span-1 font-semibold"
-                            onClick={() => openPaymentModal(order)}
-                          >
-                            <CreditCard className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Receber Pedido</span>
-                            <span className="sm:hidden">Receber</span>
-                          </Button>
-                        )}
-                        
-                        {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
-                        {order.table && (order.status === OrderStatus.ENTREGUE || order.status === OrderStatus.FINALIZADO) && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openClearTableModal(order)}
-                            className="col-span-2 sm:col-span-1"
-                          >
-                            <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
-                            <span className="hidden sm:inline">Limpar Mesa</span>
-                            <span className="sm:hidden">Limpar</span>
-                          </Button>
-                        )}
                       </div>
                 </div>
               </CardContent>
