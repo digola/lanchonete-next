@@ -866,15 +866,17 @@ export default function TablePage() {
                           </Button>
                         </div>
                         
-                        <Button
-                          size="sm"
-                          onClick={() => markAsReceived(order.id)}
-                          disabled={loading}
-                          className="flex items-center space-x-1 bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Marcar como Recebido</span>
-                        </Button>
+                        {order.isPaid && (
+                          <Button
+                            size="sm"
+                            onClick={() => markAsReceived(order.id)}
+                            disabled={loading}
+                            className="flex items-center space-x-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Marcar como Recebido</span>
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>

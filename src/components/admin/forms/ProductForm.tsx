@@ -41,6 +41,12 @@ export interface ProductFormData {
   allergens: string;
   isAvailable: boolean;
   imageUrl?: string;
+  
+  // Campos de estoque
+  stockQuantity?: number;
+  minStockLevel?: number;
+  maxStockLevel?: number;
+  trackStock: boolean;
 }
 
 export function ProductForm({ 
@@ -62,6 +68,12 @@ export function ProductForm({
     allergens: product?.allergens || '',
     isAvailable: product?.isAvailable ?? true,
     imageUrl: product?.imageUrl || '',
+    
+    // Campos de estoque
+    stockQuantity: product?.stockQuantity || 0,
+    minStockLevel: product?.minStockLevel || 5,
+    maxStockLevel: product?.maxStockLevel || 100,
+    trackStock: product?.trackStock ?? false,
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -78,6 +90,12 @@ export function ProductForm({
         allergens: product.allergens || '',
         isAvailable: product.isAvailable,
         imageUrl: product.imageUrl || '',
+        
+        // Campos de estoque
+        stockQuantity: product.stockQuantity || 0,
+        minStockLevel: product.minStockLevel || 5,
+        maxStockLevel: product.maxStockLevel || 100,
+        trackStock: product.trackStock ?? false,
       });
       
       if (product.imageUrl) {
@@ -151,10 +169,11 @@ export function ProductForm({
         mode === 'edit' ? 'Editar Produto' :
         'Detalhes do Produto'
       }
-      size="lg"
+      size="2xl"
     >
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="max-h-[80vh] overflow-y-auto">
+        <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="space-y-4">
           {/* Informações Básicas */}
           <Card>
             <CardHeader>
@@ -163,7 +182,7 @@ export function ProductForm({
                 <span>Informações Básicas</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Nome do Produto *
@@ -244,7 +263,7 @@ export function ProductForm({
                 <span>Preço e Preparo</span>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Preço (R$) *
@@ -305,6 +324,83 @@ export function ProductForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* Controle de Estoque */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center space-x-2">
+                <Package className="h-4 w-4" />
+                <span>Controle de Estoque</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="trackStock"
+                  checked={formData.trackStock}
+                  onChange={(e) => handleInputChange('trackStock', e.target.checked)}
+                  disabled={isReadOnly}
+                  className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                />
+                <label htmlFor="trackStock" className="text-sm font-medium text-gray-700">
+                  Controlar estoque deste produto
+                </label>
+              </div>
+
+              {formData.trackStock && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 pl-6 border-l-2 border-primary-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Quantidade Atual
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.stockQuantity || 0}
+                      onChange={(e) => handleInputChange('stockQuantity', parseInt(e.target.value) || 0)}
+                      placeholder="0"
+                      disabled={isReadOnly}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estoque Mínimo
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.minStockLevel || 5}
+                      onChange={(e) => handleInputChange('minStockLevel', parseInt(e.target.value) || 5)}
+                      placeholder="5"
+                      disabled={isReadOnly}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Alerta quando estoque ≤ este valor
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Estoque Máximo
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      value={formData.maxStockLevel || 100}
+                      onChange={(e) => handleInputChange('maxStockLevel', parseInt(e.target.value) || 100)}
+                      placeholder="100"
+                      disabled={isReadOnly}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Limite máximo recomendado
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
 
         {/* Imagem do Produto */}
@@ -316,7 +412,7 @@ export function ProductForm({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Imagem do Produto
@@ -359,7 +455,8 @@ export function ProductForm({
             </Button>
           )}
         </div>
-      </form>
+        </form>
+      </div>
     </Modal>
   );
 }

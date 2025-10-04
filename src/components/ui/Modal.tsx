@@ -11,7 +11,7 @@ export interface ModalProps extends HTMLAttributes<HTMLDivElement> {
   onClose: () => void;
   title?: string;
   description?: string;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | 'full';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full';
   showCloseButton?: boolean;
   closeOnOverlayClick?: boolean;
   closeOnEscape?: boolean;
@@ -66,6 +66,7 @@ const Modal = forwardRef<HTMLDivElement, ModalProps>(
       md: 'max-w-md',
       lg: 'max-w-lg',
       xl: 'max-w-xl',
+      '2xl': 'max-w-2xl',
       full: 'max-w-full mx-4',
     };
 

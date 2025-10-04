@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
+    
     // Verificar permissão
     if (!hasPermission(decoded.role, 'orders:create')) {
       return NextResponse.json(
@@ -363,6 +363,19 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('🎉 Transação concluída com sucesso!');
+    
+    // Criar notificação para o novo pedido
+    try {
+      const { NotificationService } = await import('@/lib/notificationService');
+      await NotificationService.notifyNewOrder(
+        result.id, 
+        result.user?.name || 'Cliente', 
+        result.table?.number
+      );
+    } catch (error) {
+      console.error('Erro ao criar notificação de novo pedido:', error);
+      // Não falha a criação do pedido se a notificação falhar
+    }
     
     // Limpar cache de pedidos após criar novo
     clearCachePattern('orders_');

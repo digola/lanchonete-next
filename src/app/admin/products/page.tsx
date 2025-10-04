@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { ProductForm, type ProductFormData } from '@/components/admin/forms';
+import { ProductForm, type ProductFormData } from '@/components/admin/forms/ProductForm';
 import { toast } from '@/lib/toast';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { 

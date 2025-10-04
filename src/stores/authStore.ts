@@ -98,6 +98,23 @@ const ROLE_PERMISSIONS = {
     'reports:read',
     'settings:read',
     'settings:write',
+  ],
+  [UserRole.ADMINISTRADOR]: [
+    'users:read',
+    'users:write',
+    'users:delete',
+    'products:read',
+    'products:write',
+    'products:delete',
+    'categories:read',
+    'categories:write',
+    'categories:delete',
+    'orders:read',
+    'orders:write',
+    'orders:delete',
+    'reports:read',
+    'settings:read',
+    'settings:write',
     'menu:read',
     'menu:write',
     'menu:delete',
@@ -430,6 +447,7 @@ export const useAuthStore = create<AuthStore>()(
           [UserRole.STAFF]: 2,
           [UserRole.MANAGER]: 3,
           [UserRole.ADMIN]: 4,
+          [UserRole.ADMINISTRADOR]: 5,
         };
 
         return roleHierarchy[user.role] >= roleHierarchy[minimumRole];

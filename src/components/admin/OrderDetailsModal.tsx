@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -28,6 +28,21 @@ interface OrderDetailsModalProps {
   onUpdateStatus?: (orderId: string, newStatus: OrderStatus) => void;
 }
 
+interface OrderLog {
+  id: string;
+  action: string;
+  field: string;
+  oldValue: string;
+  newValue: string;
+  reason: string;
+  createdAt: string;
+  user?: {
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
 export function OrderDetailsModal({ 
   order, 
   isOpen, 
@@ -35,6 +50,38 @@ export function OrderDetailsModal({
   onUpdateStatus 
 }: OrderDetailsModalProps) {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [logs, setLogs] = useState<OrderLog[]>([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+
+  // Buscar logs do pedido quando o modal abrir
+  const fetchLogs = async () => {
+    if (!order) return;
+    
+    setLoadingLogs(true);
+    try {
+      const token = localStorage.getItem('auth-token');
+      const response = await fetch(`/api/orders/${order.id}/logs`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setLogs(data.data || []);
+      }
+    } catch (error) {
+      console.error('Erro ao buscar logs:', error);
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && order) {
+      fetchLogs();
+    }
+  }, [isOpen, order]);
 
   if (!isOpen || !order) return null;
 
@@ -82,6 +129,8 @@ export function OrderDetailsModal({
     setIsUpdating(true);
     try {
       await onUpdateStatus(order.id, newStatus);
+      // Recarregar logs após atualização
+      await fetchLogs();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     } finally {
@@ -398,6 +447,60 @@ export function OrderDetailsModal({
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Histórico de Alterações */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <Clock className="h-5 w-5 mr-2" />
+                    Histórico de Alterações ({logs.length})
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {loadingLogs ? (
+                    <div className="text-center py-4">
+                      <RefreshCw className="h-6 w-6 animate-spin text-blue-600 mx-auto mb-2" />
+                      <p className="text-gray-600">Carregando histórico...</p>
+                    </div>
+                  ) : logs.length === 0 ? (
+                    <div className="text-center py-4">
+                      <Clock className="h-8 w-8 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-600">Nenhuma alteração registrada</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
+                      {logs.map((log) => (
+                        <div key={log.id} className="border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between mb-2">
+                            <div className="flex items-center space-x-2">
+                              <Badge variant="outline">
+                                {log.action.replace('UPDATE_', '')}
+                              </Badge>
+                              <span className="text-sm font-medium text-gray-900">
+                                {log.field}
+                              </span>
+                            </div>
+                            <span className="text-xs text-gray-500">
+                              {formatDateTime(log.createdAt)}
+                            </span>
+                          </div>
+                          
+                          <div className="text-sm text-gray-600 mb-2">
+                            <p className="font-medium">{log.reason}</p>
+                          </div>
+                          
+                          {log.user && (
+                            <div className="text-xs text-gray-500 flex items-center">
+                              <Users className="h-3 w-3 mr-1" />
+                              {log.user.name} ({log.user.role})
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </div>

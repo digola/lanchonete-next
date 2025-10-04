@@ -80,28 +80,44 @@ export const generateTokenPair = (user: User): TokenPair => {
 
 export const verifyToken = (token: string): JWTPayload | null => {
   try {
-    console.log('🔍 Verificando token:', token ? 'presente' : 'ausente');
-    
     // Validar se o token existe e não está vazio
     if (!token || token.trim() === '') {
-      console.error('❌ Token is empty or null');
       return null;
     }
 
     // Verificar se o token tem o formato correto (Bearer token)
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
-    console.log('🔍 Token limpo:', cleanToken ? 'presente' : 'ausente');
     
     if (!cleanToken || cleanToken.trim() === '') {
-      console.error('❌ Token is empty after Bearer removal');
+      return null;
+    }
+
+    // Verificar se o token tem o formato JWT básico (3 partes separadas por pontos)
+    const tokenParts = cleanToken.split('.');
+    if (tokenParts.length !== 3) {
+      console.error('❌ Token malformado - formato JWT inválido');
+      return null;
+    }
+
+    // Verificar se cada parte do JWT não está vazia
+    if (tokenParts.some(part => !part || part.trim() === '')) {
+      console.error('❌ Token malformado - partes vazias');
       return null;
     }
 
     const decoded = jwt.verify(cleanToken, getJWTSecret()) as JWTPayload;
-    console.log('✅ Token verificado com sucesso:', decoded.userId);
     return decoded;
   } catch (error) {
-    console.error('❌ Token verification failed:', error);
+    // Log mais específico do erro
+    if (error instanceof jwt.JsonWebTokenError) {
+      console.error('❌ Token JWT inválido:', error.message);
+    } else if (error instanceof jwt.TokenExpiredError) {
+      console.error('❌ Token expirado');
+    } else if (error instanceof jwt.NotBeforeError) {
+      console.error('❌ Token não ativo ainda');
+    } else {
+      console.error('❌ Erro na verificação do token:', error);
+    }
     return null;
   }
 };
@@ -201,6 +217,17 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'cart:write',
       'cart:delete',
     ],
+    [UserRole.CLIENTE]: [
+      'menu:read',
+      'orders:read',
+      'orders:create',
+      'orders:update',
+      'profile:read',
+      'profile:write',
+      'cart:read',
+      'cart:write',
+      'cart:delete',
+    ],
     [UserRole.STAFF]: [
       'menu:read',
       'orders:read',
@@ -239,6 +266,76 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'orders:read',
       'orders:write',
       'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+    ],
+    [UserRole.ADMINISTRADOR]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+    ],
+    [UserRole.ADMINISTRADOR_LOWER]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+    ],
+    [UserRole.ADMINISTRADOR_TITLE]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
       'reports:read',
       'settings:read',
       'settings:write',

@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useApiAuth } from '@/hooks/useApiAuth';
-import { useApi } from '@/hooks/useApi';
+// import { useApi } from '@/hooks/useApi';
 import { UserRole, Table, TableStatus } from '@/types';
 import { 
   Table as TableIcon,
@@ -25,13 +25,69 @@ export default function StaffPage() {
   // Estados principais
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
-  // Buscar mesas
-  const { data: tablesResponse, loading: tablesLoading, execute: refetchTables } = useApi<{ 
-    data: Table[]; 
-    pagination: any 
-  }>('/api/tables?includeAssignedUser=true');
+  // Estados para mesas
+  const [tables, setTables] = useState<Table[]>([]);
+  const [tablesLoading, setTablesLoading] = useState(true);
 
-  const tables = tablesResponse?.data || [];
+  // Buscar mesas
+  const fetchTables = async () => {
+    try {
+      setTablesLoading(true);
+      const token = localStorage.getItem('token') || localStorage.getItem('auth-token');
+      
+      if (!token) {
+        console.warn('Token não encontrado, redirecionando para login');
+        router.push('/login?redirect=/staff');
+        return;
+      }
+      
+      const response = await fetch('/api/tables?includeAssignedUser=true', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTables(data.data || []);
+      } else if (response.status === 401) {
+        console.warn('Token inválido, redirecionando para login');
+        localStorage.removeItem('token');
+        localStorage.removeItem('auth-token');
+        router.push('/login?redirect=/staff');
+      }
+    } catch (error) {
+      console.error('Erro ao buscar mesas:', error);
+    } finally {
+      setTablesLoading(false);
+    }
+  };
+
+  // Carregar mesas na inicialização
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadTables = async () => {
+      if (isMounted) {
+        await fetchTables();
+      }
+    };
+    
+    loadTables();
+    
+    // Auto-refresh a cada 30 segundos
+    const interval = setInterval(() => {
+      if (isMounted) {
+        fetchTables();
+      }
+    }, 30000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
 
 
 
