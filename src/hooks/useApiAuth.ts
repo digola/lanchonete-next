@@ -43,7 +43,7 @@ export const useApiAuth = () => {
   // Inicializar autenticação quando o hook é montado (apenas uma vez)
   useEffect(() => {
     initializeAuth();
-  }, []); // Removidas dependências instáveis
+  }, [initializeAuth]); // Adicionada dependência correta
 
   // Verificar status de autenticação periodicamente (otimizado)
   useEffect(() => {
@@ -76,7 +76,7 @@ export const useApiAuth = () => {
     }
     
     return undefined;
-  }, [isAuthenticated]);
+  }, [isAuthenticated, checkAuthStatus]);
 
   // Função para login com tratamento de erro
   const loginWithErrorHandling = async (credentials: Parameters<typeof login>[0]) => {

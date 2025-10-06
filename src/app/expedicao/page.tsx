@@ -9,6 +9,10 @@ import { StatsCard } from '@/components/ui/StatsCard';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useApiAuthBackup as useApiAuth } from '@/hooks/useApiAuthBackup';
 import { useApi } from '@/hooks/useApi';
+import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrdersCheck';
+import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
+import { UnpaidOrdersAlert } from '@/components/UnpaidOrdersAlert';
+import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
 import { UserRole, Order, OrderStatus, Table } from '@/types';
 import { 
   Package, 
@@ -29,7 +33,8 @@ import {
   User,
   Plus,
   ShoppingCart,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 
@@ -58,6 +63,14 @@ const preciseMoneyCalculation = {
 
 export default function ExpedicaoPage() {
   const { user, isAuthenticated, isLoading } = useApiAuth();
+  
+  // Hook para avisar sobre pedidos pendentes ao fechar o navegador
+  usePendingOrdersWarning({
+    enabled: true,
+    checkInterval: 20000, // Verificar a cada 20 segundos (mais frequente na expedição)
+    customMessage: '⚠️ ATENÇÃO: Você tem pedidos não pagos na expedição! Finalize todos os pedidos antes de sair.'
+  });
+  
   const [selectedStatus, setSelectedStatus] = useState<OrderStatus | 'ALL'>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
   const [autoRefresh, setAutoRefresh] = useState(true);
@@ -392,7 +405,7 @@ export default function ExpedicaoPage() {
       refetchOrders();
     } catch (error) {
       console.error('❌ Erro ao processar pagamento:', error);
-      alert(`Erro ao processar pagamento: ${error.message || error}`);
+      alert(`Erro ao processar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -699,7 +712,7 @@ export default function ExpedicaoPage() {
           </div>
           
           <div class="section">
-            <div class="info-line"><span class="bold">Cliente:</span> ${order.user?.name || 'N/A'}</div>
+            <div class="info-line"><span class="bold">Cliente: </span> ${order.user?.name || 'N/A'}</div>
             ${order.table 
               ? `<div class="info-line"><span class="bold">Mesa:</span> ${order.table.number}</div>` 
               : `<div class="info-line"><span class="bold">Balcão:</span> ${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>`
@@ -751,6 +764,14 @@ export default function ExpedicaoPage() {
   return (
     <ProtectedRoute requiredRole={UserRole.MANAGER}>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
+        {/* Indicador de Pedidos Pendentes */}
+        <PendingOrdersIndicator showDetails={true} />
+        
+        {/* Alerta de Pedidos Não Pagos */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
+          <UnpaidOrdersAlert onRefresh={refetchOrders} />
+        </div>
+        
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header Moderno */}
           <PageHeader
@@ -779,6 +800,14 @@ export default function ExpedicaoPage() {
                   <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
                   Atualizar
                 </Button>
+                
+                <LogoutWithPendingOrdersCheck
+                  variant="outline"
+                  className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>Sair</span>
+                </LogoutWithPendingOrdersCheck>
               </div>
             }
           />
@@ -863,7 +892,7 @@ export default function ExpedicaoPage() {
                     onClick={() => setSelectedStatus(OrderStatus.CONFIRMADO)}
                     className="whitespace-nowrap"
                   >
-                    ✅ Confirmado
+                    ✅ Confirmados
                   </Button>
                   <Button
                     size="sm"
@@ -887,7 +916,7 @@ export default function ExpedicaoPage() {
                     onClick={() => setSelectedStatus(OrderStatus.FINALIZADO)}
                     className="whitespace-nowrap"
                   >
-                    ✓ Finalizado
+                    ✓ Finalizados
                   </Button>
                 </div>
               </div>
@@ -1433,29 +1462,176 @@ export default function ExpedicaoPage() {
 
             {/* Content */}
             <div className="p-4 sm:p-6 overflow-y-auto max-h-[60vh]">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 mb-4">
-                  <Plus className="h-6 w-6 text-blue-600" />
+              <div className="space-y-6">
+                {/* Informações do Pedido */}
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h4 className="font-semibold text-gray-900 mb-2">Pedido #{selectedOrder.id.slice(-8)}</h4>
+                  <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+                    <span><strong>Cliente:</strong> {selectedOrder.user?.name || 'N/A'}</span>
+                    <span><strong>Mesa:</strong> {selectedOrder.table?.number || 'Balcão'}</span>
+                    <span><strong>Status:</strong> {getStatusLabel(selectedOrder.status)}</span>
+                    <span><strong>Total Atual:</strong> {formatCurrency(selectedOrder.total)}</span>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  Adicionar produtos ao pedido
-                </h3>
-                <p className="text-sm text-gray-500 mb-6">
-                  Funcionalidade em desenvolvimento...
-                </p>
+
+                {/* Filtros */}
+                <div className="space-y-4">
+                  {/* Campo de Busca */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Buscar produtos..."
+                      value={productSearch}
+                      onChange={(e) => setProductSearch(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  
+                  {/* Filtro de Categoria */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Categoria</label>
+                    <select
+                      value={selectedCategoryFilter}
+                      onChange={(e) => setSelectedCategoryFilter(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Todas as categorias</option>
+                      {categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
+
+                {/* Lista de Produtos */}
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3">Produtos Disponíveis</h4>
+                  {productsLoading ? (
+                    <div className="text-center py-4">
+                      <RefreshCw className="h-6 w-6 animate-spin mx-auto mb-2 text-gray-400" />
+                      <p className="text-gray-600">Carregando produtos...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-h-64 overflow-y-auto">
+                      {products
+                        .filter(product => 
+                          product.isAvailable &&
+                          (!productSearch || product.name.toLowerCase().includes(productSearch.toLowerCase())) &&
+                          (!selectedCategoryFilter || product.categoryId === selectedCategoryFilter)
+                        )
+                        .map((product) => (
+                          <div key={product.id} className="border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow">
+                            <div className="flex items-center justify-between mb-2">
+                              <h5 className="font-medium text-gray-900 text-sm">{product.name}</h5>
+                              <span className="text-sm font-bold text-blue-600">{formatCurrency(product.price)}</span>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => addProductToSelection(product)}
+                              className="w-full"
+                            >
+                              <Plus className="h-4 w-4 mr-1" />
+                              Adicionar
+                            </Button>
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Produtos Selecionados */}
+                {selectedProducts.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold text-gray-900 mb-3">Produtos Selecionados</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {selectedProducts.map((selectedProduct) => {
+                        const product = products.find(p => p.id === selectedProduct.productId);
+                        if (!product) return null;
+                        
+                        return (
+                          <div key={selectedProduct.productId} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex-1">
+                              <h6 className="font-medium text-gray-900 text-sm">{product.name}</h6>
+                              <p className="text-xs text-gray-600">{formatCurrency(product.price)} cada</p>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity - 1)}
+                                className="w-8 h-8 p-0"
+                              >
+                                -
+                              </Button>
+                              <span className="w-8 text-center font-medium">{selectedProduct.quantity}</span>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity + 1)}
+                                className="w-8 h-8 p-0"
+                              >
+                                +
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => removeProductFromSelection(selectedProduct.productId)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    {/* Total dos Produtos Selecionados */}
+                    <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium text-gray-900">Total dos produtos selecionados:</span>
+                        <span className="font-bold text-green-600">
+                          {formatCurrency(selectedProducts.reduce((total, item) => {
+                            const product = products.find(p => p.id === item.productId);
+                            return total + (product?.price || 0) * item.quantity;
+                          }, 0))}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+            </div>
 
             {/* Footer */}
             <div className="border-t p-4 sm:p-6 bg-gray-50">
-              <div className="flex justify-end">
-                            <Button
-                              variant="outline"
-                  onClick={() => setShowAddProductsModal(false)}
-                  className="px-6"
-                >
-                  Fechar
-                            </Button>
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {selectedProducts.length > 0 && (
+                    <span>{selectedProducts.length} produto(s) selecionado(s)</span>
+                  )}
+                </div>
+                <div className="flex items-center space-x-3">
+                  <Button
+                    variant="outline"
+                    onClick={closeAddProductsModal}
+                    className="px-6"
+                  >
+                    Cancelar
+                  </Button>
+                  {selectedProducts.length > 0 && (
+                    <Button
+                      onClick={() => addProductToOrder(selectedOrder.id)}
+                      className="px-6 bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar ao Pedido
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
           </div>

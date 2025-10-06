@@ -29,7 +29,6 @@ export class NotificationService {
         }
       });
 
-      console.log(`🔔 Notificação criada: ${params.title}`);
       return notification;
     } catch (error) {
       console.error('Erro ao criar notificação:', error);

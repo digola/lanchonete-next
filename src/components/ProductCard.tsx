@@ -30,21 +30,8 @@ export const ProductCard = memo(function ProductCard({
 
   // Memoizar callbacks para evitar re-renderizações desnecessárias
   const handleAddToCart = useCallback(() => {
-    console.log('🔘 Botão "Adicionar" clicado:', {
-      productId: product.id,
-      productName: product.name,
-      isAvailable: product.isAvailable,
-      hasCallback: !!onAddToCart
-    });
-    
     if (onAddToCart && product.isAvailable) {
-      console.log('✅ Chamando callback onAddToCart');
       onAddToCart(product);
-    } else {
-      console.log('❌ Não foi possível adicionar:', {
-        hasCallback: !!onAddToCart,
-        isAvailable: product.isAvailable
-      });
     }
   }, [onAddToCart, product]);
 

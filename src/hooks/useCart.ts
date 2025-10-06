@@ -27,40 +27,32 @@ export const useCart = () => {
     const loadCartFromStorage = () => {
       try {
         const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-        console.log('🔄 Carregando carrinho do localStorage:', savedCart);
         
         if (savedCart && savedCart.trim() !== '') {
           // Verificar se o JSON é válido antes de fazer parse
           if (savedCart.startsWith('{') || savedCart.startsWith('[')) {
             const cartData = JSON.parse(savedCart);
-            console.log('📦 Dados parseados do localStorage:', cartData);
           
             // Verificar se há itens para carregar
             if (cartData.items && cartData.items.length > 0) {
-              console.log('✅ Itens encontrados, carregando...');
               // Converter strings de data de volta para objetos Date
               const itemsWithDates = cartData.items.map((item: any) => ({
                 ...item,
                 addedAt: new Date(item.addedAt),
               }));
-              console.log('🔄 Enviando LOAD_CART com itens:', itemsWithDates);
               dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
               isInitializedRef.current = true;
             } else {
-              console.log('❌ Nenhum item encontrado no localStorage');
               isInitializedRef.current = true;
             }
           } else {
-            console.log('❌ JSON inválido no localStorage, removendo...');
             localStorage.removeItem(CART_STORAGE_KEY);
             isInitializedRef.current = true;
           }
         } else {
-          console.log('❌ Nenhum carrinho salvo no localStorage');
           isInitializedRef.current = true;
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar carrinho:', error);
         localStorage.removeItem(CART_STORAGE_KEY);
       }
     };
@@ -79,18 +71,10 @@ export const useCart = () => {
     const currentUserId = user?.id || null;
     const previousUserId = previousUserIdRef.current;
 
-    console.log('👤 Verificando mudança de usuário:', {
-      currentUserId,
-      previousUserId,
-      willClear: previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null
-    });
-
-    // TEMPORARIAMENTE DESABILITADO PARA DEBUG
     // Só limpar se realmente mudou de um usuário para outro
     // Não limpar na inicialização (previousUserId === null)
     // Não limpar se ambos são null (usuário não logado)
-    if (false && previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null) {
-      console.log('🧹 Limpando carrinho devido à mudança de usuário');
+    if (previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null) {
       dispatch({ type: 'CLEAR_CART' });
       localStorage.removeItem(CART_STORAGE_KEY);
     }

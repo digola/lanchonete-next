@@ -131,6 +131,7 @@ export default function StaffPage() {
                   <p className="text-blue-100 mt-2 text-lg">Gerencie mesas e crie pedidos para clientes</p>
                 </div>
               </div>
+              <a href="/logout">sair</a>
             </div>
           </div>
 

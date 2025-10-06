@@ -5,6 +5,9 @@ import { useApiAuth } from '@/hooks/useApiAuth';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
+import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrdersCheck';
+import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
+import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
 import { 
   Package, 
   AlertTriangle, 
@@ -20,7 +23,8 @@ import {
   Package2,
   AlertCircle,
   CheckCircle,
-  Clock
+  Clock,
+  LogOut
 } from 'lucide-react';
 
 interface Product {
@@ -79,6 +83,13 @@ export default function InventoryPage() {
   // Verificação mais simples e segura
   const [user, setUser] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Hook para avisar sobre pedidos pendentes ao fechar o navegador
+  usePendingOrdersWarning({
+    enabled: true,
+    checkInterval: 30000, // Verificar a cada 30 segundos
+    customMessage: '⚠️ ATENÇÃO: Existem pedidos em aberto que precisam ser finalizados antes de sair do sistema!'
+  });
   const [products, setProducts] = useState<Product[]>([]);
   const [alerts, setAlerts] = useState<{
     outOfStock: StockAlert[];
@@ -308,6 +319,10 @@ export default function InventoryPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Indicador de Pedidos Pendentes */}
+      <PendingOrdersIndicator showDetails={true} />
+      
+      
       {/* Header */}
       <div className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -343,6 +358,14 @@ export default function InventoryPage() {
                 <Download className="h-4 w-4" />
                 <span>Exportar</span>
               </Button>
+
+              <LogoutWithPendingOrdersCheck
+                variant="outline"
+                className="flex items-center space-x-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              >
+                <LogOut className="h-4 w-4" />
+                <span>Sair</span>
+              </LogoutWithPendingOrdersCheck>
             </div>
           </div>
         </div>
