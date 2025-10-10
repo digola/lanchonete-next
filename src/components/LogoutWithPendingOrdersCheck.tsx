@@ -7,7 +7,7 @@ import { useApiAuth } from '@/hooks/useApiAuth';
 import { LogOut, AlertTriangle, Package, X, CheckCircle } from 'lucide-react';
 
 interface LogoutWithPendingOrdersCheckProps {
-  variant?: 'default' | 'outline' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'success' | 'warning' | 'outline' | 'ghost' | 'destructive';
   size?: 'sm' | 'md' | 'lg';
   className?: string;
   showIcon?: boolean;

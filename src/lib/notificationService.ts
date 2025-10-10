@@ -19,13 +19,13 @@ export class NotificationService {
     try {
       const notification = await prisma.notification.create({
         data: {
-          userId: params.userId,
+          ...(params.userId && { userId: params.userId }),
           title: params.title,
           message: params.message,
           type: params.type,
           priority: params.priority || NotificationPriority.NORMAL,
           data: params.data ? JSON.stringify(params.data) : null,
-          expiresAt: params.expiresAt
+          ...(params.expiresAt && { expiresAt: params.expiresAt })
         }
       });
 

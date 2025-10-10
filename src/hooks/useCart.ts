@@ -83,47 +83,33 @@ export const useCart = () => {
     previousUserIdRef.current = currentUserId;
   }, [user?.id]);
 
-  // Salvar carrinho no localStorage sempre que mudar
+  // Salvar carrinho no localStorage com debounce para evitar muitas escritas
   useEffect(() => {
-    try {
-      console.log('💾 Salvando carrinho no localStorage:', {
-        items: state.items.length,
-        totalItems: state.totalItems,
-        totalPrice: state.totalPrice,
-        state: state
-      });
-      
-      // Só salvar se já foi inicializado e não for o estado inicial vazio
-      if (isInitializedRef.current && (state.items.length > 0 || state.totalItems > 0 || state.totalPrice > 0)) {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
-        console.log('✅ Carrinho salvo com sucesso no localStorage');
-      } else if (!isInitializedRef.current) {
-        console.log('⏭️ Pulando salvamento - ainda não inicializado');
-      } else {
-        console.log('⏭️ Pulando salvamento - estado vazio');
+    const saveToStorage = () => {
+      try {
+        // Só salvar se já foi inicializado e não for o estado inicial vazio
+        if (isInitializedRef.current && (state.items.length > 0 || state.totalItems > 0 || state.totalPrice > 0)) {
+          localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
+        }
+      } catch (error) {
+        console.error('❌ Erro ao salvar carrinho:', error);
       }
-    } catch (error) {
-      console.error('❌ Erro ao salvar carrinho:', error);
-    }
+    };
+
+    // Debounce para evitar muitas escritas no localStorage
+    const timeoutId = setTimeout(saveToStorage, 300);
+    
+    return () => clearTimeout(timeoutId);
   }, [state]);
 
   // Adicionar item ao carrinho
   const addItem = useCallback((product: Product, quantity: number = 1) => {
-    console.log('🛒 useCart.addItem chamado:', {
-      productId: product.id,
-      productName: product.name,
-      price: product.price,
-      quantity,
-      isAvailable: product.isAvailable
-    });
 
     if (!product.isAvailable) {
-      console.log('❌ Produto indisponível, não adicionando');
       dispatch({ type: 'SET_ERROR', payload: 'Produto indisponível' });
       return;
     }
 
-    console.log('✅ Enviando ADD_ITEM para o reducer');
     dispatch({ type: 'ADD_ITEM', payload: { product, quantity } });
   }, []);
 

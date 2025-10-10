@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getTokenFromRequest } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,10 +10,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
     // Verificar permissões (apenas ADMIN)
     const user = await prisma.user.findFirst({
       where: { 
-        id: token.userId,
+        id: decoded.userId,
         isActive: true,
         role: 'ADMIN'
       }
@@ -65,11 +70,11 @@ export async function GET(request: NextRequest) {
       // Agrupar por dia
       const revenueByDay = revenueData.reduce((acc: any, order) => {
         const date = order.createdAt.toISOString().split('T')[0];
-        if (!acc[date]) {
-          acc[date] = { date, revenue: 0, orders: 0 };
+        if (!acc[date as string]) {
+          acc[date as string] = { date, revenue: 0, orders: 0 };
         }
-        acc[date].revenue += Number(order.total);
-        acc[date].orders += 1;
+        acc[date as string].revenue += Number(order.total);
+        acc[date as string].orders += 1;
         return acc;
       }, {});
 
@@ -93,11 +98,11 @@ export async function GET(request: NextRequest) {
       // Agrupar por dia
       const ordersByDay = ordersData.reduce((acc: any, order) => {
         const date = order.createdAt.toISOString().split('T')[0];
-        if (!acc[date]) {
-          acc[date] = { date, orders: 0, revenue: 0 };
+        if (!acc[date as string]) {
+          acc[date as string] = { date, orders: 0, revenue: 0 };
         }
-        acc[date].orders += 1;
-        acc[date].revenue += Number(order.total);
+        acc[date as string].orders += 1;
+        acc[date as string].revenue += Number(order.total);
         return acc;
       }, {});
 

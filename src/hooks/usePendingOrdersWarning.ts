@@ -80,6 +80,8 @@ export function usePendingOrdersWarning({
           // Para compatibilidade com navegadores mais antigos
           return message;
         }
+        
+        return undefined;
       } catch (error) {
         console.error('❌ Erro no beforeunload:', error);
         // Em caso de erro, assumir que há pedidos pendentes por segurança

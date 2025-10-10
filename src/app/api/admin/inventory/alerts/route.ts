@@ -45,7 +45,11 @@ export async function GET(request: NextRequest) {
     });
 
     // Categorizar alertas
-    const alerts = {
+    const alerts: {
+      outOfStock: any[],
+      lowStock: any[],
+      overStock: any[]
+    } = {
       outOfStock: [],
       lowStock: [],
       overStock: []

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getTokenFromRequest } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 import { NotificationType, NotificationPriority } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -9,6 +9,11 @@ export async function GET(request: NextRequest) {
     const token = getTokenFromRequest(request);
     if (!token) {
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
 
     const { searchParams } = new URL(request.url);
@@ -20,7 +25,7 @@ export async function GET(request: NextRequest) {
     // Buscar notificações do usuário
     const where: any = {
       OR: [
-        { userId: token.userId }, // Notificações específicas do usuário
+        { userId: decoded.userId }, // Notificações específicas do usuário
         { userId: null } // Notificações globais
       ],
       isActive: true

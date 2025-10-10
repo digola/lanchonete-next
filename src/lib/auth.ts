@@ -275,6 +275,9 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'menu:delete',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
     [UserRole.ADMINISTRADOR]: [
       'users:read',
@@ -298,6 +301,9 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'menu:delete',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
     [UserRole.ADMINISTRADOR_LOWER]: [
       'users:read',
@@ -321,6 +327,9 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'menu:delete',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
     [UserRole.ADMINISTRADOR_TITLE]: [
       'users:read',
@@ -344,6 +353,9 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'menu:delete',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
   };
 
@@ -354,9 +366,13 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
 export const hasRole = (userRole: UserRole, requiredRole: UserRole): boolean => {
   const roleHierarchy = {
     [UserRole.CUSTOMER]: 1,
+    [UserRole.CLIENTE]: 1,
     [UserRole.STAFF]: 2,
     [UserRole.MANAGER]: 3,
     [UserRole.ADMIN]: 4,
+    [UserRole.ADMINISTRADOR]: 4,
+    [UserRole.ADMINISTRADOR_LOWER]: 4,
+    [UserRole.ADMINISTRADOR_TITLE]: 4,
   };
 
   return roleHierarchy[userRole] >= roleHierarchy[requiredRole];

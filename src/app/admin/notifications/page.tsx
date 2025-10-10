@@ -22,7 +22,7 @@ import {
   RefreshCw
 } from 'lucide-react';
 
-const getNotificationIcon = (type: NotificationType) => {
+const getNotificationIcon = (type: string) => {
   switch (type) {
     case NotificationType.ORDER:
       return ShoppingBag;
@@ -54,7 +54,7 @@ const getPriorityColor = (priority: NotificationPriority) => {
   }
 };
 
-const getTypeColor = (type: NotificationType) => {
+const getTypeColor = (type: string) => {
   switch (type) {
     case NotificationType.ORDER:
       return 'text-green-600 bg-green-100';
@@ -72,7 +72,7 @@ const getTypeColor = (type: NotificationType) => {
 };
 
 export default function NotificationsPage() {
-  const [filterType, setFilterType] = useState<NotificationType | 'all'>('all');
+  const [filterType, setFilterType] = useState<string>('all');
   const [filterRead, setFilterRead] = useState<'all' | 'read' | 'unread'>('all');
 
   const { 

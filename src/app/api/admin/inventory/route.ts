@@ -223,7 +223,7 @@ export async function POST(request: NextRequest) {
           quantity: type === 'AJUSTE' ? (newStock - currentStock) : quantity,
           reason,
           reference,
-          userId: user.id,
+          userId: user.userId,
           notes
         },
         include: {

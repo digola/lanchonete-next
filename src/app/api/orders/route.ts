@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const includeItems = searchParams.get('includeItems') === 'true';
     const includeUser = searchParams.get('includeUser') === 'true';
+    const date = searchParams.get('date');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
@@ -94,8 +97,45 @@ export async function GET(request: NextRequest) {
       where.isPaid = isPaid === 'true';
     }
 
+    // Filtros de data
+    if (date) {
+      // Filtro por data específica (formato YYYY-MM-DD)
+      const parts = date.split('-').map(Number);
+      const yearNum = parts[0] || 0;
+      const monthNum = parts[1] || 0;
+      const dayNum = parts[2] || 0;
+      const startDate = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      const endDate = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      
+      where.createdAt = {
+        gte: startDate,
+        lte: endDate
+      };
+    } else if (dateFrom || dateTo) {
+      // Filtro por período (dateFrom e/ou dateTo)
+      const dateFilter: any = {};
+      
+      if (dateFrom) {
+        const parts = dateFrom.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.gte = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      }
+      
+      if (dateTo) {
+        const parts = dateTo.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.lte = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      }
+      
+      where.createdAt = dateFilter;
+    }
+
     // Verificar cache (baseado nos parâmetros da query)
-    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, isPaid, page, limit, sortBy, sortOrder })}`;
+    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, isPaid, date, dateFrom, dateTo, page, limit, sortBy, sortOrder })}`;
     const cachedData = getCache(cacheKey, CACHE_DURATION.SHORT);
     
     if (cachedData) {

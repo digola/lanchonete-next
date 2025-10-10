@@ -12,7 +12,7 @@ interface NotificationBellProps {
   className?: string;
 }
 
-const getNotificationIcon = (type: NotificationType) => {
+const getNotificationIcon = (type: string) => {
   switch (type) {
     case NotificationType.ORDER:
       return ShoppingBag;

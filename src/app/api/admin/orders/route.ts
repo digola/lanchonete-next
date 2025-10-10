@@ -285,7 +285,7 @@ export async function PUT(request: NextRequest) {
         console.error(`Erro ao processar pedido ${orderId}:`, error);
         errors.push({
           orderId,
-          error: error.message || 'Erro desconhecido'
+          error: error instanceof Error ? error.message : 'Erro desconhecido'
         });
       }
     }

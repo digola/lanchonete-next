@@ -1,13 +1,13 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useApiAuth } from '@/hooks/useApiAuth';
-// import { useApi } from '@/hooks/useApi';
+import { useApi } from '@/hooks/useApi';
 import { UserRole, Table, TableStatus } from '@/types';
 import { 
   Table as TableIcon,
@@ -25,71 +25,37 @@ export default function StaffPage() {
   // Estados principais
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
-  // Estados para mesas
-  const [tables, setTables] = useState<Table[]>([]);
-  const [tablesLoading, setTablesLoading] = useState(true);
+  // Buscar mesas usando hook otimizado
+  const { data: tablesResponse, loading: tablesLoading, execute: refetchTables } = useApi<{ 
+    data: Table[]; 
+    pagination: any 
+  }>('/api/tables?includeAssignedUser=true');
 
-  // Buscar mesas
-  const fetchTables = async () => {
-    try {
-      setTablesLoading(true);
-      const token = localStorage.getItem('token') || localStorage.getItem('auth-token');
-      
-      if (!token) {
-        console.warn('Token não encontrado, redirecionando para login');
-        router.push('/login?redirect=/staff');
-        return;
-      }
-      
-      const response = await fetch('/api/tables?includeAssignedUser=true', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTables(data.data || []);
-      } else if (response.status === 401) {
-        console.warn('Token inválido, redirecionando para login');
-        localStorage.removeItem('token');
-        localStorage.removeItem('auth-token');
-        router.push('/login?redirect=/staff');
-      }
-    } catch (error) {
-      console.error('Erro ao buscar mesas:', error);
-    } finally {
-      setTablesLoading(false);
-    }
-  };
+  const tables = tablesResponse?.data || [];
 
-  // Carregar mesas na inicialização
+  // Auto-refresh otimizado - apenas quando necessário
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadTables = async () => {
-      if (isMounted) {
-        await fetchTables();
-      }
-    };
-    
-    loadTables();
-    
-    // Auto-refresh a cada 30 segundos
     const interval = setInterval(() => {
-      if (isMounted) {
-        fetchTables();
-      }
-    }, 30000);
+      refetchTables();
+    }, 60000); // Aumentado para 1 minuto para reduzir carga
     
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
+    return () => clearInterval(interval);
+  }, [refetchTables]);
+
+
+
+  // Memoizar estatísticas para melhor performance
+  const tableStats = useMemo(() => {
+    const totalTables = tables.length;
+    const freeTables = tables.filter(t => t.status === TableStatus.LIVRE).length;
+    const occupiedTables = tables.filter(t => t.status === TableStatus.OCUPADA).length;
+    
+    return {
+      total: totalTables,
+      free: freeTables,
+      occupied: occupiedTables,
     };
-  }, []);
-
-
+  }, [tables]);
 
   // Função para obter cor do status da mesa
   const getTableStatusColor = (status: TableStatus) => {
@@ -144,7 +110,7 @@ export default function StaffPage() {
                 </div>
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total de Mesas</p>
-              <p className="text-4xl font-bold text-blue-600">{tables.length}</p>
+              <p className="text-4xl font-bold text-blue-600">{tableStats.total}</p>
             </div>
 
             <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6">
@@ -155,7 +121,7 @@ export default function StaffPage() {
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Mesas Livres</p>
               <p className="text-4xl font-bold text-green-600">
-                {tables.filter(t => t.status === TableStatus.LIVRE).length}
+                {tableStats.free}
               </p>
             </div>
 
@@ -167,14 +133,29 @@ export default function StaffPage() {
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Mesas Ocupadas</p>
               <p className="text-4xl font-bold text-red-600">
-                {tables.filter(t => t.status === TableStatus.OCUPADA).length}
+                {tableStats.occupied}
               </p>
             </div>
           </div>
 
           {/* Grid de Mesas Moderno */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {tables.map((table) => (
+            {tablesLoading ? (
+              // Skeleton loading para melhor UX
+              Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg p-6 animate-pulse">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  </div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                </div>
+              ))
+            ) : (
+              tables.map((table) => (
               <div
                 key={table.id} 
                 className={`
@@ -265,7 +246,8 @@ export default function StaffPage() {
                   )}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
         </div>

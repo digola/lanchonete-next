@@ -69,6 +69,7 @@ export function formatPendingOrdersForDisplay(pendingOrders: PendingOrder[]): st
   
   if (pendingOrders.length === 1) {
     const order = pendingOrders[0];
+    if (!order) return '';
     return `Pedido #${order.id.slice(-8)} - ${order.table ? `Mesa ${order.table.number}` : 'Balcão'} - ${order.user?.name || 'Cliente'}`;
   }
   

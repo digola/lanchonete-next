@@ -60,7 +60,6 @@ export default function SettingsPage() {
     digitalWalletEnabled: false,
     taxRate: 0,
     minimumOrderValue: 0,
-    maximumOrderValue: undefined,
   });
 
   const [printingSettings, setPrintingSettings] = useState<PrintingSettings>({
@@ -87,7 +86,6 @@ export default function SettingsPage() {
     cloudBackupEnabled: false,
     localBackupEnabled: true,
     backupLocation: '',
-    lastBackupDate: undefined,
   });
 
   // Buscar dados do usuário
@@ -171,7 +169,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('auth-token');
       
       // Preparar configurações para envio
-      const settingsToSave = [];
+      const settingsToSave: Array<{key: string, value: any, category: string, description: string}> = [];
       
       if (activeTab === 'general') {
         console.log('📝 Preparando configurações gerais...');

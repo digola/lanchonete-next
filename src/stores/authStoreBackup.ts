@@ -54,6 +54,17 @@ const ROLE_PERMISSIONS = {
     'cart:write',
     'cart:delete',
   ],
+  [UserRole.CLIENTE]: [
+    'menu:read',
+    'orders:read',
+    'orders:create',
+    'orders:update',
+    'profile:read',
+    'profile:write',
+    'cart:read',
+    'cart:write',
+    'cart:delete',
+  ],
   [UserRole.STAFF]: [
     'menu:read',
     'orders:read',

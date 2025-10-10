@@ -112,7 +112,7 @@ export default function HomePage() {
                 <span className="text-xl font-bold text-white">🍔</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Lanchonete</h1>
+                <h1 className="text-xl font-bold text-gray-900">{publicSettings?.restaurantName || 'Lanchonete'}</h1>
                 <p className="text-sm text-gray-600">Cardápio Online</p>
               </div>
             </Link>

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+﻿import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
 // import { ClientToastProvider } from '@/components/ui/ClientToastProvider';
@@ -16,16 +16,16 @@ const poppins = Poppins({
 
 export const metadata: Metadata = {
   title: {
-    default: 'Lanchonete - Sistema de Gestão',
+    default: 'Lanchonete - Sistema de GestÃ£o',
     template: '%s | Lanchonete'
   },
-  description: 'Sistema completo de gestão para lanchonetes com cardápio online, pedidos e delivery.',
-  keywords: ['lanchonete', 'delivery', 'cardápio', 'pedidos', 'gestão', 'nextjs'],
+  description: 'Sistema completo de gestÃ£o para lanchonetes com cardÃ¡pio online, pedidos e delivery.',
+  keywords: ['lanchonete', 'delivery', 'cardÃ¡pio', 'pedidos', 'gestÃ£o', 'nextjs'],
   authors: [{ name: 'Lanchonete Team' }],
   robots: 'index, follow',
   openGraph: {
-    title: 'Lanchonete - Sistema de Gestão',
-    description: 'Sistema completo de gestão para lanchonetes',
+    title: 'Lanchonete - Sistema de GestÃ£o',
+    description: 'Sistema completo de gestÃ£o para lanchonetes',
     type: 'website',
     locale: 'pt_BR',
   },
@@ -55,3 +55,4 @@ export default function RootLayout({
     </html>
   );
 }
+

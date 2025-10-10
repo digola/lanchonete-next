@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
       if (!acc[setting.category]) {
         acc[setting.category] = {};
       }
-      acc[setting.category][setting.key] = setting;
+      acc[setting.category]![setting.key] = setting;
       return acc;
     }, {} as Record<string, Record<string, any>>);
 
@@ -120,7 +120,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    console.log('👤 Usuário verificado:', user ? { id: user.id, role: user.role } : 'Nenhum');
+    console.log('👤 Usuário verificado:', user ? { id: user.userId, role: user.role } : 'Nenhum');
     
     if (!user || (user.role !== 'ADMIN' && user.role !== 'ADMINISTRADOR')) {
       console.log('❌ Acesso negado');

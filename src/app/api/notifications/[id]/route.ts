@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getTokenFromRequest } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 
 export async function PATCH(
   request: NextRequest,
@@ -13,6 +13,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { isRead } = body;
@@ -22,7 +27,7 @@ export async function PATCH(
       where: {
         id,
         OR: [
-          { userId: token.userId },
+          { userId: decoded.userId },
           { userId: null } // Notificações globais
         ]
       }
@@ -75,6 +80,11 @@ export async function DELETE(
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
     const { id } = await params;
 
     // Verificar se a notificação existe e pertence ao usuário
@@ -82,7 +92,7 @@ export async function DELETE(
       where: {
         id,
         OR: [
-          { userId: token.userId },
+          { userId: decoded.userId },
           { userId: null } // Notificações globais
         ]
       }

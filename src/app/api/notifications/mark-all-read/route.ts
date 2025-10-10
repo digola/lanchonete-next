@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getTokenFromRequest } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,11 +10,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
+
     // Marcar todas as notificações do usuário como lidas
     const result = await prisma.notification.updateMany({
       where: {
         OR: [
-          { userId: token.userId },
+          { userId: decoded.userId },
           { userId: null } // Notificações globais
         ],
         isRead: false,

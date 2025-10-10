@@ -40,7 +40,7 @@ export function AdminHeader() {
               <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
                 <Shield className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Admin</span>
+              <span className="text-xl font-bold text-gray-900">Lanchonete</span>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-6">

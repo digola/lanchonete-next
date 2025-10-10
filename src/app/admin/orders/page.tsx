@@ -10,6 +10,8 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { UserRole, Order, OrderStatus } from '@/types';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
+import { Calendar } from '@/components/ui/Calendar';
+import { useOrdersCalendar } from '@/hooks/useOrdersCalendar';
 import { 
   ShoppingBag,
   Search,
@@ -20,10 +22,11 @@ import {
   Clock,
   Package,
   Users,
-  Calendar,
+  Calendar as CalendarIcon,
   ArrowUpDown,
   RefreshCw,
-  Download
+  Download,
+  CalendarDays
 } from 'lucide-react';
 
 export default function AdminOrdersPage() {
@@ -37,6 +40,18 @@ export default function AdminOrdersPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+
+  // Hook do calendário - só carrega quando estiver no modo calendário
+  const {
+    ordersByDate,
+    selectedDateOrders,
+    isLoading: calendarLoading,
+    error: calendarError,
+    refetch: refetchCalendar,
+    selectDate,
+    selectedDate,
+  } = useOrdersCalendar(undefined, viewMode === 'calendar');
 
   // Construir URL da API com filtros
   const buildApiUrl = () => {
@@ -156,6 +171,7 @@ export default function AdminOrdersPage() {
     setDateFilter('');
     setSortBy('createdAt');
     setSortOrder('desc');
+    selectDate(new Date()); // Limpar seleção do calendário
   };
 
   const exportOrders = () => {
@@ -223,13 +239,36 @@ export default function AdminOrdersPage() {
             </p>
           </div>
           <div className="flex items-center space-x-2 mt-4 sm:mt-0">
+            <div className="flex items-center border border-gray-300 rounded-lg p-1">
+              <Button
+                variant={viewMode === 'list' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('list')}
+                className="flex items-center"
+              >
+                <ShoppingBag className="h-4 w-4 mr-1" />
+                Lista
+              </Button>
+              <Button
+                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setViewMode('calendar')}
+                className="flex items-center"
+              >
+                <CalendarDays className="h-4 w-4 mr-1" />
+                Calendário
+              </Button>
+            </div>
             <Button
               variant="outline"
-              onClick={refetchOrders}
-              disabled={ordersLoading}
+              onClick={() => {
+                refetchOrders();
+                refetchCalendar();
+              }}
+              disabled={ordersLoading || calendarLoading}
               className="flex items-center"
             >
-              <RefreshCw className={`h-4 w-4 mr-2 ${ordersLoading ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`h-4 w-4 mr-2 ${(ordersLoading || calendarLoading) ? 'animate-spin' : ''}`} />
               Atualizar
             </Button>
             <Button
@@ -358,6 +397,133 @@ export default function AdminOrdersPage() {
           </CardContent>
         </Card>
 
+        {/* Visualização do Calendário */}
+        {viewMode === 'calendar' && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Calendário */}
+            <div className="lg:col-span-1">
+              <Calendar
+                selectedDate={selectedDate}
+                onDateSelect={selectDate}
+                ordersData={ordersByDate}
+                className="w-full"
+              />
+            </div>
+
+            {/* Pedidos da Data Selecionada */}
+            <div className="lg:col-span-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center">
+                    <CalendarIcon className="h-5 w-5 mr-2" />
+                    Pedidos do Dia
+                    {selectedDate && (
+                      <span className="ml-2 text-sm font-normal text-gray-500">
+                        ({selectedDate.toLocaleDateString('pt-BR')})
+                      </span>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {calendarLoading ? (
+                    <div className="space-y-4">
+                      {[1, 2, 3].map((i) => (
+                        <div key={i} className="animate-pulse">
+                          <div className="h-16 bg-gray-200 rounded-lg"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : selectedDateOrders.length > 0 ? (
+                    <div className="space-y-3">
+                      {selectedDateOrders.map((order) => (
+                        <div
+                          key={order.id}
+                          className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center space-x-3">
+                              {getStatusIcon(order.status)}
+                              <div>
+                                <div className="flex items-center space-x-2">
+                                  <span className="font-medium text-gray-900">
+                                    Pedido #{order.id.slice(-8)}
+                                  </span>
+                                  <Badge variant={getStatusColor(order.status) as any}>
+                                    {order.status}
+                                  </Badge>
+                                  {order.isPaid && (
+                                    <Badge variant="success">
+                                      Pago
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="text-sm text-gray-600 mt-1">
+                                  <div className="flex items-center space-x-4">
+                                    <span className="flex items-center">
+                                      <Users className="h-3 w-3 mr-1" />
+                                      {order.user?.name || 'Cliente'}
+                                    </span>
+                                    {order.table && (
+                                      <span className="flex items-center">
+                                        <Package className="h-3 w-3 mr-1" />
+                                        Mesa {order.table.number}
+                                      </span>
+                                    )}
+                                    <span className="flex items-center">
+                                      <Clock className="h-3 w-3 mr-1" />
+                                      {formatDateTime(order.createdAt)}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-4">
+                              <div className="text-right">
+                                <div className="text-lg font-semibold text-gray-900">
+                                  {formatCurrency(order.total)}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {order.items?.length || 0} itens
+                                </div>
+                              </div>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedOrder(order);
+                                  setShowOrderDetails(true);
+                                }}
+                                className="flex items-center"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                Ver
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12">
+                      <CalendarIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                      <h3 className="text-lg font-medium text-gray-900 mb-2">
+                        {selectedDate ? 'Nenhum pedido encontrado' : 'Selecione uma data'}
+                      </h3>
+                      <p className="text-gray-600 mb-4">
+                        {selectedDate 
+                          ? 'Não há pedidos para esta data.'
+                          : 'Clique em uma data no calendário para ver os pedidos do dia.'}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
         {/* Ações em Massa */}
         {selectedOrders.length > 0 && (
           <Card className="border-blue-200 bg-blue-50">
@@ -399,7 +565,8 @@ export default function AdminOrdersPage() {
         )}
 
         {/* Lista de Pedidos */}
-        <Card>
+        {viewMode === 'list' && (
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center">
@@ -530,6 +697,7 @@ export default function AdminOrdersPage() {
             )}
           </CardContent>
         </Card>
+        )}
 
         {/* Modal de Detalhes do Pedido */}
         <OrderDetailsModal

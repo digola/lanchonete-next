@@ -37,8 +37,8 @@ export async function POST(
     if (result.success) {
       return NextResponse.json({ 
         message: 'Produtos adicionados com sucesso',
-        data: result.data 
-      });
+        data: result.data
+           });
     } else {
       return NextResponse.json(
         { message: result.error },
