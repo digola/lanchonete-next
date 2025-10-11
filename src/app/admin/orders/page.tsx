@@ -26,9 +26,13 @@ import {
   ArrowUpDown,
   RefreshCw,
   Download,
-  CalendarDays
+  CalendarDays,
+  Calendar1
 } from 'lucide-react';
 
+
+// Página principal de gerenciamento de pedidos no admin.
+// Controla filtros, modos de visualização (lista/calendário), busca e ações em massa.
 export default function AdminOrdersPage() {
   const { user } = useApiAuth();
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,14 +55,19 @@ export default function AdminOrdersPage() {
     refetch: refetchCalendar,
     selectDate,
     selectedDate,
-  } = useOrdersCalendar(undefined, viewMode === 'calendar');
+  } = useOrdersCalendar(undefined  , viewMode === 'calendar');
 
   // Construir URL da API com filtros
+  // Monta a URL da API de pedidos com filtros e parâmetros de inclusão
   const buildApiUrl = () => {
     const params = new URLSearchParams();
     params.set('limit', '50');
     params.set('sortBy', sortBy);
     params.set('sortOrder', sortOrder);
+    // Garantir que itens, usuário e mesa venham na resposta
+    params.set('includeItems', 'true');
+    params.set('includeUser', 'true');
+    params.set('includeTable', 'true');
     
     if (searchTerm) params.set('search', searchTerm);
     if (statusFilter !== 'ALL') params.set('status', statusFilter);
@@ -79,6 +88,7 @@ export default function AdminOrdersPage() {
     refetchOrders();
   }, [searchTerm, statusFilter, dateFilter, sortBy, sortOrder]);
 
+  // Retorna o ícone visual correspondente ao status do pedido
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
       case OrderStatus.PENDENTE:
@@ -98,6 +108,7 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Mapeia status de pedido para variação de cor do Badge
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
       case OrderStatus.PENDENTE:
@@ -117,6 +128,7 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Alterna seleção de um pedido individual para ações em massa
   const handleSelectOrder = (orderId: string) => {
     setSelectedOrders(prev => 
       prev.includes(orderId) 
@@ -125,6 +137,7 @@ export default function AdminOrdersPage() {
     );
   };
 
+  // Seleciona ou desseleciona todos os pedidos listados
   const handleSelectAll = () => {
     if (selectedOrders.length === orders.length) {
       setSelectedOrders([]);
@@ -133,6 +146,7 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Executa ação em massa (cancelar ou confirmar) para pedidos selecionados
   const handleBulkAction = async (action: 'cancel' | 'confirm') => {
     if (selectedOrders.length === 0) return;
 
@@ -165,6 +179,7 @@ export default function AdminOrdersPage() {
     }
   };
 
+  // Limpa filtros e reseta ordenação e seleção do calendário
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('ALL');
@@ -174,6 +189,7 @@ export default function AdminOrdersPage() {
     selectDate(new Date()); // Limpar seleção do calendário
   };
 
+  // Exporta a lista de pedidos atual como CSV com informações principais
   const exportOrders = () => {
     const csvContent = [
       ['ID', 'Status', 'Cliente', 'Mesa', 'Total', 'Data', 'Itens'],
@@ -184,7 +200,7 @@ export default function AdminOrdersPage() {
         order.table?.number?.toString() || 'Balcão',
         formatCurrency(order.total),
         formatDateTime(order.createdAt),
-        order.items?.length || 0
+        order.items?.map(item => `${item.quantity}x ${item.product?.name || 'Produto'}`).join(', ') || 'Nenhum'
       ])
     ].map(row => row.join(',')).join('\n');
 
@@ -197,6 +213,7 @@ export default function AdminOrdersPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  // Atualiza o status de um pedido específico e refaz a consulta
   const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
       const token = localStorage.getItem('auth-token');
@@ -240,17 +257,9 @@ export default function AdminOrdersPage() {
           </div>
           <div className="flex items-center space-x-2 mt-4 sm:mt-0">
             <div className="flex items-center border border-gray-300 rounded-lg p-1">
+            
               <Button
-                variant={viewMode === 'list' ? 'default' : 'ghost'}
-                size="sm"
-                onClick={() => setViewMode('list')}
-                className="flex items-center"
-              >
-                <ShoppingBag className="h-4 w-4 mr-1" />
-                Lista
-              </Button>
-              <Button
-                variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                
                 size="sm"
                 onClick={() => setViewMode('calendar')}
                 className="flex items-center"
@@ -321,6 +330,7 @@ export default function AdminOrdersPage() {
                       Status
                     </label>
                     <select
+                  
                       value={statusFilter}
                       onChange={(e) => setStatusFilter(e.target.value as OrderStatus | 'ALL')}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -403,11 +413,10 @@ export default function AdminOrdersPage() {
             {/* Calendário */}
             <div className="lg:col-span-1">
               <Calendar
-                selectedDate={selectedDate}
                 onDateSelect={selectDate}
                 ordersData={ordersByDate}
                 className="w-full"
-              />
+           />
             </div>
 
             {/* Pedidos da Data Selecionada */}
@@ -419,7 +428,7 @@ export default function AdminOrdersPage() {
                     Pedidos do Dia
                     {selectedDate && (
                       <span className="ml-2 text-sm font-normal text-gray-500">
-                        ({selectedDate.toLocaleDateString('pt-BR')})
+                        ({selectedDate.toLocaleDateString('pt-BR')}) 
                       </span>
                     )}
                   </CardTitle>
@@ -432,6 +441,7 @@ export default function AdminOrdersPage() {
                           <div className="h-16 bg-gray-200 rounded-lg"></div>
                         </div>
                       ))}
+                      
                     </div>
                   ) : selectedDateOrders.length > 0 ? (
                     <div className="space-y-3">
@@ -440,6 +450,7 @@ export default function AdminOrdersPage() {
                           key={order.id}
                           className="border rounded-lg p-4 hover:bg-gray-50 transition-colors"
                         >
+                      
                           <div className="flex items-center justify-between">
                             <div className="flex items-center space-x-3">
                               {getStatusIcon(order.status)}
@@ -453,7 +464,7 @@ export default function AdminOrdersPage() {
                                   </Badge>
                                   {order.isPaid && (
                                     <Badge variant="success">
-                                      Pago
+                                      Pago 
                                     </Badge>
                                   )}
                                 </div>
@@ -483,8 +494,9 @@ export default function AdminOrdersPage() {
                                 <div className="text-lg font-semibold text-gray-900">
                                   {formatCurrency(order.total)}
                                 </div>
+                         
                                 <div className="text-sm text-gray-500">
-                                  {order.items?.length || 0} itens
+                                  {(order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)} itens
                                 </div>
                               </div>
                               
@@ -521,6 +533,7 @@ export default function AdminOrdersPage() {
                 </CardContent>
               </Card>
             </div>
+   
           </div>
         )}
 
@@ -589,7 +602,7 @@ export default function AdminOrdersPage() {
               <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="h-24 bg-gray-200 rounded-lg"></div>
+                 
                   </div>
                 ))}
               </div>
@@ -597,6 +610,7 @@ export default function AdminOrdersPage() {
               <div className="space-y-4">
                 {orders.map((order) => (
                   <div
+                  
                     key={order.id}
                     className={`border rounded-lg p-4 hover:bg-gray-50 transition-colors ${
                       selectedOrders.includes(order.id) ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
@@ -604,6 +618,7 @@ export default function AdminOrdersPage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-4">
+                        
                         <input
                           type="checkbox"
                           checked={selectedOrders.includes(order.id)}
@@ -614,18 +629,21 @@ export default function AdminOrdersPage() {
                         <div className="flex items-center space-x-3">
                           {getStatusIcon(order.status)}
                           <div>
+                           
                             <div className="flex items-center space-x-2">
                               <span className="font-medium text-gray-900">
                                 Pedido #{order.id.slice(-8)}
                               </span>
                               <Badge variant={getStatusColor(order.status) as any}>
-                                {order.status}
+                                <div>{order.status}</div>
                               </Badge>
+                             
                               {order.isPaid && (
                                 <Badge variant="success">
                                   Pago
                                 </Badge>
                               )}
+                              
                             </div>
                             <div className="text-sm text-gray-600 mt-1">
                               <div className="flex items-center space-x-4">
@@ -639,10 +657,7 @@ export default function AdminOrdersPage() {
                                     Mesa {order.table.number}
                                   </span>
                                 )}
-                                <span className="flex items-center">
-                                  <Calendar className="h-3 w-3 mr-1" />
-                                  {formatDateTime(order.createdAt)}
-                                </span>
+                               
                               </div>
                             </div>
                           </div>
@@ -655,10 +670,10 @@ export default function AdminOrdersPage() {
                             {formatCurrency(order.total)}
                           </div>
                           <div className="text-sm text-gray-500">
-                            {order.items?.length || 0} itens
+                            {(order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)} itens
                           </div>
                         </div>
-                        
+                      
                         <Button
                           variant="ghost"
                           size="sm"
