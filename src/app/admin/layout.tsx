@@ -58,7 +58,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
           <p className="text-gray-600 mb-4">Você precisa ser Administrador.</p>
           
-          {/* Debug Info */}
+        //  {/* Debug Info */}
           <div className="bg-gray-100 p-4 rounded mb-4 text-left max-w-md mx-auto">
             <h3 className="font-bold mb-2">Debug Info:</h3>
             <p>Role atual: <strong>"{user.role}"</strong></p>

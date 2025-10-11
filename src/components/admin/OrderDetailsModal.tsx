@@ -234,7 +234,7 @@ export function OrderDetailsModal({
               ${currentDate.toLocaleString('pt-BR')}
             </div>
           </div>
-          
+          ola
           <div class="items">
             ${order.items?.map(item => `
               <div class="item">
@@ -413,7 +413,7 @@ export function OrderDetailsModal({
                 <CardHeader>
                   <CardTitle className="flex items-center">
                     <Package className="h-5 w-5 mr-2" />
-                    Itens do Pedido ({order.items?.length || 0})
+                  {(order.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)} itens
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -423,6 +423,7 @@ export function OrderDetailsModal({
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="font-medium text-gray-900 mb-1">
+                           
                               {item.product?.name || 'Produto não encontrado'}
                             </div>
                             <div className="text-sm text-gray-600 mb-2">

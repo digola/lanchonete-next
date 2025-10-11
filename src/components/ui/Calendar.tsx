@@ -122,7 +122,7 @@ export function Calendar({
             const hasOrders = ordersCount > 0;
             
             return (
-              <button
+              <button 
                 key={index}
                 onClick={() => handleDateClick(day)}
                 className={cn(
@@ -165,8 +165,10 @@ export function Calendar({
                   </div>
                 )}
               </button>
+           
             );
           })}
+          
         </div>
       </div>
     </div>
@@ -174,19 +176,5 @@ export function Calendar({
 }
 
 // Componente compacto para mostrar apenas o calendário sem cabeçalho
-export function CalendarCompact({ 
-  selectedDate, 
-  onDateSelect, 
-  ordersData = {}, 
-  className 
-}: Omit<CalendarProps, 'showHeader'>) {
-  return (
-    <Calendar
-      selectedDate={selectedDate}
-      onDateSelect={onDateSelect}
-      ordersData={ordersData}
-      className={className}
-      showHeader={false}
-    />
-  );
-}
+
+

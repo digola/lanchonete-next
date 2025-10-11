@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+
 import { 
   ArrowLeft,
   ShoppingBag,
@@ -22,10 +23,11 @@ import {
   RefreshCw,
   Star,
   Truck,
-  AlertCircle
+  AlertCircle,
+  PlusCircle
 } from 'lucide-react';
-import { Order, OrderStatus } from '@/types';
-
+import { Order, OrderStatus, Product } from '@/types';
+//import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/DialogContent';
 export default function OrderDetailsPage() {
   const params = useParams();
   const router = useRouter();
@@ -36,6 +38,10 @@ export default function OrderDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [isAddingProducts, setIsAddingProducts] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<{productId: string, quantity: number}[]>([]);
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
 
   // Função para buscar detalhes do pedido
   const fetchOrderDetails = useCallback(async () => {
@@ -78,6 +84,85 @@ export default function OrderDetailsPage() {
       fetchOrderDetails();
     }
   }, [authLoading, isAuthenticated, user?.id, orderId, hasLoaded, fetchOrderDetails]);
+  
+  // Função para buscar produtos disponíveis
+  const fetchAvailableProducts = useCallback(async () => {
+    try {
+      const response = await fetch('/api/products?isAvailable=true', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Erro ao carregar produtos');
+      }
+
+      if (data.success && data.data) {
+        setAvailableProducts(data.data);
+      }
+    } catch (error: any) {
+      console.error('Erro ao carregar produtos:', error);
+    }
+  }, []);
+
+  // Função para adicionar produtos ao pedido
+  const addProductsToOrder = useCallback(async () => {
+    if (!orderId || selectedProducts.length === 0) return;
+
+    try {
+      setIsLoading(true);
+      
+      const response = await fetch(`/api/orders/${orderId}/items`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+        },
+        body: JSON.stringify({ items: selectedProducts }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setOrder(data.data);
+        setIsAddingProducts(false);
+        setSelectedProducts([]);
+        alert('Produtos adicionados com sucesso!');
+      } else {
+        alert(`Erro ao adicionar produtos: ${data.error || 'Tente novamente'}`);
+      }
+    } catch (error: any) {
+      console.error('Erro ao adicionar produtos:', error);
+      alert('Erro de conexão. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [orderId, selectedProducts]);
+
+  // Função para adicionar produto à seleção
+  const addProductToSelection = useCallback((product: any) => {
+    const existing = selectedProducts.find(p => p.productId === product.id);
+    if (existing) {
+      setSelectedProducts(prev => 
+        prev.map(p => 
+          p.productId === product.id 
+            ? { ...p, quantity: p.quantity + 1 }
+            : p
+        )
+      );
+    } else {
+      setSelectedProducts(prev => [...prev, { productId: product.id, quantity: 1 }]);
+    }
+  }, [selectedProducts]);
+
+  // Função para remover produto da seleção
+  const removeProductFromSelection = useCallback((productId: string) => {
+    setSelectedProducts(prev => prev.filter(p => p.productId !== productId));
+  }, []);
 
   const getStatusIcon = (status: OrderStatus) => {
     switch (status) {
@@ -189,6 +274,94 @@ export default function OrderDetailsPage() {
 
   return (
     <div className="space-y-6">
+      {/* Modal para adicionar produtos */}
+      
+          
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 gap-4">
+              {availableProducts.length > 0 ? (
+                <>
+                  <h3 className="font-medium">Produtos Disponíveis</h3>
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                    {availableProducts.map((product) => (
+                      <div key={product.id} className="flex items-center justify-between p-3 border rounded-md">
+                        <div>
+                          <p className="font-medium">{product.name}</p>
+                          <p className="text-sm text-gray-500">{formatCurrency(product.price)}</p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          onClick={() => addProductToSelection(product)}
+                        >
+                          <PlusCircle className="h-4 w-4 mr-1" />
+                          Adicionar
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {selectedProducts.length > 0 && (
+                    <>
+                      <h3 className="font-medium mt-4">Produtos Selecionados</h3>
+                      <div className="space-y-2">
+                        {selectedProducts.map((item) => {
+                          const product = availableProducts.find(p => p.id === item.productId);
+                          return (
+                            <div key={item.productId} className="flex items-center justify-between p-3 border rounded-md bg-gray-50">
+                              <div>
+                                <p className="font-medium">{product?.name}</p>
+                                <p className="text-sm">Quantidade: {item.quantity}</p>
+                              </div>
+                              <Button 
+                                size="sm" 
+                                variant="destructive"
+                                onClick={() => removeProductFromSelection(item.productId)}
+                              >
+                                <XCircle className="h-4 w-4 mr-1" />
+                                Remover
+                              </Button>
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="flex justify-end space-x-2 mt-4">
+                        <Button 
+                          variant="outline" 
+                          onClick={() => setIsAddingProducts(false)}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button 
+                          onClick={addProductsToOrder}
+                          disabled={selectedProducts.length === 0 || isLoading}
+                        >
+                          {isLoading ? (
+                            <>
+                              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                              Processando...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Confirmar
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <Package className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p>Carregando produtos disponíveis...</p>
+                </div>
+              )}
+            </div>
+          </div>
+       
+      
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
@@ -206,14 +379,29 @@ export default function OrderDetailsPage() {
             </p>
           </div>
         </div>
-        <Button
-          variant="outline"
-          onClick={fetchOrderDetails}
-          disabled={isLoading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-          Atualizar
-        </Button>
+        <div className="flex space-x-2">
+          {(order.status === OrderStatus.PENDENTE || order.status === OrderStatus.CONFIRMADO) && (
+            <Button
+              variant="success"
+              onClick={() => {
+                setIsAddingProducts(true);
+                fetchAvailableProducts();
+              }}
+              disabled={isLoading}
+            >
+              <PlusCircle className="h-4 w-4 mr-2" />
+              Adicionar Produtos
+            </Button>
+          )}
+          <Button
+            variant="outline"
+            onClick={fetchOrderDetails}
+            disabled={isLoading}
+          >
+            <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+            Atualizar
+          </Button>
+        </div>
       </div>
 
       {/* Status do Pedido */}

@@ -39,11 +39,14 @@ export async function POST(
         message: 'Produtos adicionados com sucesso',
         data: result.data
            });
+         
     } else {
       return NextResponse.json(
         { message: result.error },
         { status: 400 }
+        
       );
+    
     }
 
   } catch (error) {

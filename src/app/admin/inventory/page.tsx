@@ -25,7 +25,8 @@ import {
   CheckCircle,
   Clock,
   LogOut
-} from 'lucide-react';
+} 
+from 'lucide-react';
 
 interface Product {
   id: string;

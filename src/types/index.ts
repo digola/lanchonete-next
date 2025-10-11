@@ -582,8 +582,7 @@ export interface Notification {
   userId?: string;
   title: string;
   message: string;
-  type: NotificationType;
-  priority: NotificationPriority;
+   priority: NotificationPriority;
   isRead: boolean;
   isActive: boolean;
   data?: any; // Dados adicionais (JSON)
