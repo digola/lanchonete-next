@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken } from '@/lib/auth';
 
 // POST /api/orders/[id]/review - Criar avaliação do pedido

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { OrderStatus, UserRole } from '@/types';
 import { getCache, setCache, clearCachePattern, CACHE_DURATION } from '@/lib/cache';
