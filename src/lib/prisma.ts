@@ -10,15 +10,28 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./dev.db';
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+// Lazy initialization: cria o client apenas no primeiro acesso
+let prismaClient: PrismaClient | undefined = globalForPrisma.prisma;
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    if (!prismaClient) {
+      prismaClient = new PrismaClient();
+      if (process.env.NODE_ENV !== 'production') {
+        globalForPrisma.prisma = prismaClient;
+      }
+    }
+    // @ts-ignore acessa propriedades dinamicamente do PrismaClient
+    return Reflect.get(prismaClient, prop, receiver);
+  }
+});
 
 // Função para conectar ao banco
 export const connectDatabase = async () => {
   try {
+    // força criação do client e conexão
     await prisma.$connect();
-    console.log('✅ Conectado ao banco de dados PostgreSQL');
+    console.log('✅ Conectado ao banco de dados');
   } catch (error) {
     console.error('❌ Erro ao conectar ao banco de dados:', error);
     throw error;
@@ -48,15 +61,17 @@ export const checkDatabaseHealth = async () => {
 
 // Middleware para logging de queries (apenas em desenvolvimento)
 if (process.env.NODE_ENV === 'development') {
-  prisma.$use(async (params: any, next: any) => {
-    const before = Date.now();
-    const result = await next(params);
-    const after = Date.now();
-    
-    console.log(`🔍 Query ${params.model}.${params.action} took ${after - before}ms`);
-    
-    return result;
-  });
+  // inicializa e aplica middleware somente quando usado
+  (async () => {
+    const client = (prisma as unknown as PrismaClient);
+    client.$use(async (params: any, next: any) => {
+      const before = Date.now();
+      const result = await next(params);
+      const after = Date.now();
+      console.log(`🔍 Query ${params.model}.${params.action} took ${after - before}ms`);
+      return result;
+    });
+  })().catch(() => {});
 }
 
 export default prisma;
