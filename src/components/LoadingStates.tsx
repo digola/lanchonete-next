@@ -368,7 +368,7 @@ export function DetailsLoading() {
   );
 }
 
-export default {
+const LoadingStates = {
   Dashboard: DashboardLoading,
   Products: ProductsLoading,
   Orders: OrdersLoading,
@@ -386,3 +386,5 @@ export default {
   Search: SearchLoading,
   Details: DetailsLoading,
 };
+
+export default LoadingStates;

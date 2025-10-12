@@ -10,11 +10,7 @@ function switchSchema() {
   
   if (target === 'sqlite') {
     console.log('🗃️ Alternando para SQLite...');
-    
-    // Backup do schema original
-    if (fs.existsSync(schemaPath)) {
-      fs.copyFileSync(schemaPath, path.join(__dirname, '..', 'prisma', 'schema-postgresql.prisma'));
-    }
+    // Não sobrescrever schema-postgresql.prisma
     
     // Copiar schema SQLite
     if (fs.existsSync(sqliteSchemaPath)) {

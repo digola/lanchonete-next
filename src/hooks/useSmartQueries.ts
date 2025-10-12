@@ -139,7 +139,7 @@ export const useSmartQueries = <T = any>(
     if (enabled) {
       executeQueries();
     }
-  }, [enabled]);
+  }, [enabled, executeQueries]);
 
   // Refetch interval
   useEffect(() => {
@@ -150,14 +150,14 @@ export const useSmartQueries = <T = any>(
     }, refetchInterval);
 
     return () => clearInterval(interval);
-  }, [refetchInterval, enabled]);
+  }, [refetchInterval, enabled, executeQueries]);
 
   // Refetch quando dependências mudam
   useEffect(() => {
     if (enabled) {
       executeQueries();
     }
-  }, [dependencies, enabled]);
+  }, [dependencies, enabled, executeQueries]);
 
   // Memoizar resultados
   const results = useMemo(() => {

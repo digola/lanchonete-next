@@ -67,6 +67,12 @@ export function useRealData<T>(
     retryAttempts: 3
   }
 ) {
+  const {
+    enableRealData = true,
+    fallbackToMock = true,
+    cacheTimeout = 300000,
+    retryAttempts = 3,
+  } = config;
   const [data, setData] = useState<T>(mockData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +95,7 @@ export function useRealData<T>(
       }
     }
 
-    if (!config.enableRealData) {
+    if (!enableRealData) {
       console.log(`🎭 Usando dados simulados: ${apiUrl}`);
       return {
         success: true,
@@ -104,9 +110,9 @@ export function useRealData<T>(
     let lastError: Error | null = null;
 
     // Tentar buscar dados reais com retry
-    for (let attempt = 1; attempt <= config.retryAttempts; attempt++) {
+    for (let attempt = 1; attempt <= retryAttempts; attempt++) {
       try {
-        console.log(`🌐 Tentativa ${attempt}/${config.retryAttempts} - Buscando dados reais: ${apiUrl}`);
+        console.log(`🌐 Tentativa ${attempt}/${retryAttempts} - Buscando dados reais: ${apiUrl}`);
         
         const response = await fetch(apiUrl, {
           headers: {
@@ -126,7 +132,7 @@ export function useRealData<T>(
         }
 
         // Salvar no cache
-        cache.set(cacheKey, result.data, config.cacheTimeout);
+        cache.set(cacheKey, result.data, cacheTimeout);
         
         console.log(`✅ Dados reais carregados com sucesso: ${apiUrl}`);
         return {
@@ -139,7 +145,7 @@ export function useRealData<T>(
         lastError = error as Error;
         console.warn(`⚠️ Tentativa ${attempt} falhou: ${error}`);
         
-        if (attempt < config.retryAttempts) {
+        if (attempt < retryAttempts) {
           // Aguardar antes da próxima tentativa
           await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
         }
@@ -147,7 +153,7 @@ export function useRealData<T>(
     }
 
     // Se todas as tentativas falharam, usar fallback
-    if (config.fallbackToMock) {
+    if (fallbackToMock) {
       console.log(`🔄 Fallback para dados simulados: ${apiUrl}`);
       return {
         success: true,
@@ -157,7 +163,7 @@ export function useRealData<T>(
     }
 
     throw lastError || new Error('Falha ao carregar dados');
-  }, [apiUrl, mockData, config]);
+  }, [apiUrl, mockData, enableRealData, cacheTimeout, retryAttempts, fallbackToMock]);
 
   const loadData = useCallback(async (forceRefresh = false) => {
     try {
@@ -174,7 +180,7 @@ export function useRealData<T>(
       setError(error instanceof Error ? error.message : 'Erro desconhecido');
       
       // Em caso de erro, usar dados simulados como fallback
-      if (config.fallbackToMock) {
+      if (fallbackToMock) {
         setData(mockData);
         setIsRealData(false);
         setIsFromCache(false);
@@ -182,7 +188,7 @@ export function useRealData<T>(
     } finally {
       setLoading(false);
     }
-  }, [fetchData, mockData, config.fallbackToMock]);
+  }, [fetchData, mockData, fallbackToMock, apiUrl]);
 
   const refresh = useCallback(() => {
     return loadData(true);

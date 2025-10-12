@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface WebSocketMessage {
   type: 'order_update' | 'delivery_status' | 'notification';
@@ -33,7 +33,7 @@ export function useWebSocket({
   const reconnectAttempts = useRef(0);
   const reconnectTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  const connect = () => {
+  const connect = useCallback(() => {
     if (ws.current?.readyState === WebSocket.OPEN) {
       return;
     }
@@ -82,9 +82,17 @@ export function useWebSocket({
       console.error('Erro ao conectar WebSocket:', error);
       setConnectionStatus('error');
     }
-  };
+  }, [
+    url,
+    onMessage,
+    onOpen,
+    onClose,
+    onError,
+    reconnectInterval,
+    maxReconnectAttempts
+  ]);
 
-  const disconnect = () => {
+  const disconnect = useCallback(() => {
     if (reconnectTimeout.current) {
       clearTimeout(reconnectTimeout.current);
     }
@@ -96,7 +104,7 @@ export function useWebSocket({
     
     setIsConnected(false);
     setConnectionStatus('disconnected');
-  };
+  }, []);
 
   const sendMessage = (message: any) => {
     if (ws.current?.readyState === WebSocket.OPEN) {
@@ -112,7 +120,7 @@ export function useWebSocket({
     return () => {
       disconnect();
     };
-  }, [url]);
+  }, [connect, disconnect]);
 
   return {
     isConnected,

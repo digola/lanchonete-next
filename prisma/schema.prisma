@@ -27,6 +27,7 @@ model User {
   cart   Cart?
   notifications Notification[]
   activityLogs ActivityLog[]
+  orderReviews OrderReview[]
 
   // Índices para performance
   @@index([email])
@@ -98,6 +99,7 @@ model Order {
   // Relacionamentos
   user User @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
+  reviews OrderReview[]
   items OrderItem[]
 
   // Índices para performance
@@ -127,6 +129,26 @@ model OrderItem {
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+// Modelo OrderReview (avaliações de pedidos)
+model OrderReview {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  rating    Int      // 1 a 5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices
+  @@unique([orderId, userId]) // Um review por usuário por pedido
+  @@index([orderId])
+  @@index([userId])
+  @@map("order_reviews")
 }
 
 // Modelo Cart (carrinho temporário)

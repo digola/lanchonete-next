@@ -38,6 +38,11 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     return false;
   }, []);
 
+  // Remover notificação (definido antes para ser usado em addNotification)
+  const removeNotification = useCallback((id: string) => {
+    setNotifications(prev => prev.filter(n => n.id !== id));
+  }, []);
+
   // Adicionar notificação
   const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
     const newNotification: Notification = {
@@ -74,12 +79,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
         removeNotification(newNotification.id);
       }, autoRemoveDelay);
     }
-  }, [permission, maxNotifications, autoRemove, autoRemoveDelay]);
-
-  // Remover notificação
-  const removeNotification = useCallback((id: string) => {
-    setNotifications(prev => prev.filter(n => n.id !== id));
-  }, []);
+  }, [permission, maxNotifications, autoRemove, autoRemoveDelay, removeNotification]);
 
   // Marcar como lida
   const markAsRead = useCallback((id: string) => {

@@ -172,7 +172,7 @@ export default function RealDataManager({ onConfigChange }: RealDataManagerProps
                     </div>
                     
                     <Button
-                      variant={isEnabled ? 'destructive' : 'default'}
+                      variant={isEnabled ? 'destructive' : 'primary'}
                       size="sm"
                       className="w-full mt-3"
                       onClick={() => toggleModule(moduleKey as keyof typeof config.modules)}

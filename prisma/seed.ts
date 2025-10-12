@@ -52,31 +52,31 @@ async function main() {
     {
       name: 'Hambúrgueres',
       description: 'Deliciosos hambúrgueres artesanais',
-      icon: '🍔',
+      imageUrl: '',
       color: '#f97316',
     },
     {
       name: 'Bebidas',
       description: 'Refrigerantes, sucos e bebidas geladas',
-      icon: '🥤',
+      imageUrl: '',
       color: '#3b82f6',
     },
     {
       name: 'Acompanhamentos',
       description: 'Batatas, saladas e outros acompanhamentos',
-      icon: '🍟',
+      imageUrl: '',
       color: '#10b981',
     },
     {
       name: 'Sobremesas',
       description: 'Doces e sobremesas deliciosas',
-      icon: '🍰',
+      imageUrl: '',
       color: '#f59e0b',
     },
     {
       name: 'Pizzas',
       description: 'Pizzas artesanais com ingredientes frescos',
-      icon: '🍕',
+      imageUrl: '',
       color: '#ef4444',
     },
   ];
@@ -85,7 +85,13 @@ async function main() {
     await prisma.category.upsert({
       where: { name: categoria.name },
       update: {},
-      create: categoria,
+      create: {
+        name: categoria.name,
+        description: categoria.description,
+        imageUrl: categoria.imageUrl,
+        color: categoria.color,
+        isActive: true,
+      },
     });
   }
 

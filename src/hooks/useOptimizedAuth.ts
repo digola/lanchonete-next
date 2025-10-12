@@ -124,7 +124,7 @@ export const useOptimizedAuth = () => {
     } finally {
       setLoading(false);
     }
-  }, [login, setLoading, clearError, setError]);
+  }, [login, setLoading, clearError, setError, user]);
 
   // Função de logout otimizada
   const logoutOptimized = useCallback(async () => {

@@ -102,9 +102,10 @@ export default function CartPage() {
         router.push('/customer/dashboard');
       }, 3000);
       
-    } catch (error) {
-      console.error('❌ Erro ao finalizar pedido:', error);
-      alert(`Erro ao finalizar pedido: ${error.message || 'Tente novamente.'}`);
+    } catch (err) {
+      console.error('❌ Erro ao finalizar pedido:', err);
+      const message = err instanceof Error ? err.message : 'Tente novamente.';
+      alert(`Erro ao finalizar pedido: ${message}`);
     } finally {
       setIsProcessing(false);
     }

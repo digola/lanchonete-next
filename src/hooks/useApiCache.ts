@@ -168,7 +168,7 @@ export const useApiCache = <T = any>(
   // Carregar dados na inicialização
   useEffect(() => {
     fetchData();
-  }, [key]); // Usar apenas key como dependência
+  }, [fetchData]);
 
   return {
     ...state,
@@ -267,7 +267,7 @@ export const useBatchApiCache = <T = any>(
 
   useEffect(() => {
     fetchData();
-  }, [keys.join(',')]); // Usar keys como string para evitar loops
+  }, [fetchData]);
 
   return {
     ...state,
