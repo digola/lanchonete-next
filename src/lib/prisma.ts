@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import type { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
@@ -10,13 +10,30 @@ if (!process.env.DATABASE_URL) {
   process.env.DATABASE_URL = 'file:./dev.db';
 }
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient({
-  log: process.env.NODE_ENV === 'development' 
-    ? ['error', 'warn'] 
-    : ['error'],
-});
+let prismaInstance: PrismaClient | undefined = globalForPrisma.prisma;
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+function createClient(): PrismaClient {
+  const { PrismaClient } = require('@prisma/client') as typeof import('@prisma/client');
+  return new PrismaClient({
+    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
+  });
+}
+
+export const getPrisma = (): PrismaClient => {
+  if (!prismaInstance) {
+    prismaInstance = createClient();
+    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prismaInstance;
+  }
+  return prismaInstance;
+};
+
+// Proxy para inicialização lazy: só cria o cliente quando for usado
+export const prisma = new Proxy({}, {
+  get(_target, prop) {
+    const client = getPrisma() as unknown as Record<string | symbol, unknown>;
+    return client[prop as keyof typeof client];
+  }
+}) as unknown as PrismaClient;
 
 // Função para conectar ao banco
 export const connectDatabase = async () => {
