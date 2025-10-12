@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -25,7 +25,7 @@ export default function StaffPage() {
   // Estados principais
   const [selectedTable, setSelectedTable] = useState<Table | null>(null);
 
-  // Buscar mesas
+  // Buscar mesas usando hook otimizado
   const { data: tablesResponse, loading: tablesLoading, execute: refetchTables } = useApi<{ 
     data: Table[]; 
     pagination: any 
@@ -33,7 +33,29 @@ export default function StaffPage() {
 
   const tables = tablesResponse?.data || [];
 
+  // Auto-refresh otimizado - apenas quando necessário
+  useEffect(() => {
+    const interval = setInterval(() => {
+      refetchTables();
+    }, 60000); // Aumentado para 1 minuto para reduzir carga
+    
+    return () => clearInterval(interval);
+  }, [refetchTables]);
 
+
+
+  // Memoizar estatísticas para melhor performance
+  const tableStats = useMemo(() => {
+    const totalTables = tables.length;
+    const freeTables = tables.filter(t => t.status === TableStatus.LIVRE).length;
+    const occupiedTables = tables.filter(t => t.status === TableStatus.OCUPADA).length;
+    
+    return {
+      total: totalTables,
+      free: freeTables,
+      occupied: occupiedTables,
+    };
+  }, [tables]);
 
   // Função para obter cor do status da mesa
   const getTableStatusColor = (status: TableStatus) => {
@@ -75,6 +97,7 @@ export default function StaffPage() {
                   <p className="text-blue-100 mt-2 text-lg">Gerencie mesas e crie pedidos para clientes</p>
                 </div>
               </div>
+              <a href="/logout">sair</a>
             </div>
           </div>
 
@@ -87,7 +110,7 @@ export default function StaffPage() {
                 </div>
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Total de Mesas</p>
-              <p className="text-4xl font-bold text-blue-600">{tables.length}</p>
+              <p className="text-4xl font-bold text-blue-600">{tableStats.total}</p>
             </div>
 
             <div className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg hover:shadow-xl transition-all p-6">
@@ -98,7 +121,7 @@ export default function StaffPage() {
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Mesas Livres</p>
               <p className="text-4xl font-bold text-green-600">
-                {tables.filter(t => t.status === TableStatus.LIVRE).length}
+                {tableStats.free}
               </p>
             </div>
 
@@ -110,14 +133,29 @@ export default function StaffPage() {
               </div>
               <p className="text-sm font-medium text-gray-600 mb-1">Mesas Ocupadas</p>
               <p className="text-4xl font-bold text-red-600">
-                {tables.filter(t => t.status === TableStatus.OCUPADA).length}
+                {tableStats.occupied}
               </p>
             </div>
           </div>
 
           {/* Grid de Mesas Moderno */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {tables.map((table) => (
+            {tablesLoading ? (
+              // Skeleton loading para melhor UX
+              Array.from({ length: 8 }).map((_, index) => (
+                <div key={index} className="bg-white border-2 border-gray-200 rounded-2xl shadow-lg p-6 animate-pulse">
+                  <div className="flex items-center space-x-3 mb-4">
+                    <div className="w-12 h-12 bg-gray-200 rounded-xl"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-200 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                    </div>
+                  </div>
+                  <div className="h-10 bg-gray-200 rounded"></div>
+                </div>
+              ))
+            ) : (
+              tables.map((table) => (
               <div
                 key={table.id} 
                 className={`
@@ -208,7 +246,8 @@ export default function StaffPage() {
                   )}
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
         </div>

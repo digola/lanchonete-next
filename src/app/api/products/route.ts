@@ -97,7 +97,13 @@ export async function POST(request: NextRequest) {
       categoryId, 
       isAvailable = true,
       preparationTime = 15,
-      allergens 
+      allergens,
+      
+      // Campos de estoque
+      stockQuantity = 0,
+      minStockLevel = 5,
+      maxStockLevel = 100,
+      trackStock = false
     } = body;
 
     // Validações
@@ -157,6 +163,12 @@ export async function POST(request: NextRequest) {
         isAvailable,
         preparationTime: Number(preparationTime),
         allergens: allergens?.trim(),
+        
+        // Campos de estoque
+        stockQuantity: Number(stockQuantity),
+        minStockLevel: Number(minStockLevel),
+        maxStockLevel: Number(maxStockLevel),
+        trackStock,
       },
       include: {
         category: true,

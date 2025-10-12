@@ -130,6 +130,24 @@ export async function PUT(
 
     console.log('✅ Status da mesa atualizado:', updatedTable);
 
+    // Criar notificação se o status mudou
+    if (table.status !== newStatus) {
+      try {
+        const { NotificationService } = await import('@/lib/notificationService');
+        if (newStatus === 'OCUPADA') {
+          await NotificationService.notifyTableOccupied(
+            table.number, 
+            updatedTable.assignedUser?.name
+          );
+        } else if (newStatus === 'LIVRE') {
+          await NotificationService.notifyTableFreed(table.number);
+        }
+      } catch (error) {
+        console.error('Erro ao criar notificação de mesa:', error);
+        // Não falha a atualização da mesa se a notificação falhar
+      }
+    }
+
     // Limpar cache de mesas
     clearCachePattern('tables_');
 

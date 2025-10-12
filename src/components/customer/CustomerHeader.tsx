@@ -23,7 +23,7 @@ import { formatCurrency } from '@/lib/utils';
 export function CustomerHeader() {
   const { user, logout, getRoleLabel, getUserDisplayName } = useApiAuth();
   const { totalItems } = useCart();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, addDemoNotification } = useNotifications();
+  const { notifications, unreadCount, markAsRead, markAllAsRead } = useNotifications();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -201,10 +201,10 @@ export function CustomerHeader() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={addDemoNotification}
+                      onClick={() => markAllAsRead()}
                       className="w-full text-xs text-gray-600 hover:text-gray-800"
                     >
-                      + Adicionar notificação de teste
+                      Marcar todas como lidas
             </Button>
                   </div>
                 </div>

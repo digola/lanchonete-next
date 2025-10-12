@@ -98,15 +98,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     console.log('✅ Token válido para usuário:', decoded.userId);
+    console.log('🔍 Role do usuário:', decoded.role);
+    console.log('🔍 Verificando permissão tables:write para role:', decoded.role);
 
     // Verificar permissão
     if (!hasPermission(decoded.role, 'tables:write')) {
-      console.log('❌ Sem permissão para editar mesas');
+      console.log('❌ Sem permissão para editar - Role:', decoded.role, 'Permissão requerida: tables:write');
       return NextResponse.json(
         { success: false, error: 'Sem permissão para editar mesas' },
         { status: 403 }
       );
     }
+
+    console.log('✅ Permissão tables:write confirmada para role:', decoded.role);
 
     // Verificar se a mesa existe
     const existingTable = await prisma.table.findUnique({

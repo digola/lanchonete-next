@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
+import { useChartsData } from '@/hooks/useChartsData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { RevenueChart, OrdersChart, ProductsChart, TablesChart } from '@/components/admin/charts';
 import { 
   Users,
   ShoppingBag,
@@ -33,6 +35,15 @@ import { Order, OrderStatus, Product, Category, User, Table as TableType, TableS
 
 export default function AdminDashboard() {
   const { user, getUserDisplayName } = useApiAuth();
+  
+  // Estado para filtros dos gráficos
+  const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('7d');
+  
+  // Dados dos gráficos
+  const { data: chartsData, loading: chartsLoading, error: chartsError, refetch } = useChartsData({
+    period: chartPeriod,
+    chartType: 'all'
+  });
   
   // Buscar dados para o dashboard - com cache otimizado
   const ordersUrl = '/api/orders?limit=10&sortBy=createdAt&sortOrder=desc';
@@ -347,6 +358,12 @@ export default function AdminDashboard() {
                 Ver Todos os Pedidos
               </Button>
             </Link>
+            <Link href="/admin/inventory">
+              <Button variant="outline" className="w-full justify-start">
+                <Package className="h-4 w-4 mr-2" />
+                Gestão de Estoque
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -541,6 +558,178 @@ export default function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Filtros dos Gráficos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2" />
+            Análises e Gráficos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Período:</label>
+              <select
+                value={chartPeriod}
+                onChange={(e) => setChartPeriod(e.target.value as '7d' | '30d' | '90d')}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="90d">Últimos 90 dias</option>
+              </select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              disabled={chartsLoading}
+            >
+              {chartsLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Activity className="h-4 w-4 mr-2" />
+              )}
+              Atualizar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico de Receita */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Evolução da Receita
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <RevenueChart 
+                data={chartsData?.revenue || []}
+                height={250}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Pedidos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="h-5 w-5 mr-2" />
+              Pedidos por Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <OrdersChart 
+                data={chartsData?.orders || []}
+                height={250}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Produtos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2" />
+              Produtos Mais Vendidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <ProductsChart 
+                data={chartsData?.products || []}
+                height={300}
+                maxItems={5}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Status das Mesas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Table className="h-5 w-5 mr-2" />
+              Ocupação das Mesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <TablesChart 
+                data={chartsData?.tables || []}
+                height={300}
+                maxItems={6}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

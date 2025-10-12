@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { UserForm, type UserFormData } from '@/components/admin/forms';
-import { useToast } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -31,7 +31,7 @@ import { User as UserType, UserRole } from '@/types';
 
 export default function AdminUsersPage() {
   const { user, token } = useApiAuth();
-  const { addToast } = useToast();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -114,9 +114,9 @@ export default function AdminUsersPage() {
 
       setShowCreateModal(false);
       refetchUsers();
-      addToast({ type: 'success', title: 'Usuário criado com sucesso!' });
+      toast.success('Usuário criado com sucesso!');
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao criar usuário' });
+      toast.error(err.message || 'Erro ao criar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -151,10 +151,10 @@ export default function AdminUsersPage() {
       setShowEditModal(false);
       setSelectedUser(null);
       refetchUsers();
-      addToast({ type: 'success', title: 'Usuário atualizado com sucesso!' });
+      toast.success('Usuário atualizado com sucesso!');
     } catch (err: any) {
       console.error('❌ Erro ao atualizar usuário:', err);
-      addToast({ type: 'error', title: err.message || 'Erro ao atualizar usuário' });
+      toast.error(err.message || 'Erro ao atualizar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -179,9 +179,9 @@ export default function AdminUsersPage() {
       setShowDeleteConfirm(false);
       setSelectedUser(null);
       refetchUsers();
-      addToast({ type: 'success', title: 'Usuário deletado com sucesso!' });
+      toast.success('Usuário deletado com sucesso!');
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao deletar usuário' });
+      toast.error(err.message || 'Erro ao deletar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -228,9 +228,9 @@ export default function AdminUsersPage() {
       const roleLabel = getRoleLabel(user.role);
       const action = newStatus ? 'ativado' : 'desativado';
       
-      addToast({ type: 'success', title: `${roleLabel} ${user.name} foi ${action} com sucesso!` });
+      toast.success(`${roleLabel} ${user.name} foi ${action} com sucesso!`);
     } catch (err: any) {
-      addToast({ type: 'error', title: err.message || 'Erro ao alterar status do usuário' });
+      toast.error(err.message || 'Erro ao alterar status do usuário');
     } finally {
       setIsLoading(false);
     }

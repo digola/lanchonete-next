@@ -9,7 +9,7 @@ export async function PUT(
 ) {
   try {
     const { id: orderId } = await params;
-    
+    console.log('aqui');
     if (!orderId) {
       return NextResponse.json(
         { success: false, error: 'ID do pedido é obrigatório' },
@@ -129,9 +129,10 @@ export async function PUT(
       price: products.find(p => p.id === item.productId)?.price || 0,
       notes: item.notes || null
     }));
-
+    console.log(orderItems +"aqui");
     await prisma.orderItem.createMany({
-      data: orderItems
+      data: orderItems,
+     
     });
 
     // Recalcular o total do pedido

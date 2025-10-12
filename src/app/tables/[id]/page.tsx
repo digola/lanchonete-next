@@ -11,6 +11,29 @@ import { useApi } from '@/hooks/useApi';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { Order, OrderStatus, UserRole, Product, Category, Table } from '@/types';
 // Removido import do StaffTableAPI - será usado via APIs
+
+// Função utilitária para cálculos monetários precisos
+const preciseMoneyCalculation = {
+  // Converter para centavos (inteiro)
+  toCents: (value: number): number => Math.round(value * 100),
+  
+  // Converter de centavos para reais
+  fromCents: (cents: number): number => cents / 100,
+  
+  // Somar valores monetários
+  add: (a: number, b: number): number => {
+    return preciseMoneyCalculation.fromCents(
+      preciseMoneyCalculation.toCents(a) + preciseMoneyCalculation.toCents(b)
+    );
+  },
+  
+  // Subtrair valores monetários
+  subtract: (a: number, b: number): number => {
+    return preciseMoneyCalculation.fromCents(
+      Math.max(0, preciseMoneyCalculation.toCents(a) - preciseMoneyCalculation.toCents(b))
+    );
+  }
+};
 import { 
   ArrowLeft,
   RefreshCw,
@@ -21,7 +44,9 @@ import {
   Package,
   Clock3,
   CreditCard,
-  Receipt
+  Receipt,
+  Printer,
+  Eye
 } from 'lucide-react';
 
 export default function TablePage() {
@@ -37,6 +62,7 @@ export default function TablePage() {
   const [productSearch, setProductSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showAddProductsModal, setShowAddProductsModal] = useState(false);
+  const [showOrderDetailsModal, setShowOrderDetailsModal] = useState(false);
   
   // Estados do modal de pagamento da mesa
   const [showTablePaymentModal, setShowTablePaymentModal] = useState(false);
@@ -184,7 +210,55 @@ export default function TablePage() {
   };
 
   const handlePaymentInputChange = (value: string) => {
-    setPaymentInputValue(value);
+    console.log('🔍 Input Change:', { originalValue: value, currentState: paymentInputValue });
+    
+    // Se o valor estiver vazio, permitir
+    if (value === '') {
+      setPaymentInputValue('');
+      return;
+    }
+    
+    // Permitir números, ponto e vírgula decimal
+    let cleanValue = value.replace(/[^0-9.,]/g, '');
+    
+    // Verificar se há múltiplos separadores decimais antes de converter
+    const commaCount = (cleanValue.match(/,/g) || []).length;
+    const dotCount = (cleanValue.match(/\./g) || []).length;
+    
+    if (commaCount > 1 || dotCount > 1 || (commaCount > 0 && dotCount > 0)) {
+      console.log('❌ Múltiplos separadores decimais rejeitados:', { commaCount, dotCount });
+      return;
+    }
+    
+    // Converter vírgula para ponto (padrão brasileiro)
+    cleanValue = cleanValue.replace(',', '.');
+    
+    // Não permitir que comece com ponto
+    if (cleanValue.startsWith('.')) {
+      cleanValue = '0' + cleanValue;
+    }
+    
+    // Limitar a 2 casas decimais
+    const parts = cleanValue.split('.');
+    if (parts[1] && parts[1].length > 2) {
+      console.log('❌ Mais de 2 casas decimais rejeitadas:', { decimalPart: parts[1], length: parts[1].length });
+      return; // Não permitir mais de 2 casas decimais
+    }
+    
+    // Não permitir valores muito grandes (mais de 999999.99)
+    const numericValue = parseFloat(cleanValue);
+    if (isNaN(numericValue)) {
+      console.log('❌ Valor inválido (NaN)');
+      return;
+    }
+    
+    if (numericValue > 999999.99) {
+      console.log('❌ Valor muito grande rejeitado:', { numericValue });
+      return;
+    }
+    
+    console.log('✅ Valor aceito:', { originalValue: value, cleanValue, numericValue });
+    setPaymentInputValue(cleanValue);
   };
 
   const handlePaymentMethodSelect = (method: 'PIX' | 'CARTAO' | 'DINHEIRO') => {
@@ -192,7 +266,14 @@ export default function TablePage() {
     
     setSelectedPaymentMethod(method);
     
-    const numericValue = parseFloat(paymentInputValue) || 0;
+    // Usar função utilitária para cálculos monetários precisos
+    console.log('🔍 Processando pagamento:', { paymentInputValue, type: typeof paymentInputValue });
+    
+    // Garantir que o valor não tenha vírgula antes do parseFloat
+    const cleanPaymentValue = paymentInputValue.replace(',', '.');
+    const numericValue = parseFloat(cleanPaymentValue) || 0;
+    
+    console.log('🔍 Valor processado:', { cleanPaymentValue, numericValue });
     
     // Adicionar pagamento à sessão
     const newPayment = {
@@ -201,7 +282,8 @@ export default function TablePage() {
       timestamp: new Date()
     };
     
-    const newTotal = Math.max(0, paymentSession.currentTotal - numericValue);
+    // Calcular novo total usando função utilitária
+    const newTotal = preciseMoneyCalculation.subtract(paymentSession.currentTotal, numericValue);
     
     // Debug logs
     console.log('🔍 Debug Pagamento:', {
@@ -210,7 +292,8 @@ export default function TablePage() {
       currentTotal: paymentSession.currentTotal,
       newTotal,
       isZero: newTotal === 0,
-      isLessThanZero: newTotal < 0
+      isLessThanZero: newTotal < 0,
+      calculation: `${paymentSession.currentTotal} - ${numericValue} = ${newTotal}`
     });
     
     const updatedSession = {
@@ -323,6 +406,139 @@ export default function TablePage() {
     }
   };
 
+  // Função para imprimir pedido (Impressora Térmica 58mm)
+  const printOrder = (order: Order) => {
+    const printWindow = window.open('', '_blank', 'width=220,height=600');
+    if (!printWindow) {
+      alert('Por favor, permita pop-ups para impressão');
+      return;
+    }
+
+    const currentDate = new Date();
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <title>Pedido ${order.id.slice(-8)}</title>
+          <style>
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              line-height: 1.2;
+              margin: 0;
+              padding: 8px;
+              width: 58mm;
+              max-width: 58mm;
+            }
+            
+            .header {
+              text-align: center;
+              border-bottom: 1px dashed #000;
+              padding-bottom: 8px;
+              margin-bottom: 8px;
+            }
+            
+            .restaurant-name {
+              font-size: 14px;
+              font-weight: bold;
+              margin-bottom: 4px;
+            }
+            
+            .order-info {
+              font-size: 10px;
+              margin-bottom: 8px;
+            }
+            
+            .items {
+              margin-bottom: 8px;
+            }
+            
+            .item {
+              margin-bottom: 4px;
+              padding-bottom: 2px;
+              border-bottom: 1px dotted #ccc;
+            }
+            
+            .item-name {
+              font-weight: bold;
+            }
+            
+            .item-details {
+              font-size: 10px;
+              color: #666;
+              margin-left: 4px;
+            }
+            
+            .total {
+              border-top: 1px dashed #000;
+              padding-top: 8px;
+              text-align: center;
+              font-weight: bold;
+              font-size: 14px;
+            }
+            
+            .footer {
+              text-align: center;
+              font-size: 10px;
+              margin-top: 8px;
+              border-top: 1px dashed #000;
+              padding-top: 8px;
+            }
+            
+            @media print {
+              body {
+                width: 58mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="restaurant-name">LANCHONETE</div>
+            <div class="order-info">
+              Pedido #${order.id.slice(-8)}<br>
+              Mesa ${table?.number || 'N/A'}<br>
+              ${currentDate.toLocaleString('pt-BR')}
+            </div>
+          </div>
+          
+          <div class="items">
+            ${order.items.map(item => `
+              <div class="item">
+                <div class="item-name">${item.quantity}x ${item.product?.name || 'Produto'}</div>
+                ${item.customizations ? `<div class="item-details">${item.customizations}</div>` : ''}
+                ${item.notes ? `<div class="item-details">Obs: ${item.notes}</div>` : ''}
+              </div>
+            `).join('')}
+          </div>
+          
+          <div class="total">
+            Total: R$ ${order.total.toFixed(2).replace('.', ',')}
+          </div>
+          
+          <div class="footer">
+            Obrigado pela preferência!
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(printContent);
+    printWindow.document.close();
+    
+    // Aguardar carregamento e imprimir
+    setTimeout(() => {
+      printWindow.print();
+    }, 500);
+  };
+
+  // Função para exibir detalhes do pedido
+  const openOrderDetails = (order: Order) => {
+    setSelectedOrder(order);
+    setShowOrderDetailsModal(true);
+  };
+
   // Filtrar produtos
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(productSearch.toLowerCase());
@@ -368,8 +584,9 @@ export default function TablePage() {
     setSelectedProducts(updated);
   };
 
-  // Calcular total da seleção
-  const selectionTotal = selectedProducts.reduce((total, item) => total + (item.price * item.quantity), 0);
+  // Calcular total da seleção usando função utilitária
+  const selectionTotal = selectedProducts.reduce((total, item) => 
+    preciseMoneyCalculation.add(total, item.price * item.quantity), 0);
 
   if (tableLoading || ordersLoading) {
     return (
@@ -480,7 +697,8 @@ export default function TablePage() {
                 
                 <div className="text-center p-4 bg-gray-50 rounded-lg">
                   <div className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(orders.reduce((total, order) => total + order.total, 0))}
+                    {formatCurrency(orders.reduce((total, order) => 
+                      preciseMoneyCalculation.add(total, order.total), 0))}
                   </div>
                   <div className="text-sm text-gray-600">
                     Total em Pedidos
@@ -506,7 +724,7 @@ export default function TablePage() {
                 Pedidos Ativos
               </h2>
               
-              {orders.length > 0 && (
+              {orders.length > 0 && orders.some(order => !order.isPaid) && (
                 <div className="flex space-x-2">
                   <Button
                     onClick={() => setShowAddProductsModal(true)}
@@ -525,6 +743,7 @@ export default function TablePage() {
                   </Button>
                 </div>
               )}
+              
             </div>
 
             {orders.length === 0 ? (
@@ -614,26 +833,50 @@ export default function TablePage() {
                       {/* Ações do Pedido */}
                       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
                         <div className="flex items-center space-x-2">
+                          {!order.isPaid && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => cancelOrder(order.id)}
+                              className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                            >
+                              <X className="h-4 w-4" />
+                              <span>Cancelar</span>
+                            </Button>
+                          )}
+                          
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => cancelOrder(order.id)}
-                            className="flex items-center space-x-1 text-red-600 hover:text-red-700"
+                            onClick={() => openOrderDetails(order)}
+                            className="flex items-center space-x-1 text-blue-600 hover:text-blue-700"
                           >
-                            <X className="h-4 w-4" />
-                            <span>Cancelar</span>
+                            <Eye className="h-4 w-4" />
+                            <span>Detalhes</span>
+                          </Button>
+                          
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => printOrder(order)}
+                            className="flex items-center space-x-1 text-green-600 hover:text-green-700"
+                          >
+                            <Printer className="h-4 w-4" />
+                            <span>Imprimir</span>
                           </Button>
                         </div>
                         
-                        <Button
-                          size="sm"
-                          onClick={() => markAsReceived(order.id)}
-                          disabled={loading}
-                          className="flex items-center space-x-1 bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle className="h-4 w-4" />
-                          <span>Marcar como Recebido</span>
-                        </Button>
+                        {order.isPaid && (
+                          <Button
+                            size="sm"
+                            onClick={() => markAsReceived(order.id)}
+                            disabled={loading}
+                            className="flex items-center space-x-1 bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                            <span>Marcar como Recebido</span>
+                          </Button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
@@ -887,11 +1130,11 @@ export default function TablePage() {
                     <div className="text-center">
                       <p className="text-lg font-semibold text-blue-800 mb-2">Total do Pedido</p>
                       <p className="text-4xl font-bold text-blue-900">
-                        {formatCurrency(paymentSession?.currentTotal || 0)}
+                        {formatCurrency(paymentSession?.originalTotal || 0)}
                       </p>
                       {paymentSession && paymentSession.currentTotal < paymentSession.originalTotal && (
                         <p className="text-sm text-blue-600 mt-1">
-                          Valor original: {formatCurrency(paymentSession.originalTotal)}
+                          Valor a pagar: {formatCurrency(paymentSession.currentTotal)}
                         </p>
                       )}
                     </div>
@@ -905,13 +1148,12 @@ export default function TablePage() {
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 transform -translate-y-1/2 text-2xl">💰</span>
                       <input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
                         value={paymentInputValue}
                         onChange={(e) => handlePaymentInputChange(e.target.value)}
                         className="w-full pl-12 pr-4 py-4 text-2xl font-bold text-center border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500"
-                        placeholder="Digite o valor"
+                        placeholder="Digite o valor (ex: 43,21)"
                       />
                     </div>
                   </div>
@@ -921,7 +1163,9 @@ export default function TablePage() {
                     <div className="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
                       <span className="font-semibold text-gray-700">Valor Pago:</span>
                       <span className="text-xl font-bold text-green-600">
-                        {formatCurrency(paymentSession ? paymentSession.originalTotal - paymentSession.currentTotal : 0)}
+                        {formatCurrency(paymentSession ? 
+                          paymentSession.payments.reduce((total, payment) => 
+                            preciseMoneyCalculation.add(total, payment.amount), 0) : 0)}
                       </span>
                     </div>
                     
@@ -1063,17 +1307,155 @@ export default function TablePage() {
                     >
                       Cancelar
                     </Button>
+                    {!selectedOrder?.isPaid && (
+                      <Button
+                        onClick={processTablePayment}
+                        disabled={loading || (paymentSession?.currentTotal || 0) > 0.01 || !paymentSession || paymentSession.payments.length === 0}
+                        className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loading ? (
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CreditCard className="h-4 w-4 mr-2" />
+                        )}
+                        Processar Pagamento
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de Detalhes do Pedido */}
+        {showOrderDetailsModal && selectedOrder && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+              {/* Header do Modal */}
+              <div className="bg-gradient-to-r from-blue-500 to-indigo-600 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="bg-white/20 p-2 rounded-lg">
+                      <Receipt className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold text-white">Detalhes do Pedido</h2>
+                      <p className="text-blue-100 text-sm">Pedido #{selectedOrder.id.slice(-8)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowOrderDetailsModal(false)}
+                    className="text-white hover:bg-white/20"
+                  >
+                    <X className="h-5 w-5" />
+                  </Button>
+                </div>
+              </div>
+              
+              {/* Conteúdo do Modal */}
+              <div className="p-6 overflow-y-auto max-h-[calc(90vh-140px)]">
+                <div className="space-y-6">
+                  {/* Informações do Pedido */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-gray-900 mb-2">Informações Básicas</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-medium">ID:</span> #{selectedOrder.id.slice(-8)}</div>
+                        <div><span className="font-medium">Status:</span> 
+                          <Badge className="ml-2" variant={
+                            selectedOrder.status === 'CONFIRMADO' ? 'default' :
+                            selectedOrder.status === 'PREPARANDO' ? 'secondary' :
+                            selectedOrder.status === 'PRONTO' ? 'destructive' : 'outline'
+                          }>
+                            {selectedOrder.status}
+                          </Badge>
+                        </div>
+                        <div><span className="font-medium">Criado em:</span> {formatDateTime(selectedOrder.createdAt)}</div>
+                        <div><span className="font-medium">Pagamento:</span> 
+                          <span className={`ml-2 font-medium ${selectedOrder.isPaid ? 'text-green-600' : 'text-orange-600'}`}>
+                            {selectedOrder.isPaid ? 'Pago' : 'Pendente'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-gray-50 p-4 rounded-lg">
+                      <h3 className="font-semibold text-gray-900 mb-2">Resumo Financeiro</h3>
+                      <div className="space-y-2 text-sm">
+                        <div><span className="font-medium">Subtotal:</span> {formatCurrency(selectedOrder.total)}</div>
+                        <div><span className="font-medium">Total:</span> 
+                          <span className="ml-2 text-lg font-bold text-green-600">
+                            {formatCurrency(selectedOrder.total)}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Itens do Pedido */}
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-4">Itens do Pedido</h3>
+                    <div className="space-y-3">
+                      {selectedOrder.items?.map((item, index) => (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 mb-1">
+                                {item.product?.name || 'Produto não encontrado'}
+                              </div>
+                              <div className="text-sm text-gray-600 mb-2">
+                                Quantidade: {item.quantity} x {formatCurrency(item.price)} = {formatCurrency(item.price * item.quantity)}
+                              </div>
+                              {item.customizations && (
+                                <div className="text-sm text-blue-600 mb-1">
+                                  <span className="font-medium">Personalizações:</span> {item.customizations}
+                                </div>
+                              )}
+                              {item.notes && (
+                                <div className="text-sm text-gray-600">
+                                  <span className="font-medium">Observações:</span> {item.notes}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-gray-900">
+                                {formatCurrency(item.price * item.quantity)}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Footer do Modal */}
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    Total do pedido: {formatCurrency(selectedOrder.total)}
+                  </div>
+                  <div className="flex items-center space-x-3">
                     <Button
-                      onClick={processTablePayment}
-                      disabled={loading || (paymentSession?.currentTotal || 0) > 0.01 || !paymentSession || paymentSession.payments.length === 0}
-                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      variant="outline"
+                      onClick={() => setShowOrderDetailsModal(false)}
+                      className="px-6 py-2"
                     >
-                      {loading ? (
-                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <CreditCard className="h-4 w-4 mr-2" />
-                      )}
-                      Processar Pagamento
+                      Fechar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        printOrder(selectedOrder);
+                        setShowOrderDetailsModal(false);
+                      }}
+                      className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white"
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Imprimir Pedido
                     </Button>
                   </div>
                 </div>

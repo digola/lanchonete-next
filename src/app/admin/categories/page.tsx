@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { CategoryForm, type CategoryFormData } from '@/components/admin/forms';
-import { useToast } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -33,7 +33,7 @@ import { Category } from '@/types';
 
 export default function AdminCategoriesPage() {
   const { user, token } = useApiAuth();
-  const { addToast } = useToast();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'createdAt'>('name');
@@ -170,9 +170,9 @@ export default function AdminCategoriesPage() {
       setShowDeleteConfirm(false);
       setSelectedCategory(null);
       refetchCategories();
-      addToast({ type: 'success', title: 'Categoria deletada com sucesso!' });
+      toast.success('Categoria deletada com sucesso!');
     } catch (err) {
-      addToast({ type: 'error', title: 'Erro ao deletar categoria' });
+      toast.error('Erro ao deletar categoria');
     } finally {
       setIsLoading(false);
     }

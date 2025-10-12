@@ -119,12 +119,16 @@ model Product {
   isAvailable    Boolean  @default(true)
   preparationTime Int     @default(15) // minutos
   allergens      String?
+  stockQuantity  Int?     @default(0)  // Quantidade em estoque
+  minStockLevel  Int?     @default(5)  // Nível mínimo de estoque
+  trackStock     Boolean  @default(false) // Se deve rastrear estoque
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   
   category       Category      @relation(fields: [categoryId], references: [id])
   options        ProductOption[]
   orderItems     OrderItem[]
+  stockMovements StockMovement[]
 }
 ```
 
@@ -160,6 +164,55 @@ model Table {
   updatedAt     DateTime    @updatedAt
   
   assignedUser  User?       @relation("TableAssignedTo", fields: [assignedTo], references: [id])
+}
+```
+
+#### **OrderLog (Log de Pedidos)**
+```prisma
+model OrderLog {
+  id          String   @id @default(cuid())
+  orderId     String
+  action      String   // Tipo de ação (status_change, payment_change, etc.)
+  oldValue    String?  // Valor anterior
+  newValue    String   // Novo valor
+  description String   // Descrição da alteração
+  createdAt   DateTime @default(now())
+  
+  order       Order    @relation(fields: [orderId], references: [id])
+}
+```
+
+#### **StockMovement (Movimentação de Estoque)**
+```prisma
+model StockMovement {
+  id          String   @id @default(cuid())
+  productId   String
+  type        String   // 'in' ou 'out'
+  quantity    Int
+  reason      String   // Motivo da movimentação
+  notes       String?
+  createdAt   DateTime @default(now())
+  
+  product     Product  @relation(fields: [productId], references: [id])
+}
+```
+
+#### **Settings (Configurações)**
+```prisma
+model Settings {
+  id          String   @id @default(cuid())
+  key         String   @unique // Chave única da configuração
+  value       String   // Valor da configuração (JSON string)
+  category    String   // Categoria: general, payment, printing, backup
+  description String?  // Descrição da configuração
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([category])
+  @@index([key])
+  @@index([category, isActive])
+  @@map("settings")
 }
 ```
 
@@ -284,6 +337,9 @@ colors: {
 - **Categorias** - Gerenciar categorias
 - **Usuários** - Gerenciar usuários e roles
 - **Mesas** - Configurar mesas do restaurante
+- **Pedidos** - Gerenciamento completo de pedidos com histórico
+- **Estoque** - Controle de estoque e movimentações
+- **Configurações** - Configurações gerais do sistema
 - **Relatórios** - Estatísticas e relatórios
 
 ---
@@ -306,7 +362,14 @@ colors: {
 ├── orders/               # Pedidos
 ├── tables/               # Mesas
 ├── users/                # Usuários
-└── admin/                # Funcionalidades administrativas
+├── settings/             # Configurações do sistema
+│   └── public/           # Configurações públicas
+├── admin/                # Funcionalidades administrativas
+│   ├── inventory/        # Gestão de estoque
+│   ├── settings/         # Configurações administrativas
+│   └── orders/           # Gerenciamento de pedidos
+└── orders/               # Pedidos
+    └── [id]/logs/        # Histórico de alterações
 ```
 
 ### **Padrões de API**
@@ -397,6 +460,7 @@ interface AuthStore {
 - ✅ Controle de disponibilidade
 - ✅ Tempo de preparo
 - ✅ Informações de alérgenos
+- ✅ **Controle de estoque** - Quantidade disponível e alertas
 
 ### **Sistema de Pedidos**
 - ✅ Criação de pedidos
@@ -405,6 +469,23 @@ interface AuthStore {
 - ✅ Métodos de pagamento
 - ✅ Observações personalizadas
 - ✅ Histórico de pedidos
+- ✅ **Gerenciamento administrativo** - Interface completa de gestão
+- ✅ **Histórico de alterações** - Log de mudanças de status
+- ✅ **Filtros avançados** - Por status, data, mesa, cliente
+
+### **Gestão de Estoque**
+- ✅ **Controle de estoque** - Quantidade disponível por produto
+- ✅ **Alertas de estoque baixo** - Notificações automáticas
+- ✅ **Movimentações de estoque** - Entrada e saída de produtos
+- ✅ **Relatório de estoque** - Status atual e histórico
+- ✅ **Interface administrativa** - Página dedicada de gestão
+
+### **Configurações do Sistema**
+- ✅ **Configurações gerais** - Nome do restaurante, horário de funcionamento
+- ✅ **Interface de configurações** - Página administrativa completa
+- ✅ **API de configurações** - CRUD completo
+- ✅ **Rodapé dinâmico** - Dados do banco na página inicial
+- ✅ **Configurações públicas** - API para dados públicos
 
 ### **Gestão de Mesas**
 - ✅ Controle de ocupação
@@ -533,5 +614,13 @@ O sistema `nextjs-lanchonete` é uma base sólida e bem estruturada para desenvo
 ---
 
 *Documentação criada em: 23/09/2025*  
-*Versão do sistema: 1.0.0*  
-*Status: Produção*
+*Versão do sistema: 2.0.0*  
+*Status: Produção - Atualizado em 03/10/2025*
+
+### **🆕 Atualizações da Versão 2.0.0:**
+- ✅ **Gerenciamento de Pedidos** - Interface administrativa completa
+- ✅ **Gestão de Estoque** - Controle de estoque e movimentações
+- ✅ **Configurações do Sistema** - Interface e API de configurações
+- ✅ **Rodapé Dinâmico** - Dados do banco na página inicial
+- ✅ **Histórico de Alterações** - Log de mudanças de pedidos
+- ✅ **Novos Modelos** - OrderLog, StockMovement, Settings

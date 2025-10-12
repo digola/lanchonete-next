@@ -17,7 +17,9 @@ import {
   Activity,
   User,
   HelpCircle,
-  Database
+  Database,
+  Warehouse,
+  Bell
 } from 'lucide-react';
 
 const navigation = [
@@ -30,6 +32,11 @@ const navigation = [
     name: 'Produtos',
     href: '/admin/products',
     icon: Package,
+  },
+  {
+    name: 'Estoque',
+    href: '/admin/inventory',
+    icon: Database,
   },
   {
     name: 'Categorias',
@@ -50,6 +57,11 @@ const navigation = [
     name: 'Mesas',
     href: '/admin/tables',
     icon: Table,
+  },
+  {
+    name: 'Notificações',
+    href: '/admin/notifications',
+    icon: Bell,
   },
 ];
 

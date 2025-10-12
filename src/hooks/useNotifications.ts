@@ -1,226 +1,244 @@
-'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { useApi } from './useApi';
+import { Notification, NotificationType, NotificationPriority } from '@/types';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useApiAuth } from './useApiAuth';
-
-export interface Notification {
-  id: string;
-  type: 'order_update' | 'order_new' | 'system';
-  title: string;
-  message: string;
-  orderId?: string;
-  timestamp: Date;
-  isRead: boolean;
+export interface UseNotificationsOptions {
+  limit?: number;
+  type?: NotificationType;
+  isRead?: boolean;
+  enabled?: boolean;
+  autoRefresh?: boolean;
+  refreshInterval?: number; // em ms
 }
 
-interface NotificationState {
-  notifications: Notification[];
-  unreadCount: number;
-  isLoading: boolean;
+export interface NotificationStats {
+  total: number;
+  unread: number;
+  byType: Record<string, number>;
+  byPriority: Record<string, number>;
 }
 
-const NOTIFICATION_STORAGE_KEY = 'lanchonete-notifications';
+export function useNotifications(options: UseNotificationsOptions = {}) {
+  const { 
+    limit = 20, 
+    type, 
+    isRead, 
+    enabled = true, 
+    autoRefresh = true,
+    refreshInterval = 30000 // 30 segundos
+  } = options;
 
-export const useNotifications = () => {
-  const [state, setState] = useState<NotificationState>({
-    notifications: [],
-    unreadCount: 0,
-    isLoading: false,
-  });
-  
-  const { user, isAuthenticated } = useApiAuth();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
-  const lastOrderCountRef = useRef<number>(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Carregar notificações do localStorage
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      loadNotifications();
-    }
-  }, [isAuthenticated, user?.id]);
-
-  // Monitorar mudanças nos pedidos
-  useEffect(() => {
-    if (isAuthenticated && user?.id) {
-      startOrderMonitoring();
-    }
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isAuthenticated, user?.id]);
-
-  const loadNotifications = useCallback(() => {
-    try {
-      const saved = localStorage.getItem(`${NOTIFICATION_STORAGE_KEY}-${user?.id}`);
-      if (saved) {
-        const data = JSON.parse(saved);
-        const notifications = data.notifications.map((n: any) => ({
-          ...n,
-          timestamp: new Date(n.timestamp),
-        }));
-        
-        setState({
-          notifications,
-          unreadCount: notifications.filter((n: Notification) => !n.isRead).length,
-          isLoading: false,
-        });
-      }
-    } catch (error) {
-      console.error('Erro ao carregar notificações:', error);
-    }
-  }, [user?.id]);
-
-  const saveNotifications = useCallback((notifications: Notification[]) => {
-    if (!user?.id) return;
+  // Construir URL com parâmetros
+  const buildUrl = useCallback(() => {
+    const params = new URLSearchParams();
+    params.set('limit', limit.toString());
     
-    try {
-      localStorage.setItem(
-        `${NOTIFICATION_STORAGE_KEY}-${user.id}`,
-        JSON.stringify({ notifications })
-      );
-    } catch (error) {
-      console.error('Erro ao salvar notificações:', error);
-    }
-  }, [user?.id]);
-
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => {
-    const newNotification: Notification = {
-      ...notification,
-      id: `notif_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      timestamp: new Date(),
-      isRead: false,
-    };
-
-    setState(prev => {
-      const updated = [newNotification, ...prev.notifications];
-      saveNotifications(updated);
-      
-      return {
-        ...prev,
-        notifications: updated,
-        unreadCount: updated.filter(n => !n.isRead).length,
-      };
-    });
-  }, [saveNotifications]);
-
-  const markAsRead = useCallback((notificationId: string) => {
-    setState(prev => {
-      const updated = prev.notifications.map(n =>
-        n.id === notificationId ? { ...n, isRead: true } : n
-      );
-      saveNotifications(updated);
-      
-      return {
-        ...prev,
-        notifications: updated,
-        unreadCount: updated.filter(n => !n.isRead).length,
-      };
-    });
-  }, [saveNotifications]);
-
-  const markAllAsRead = useCallback(() => {
-    setState(prev => {
-      const updated = prev.notifications.map(n => ({ ...n, isRead: true }));
-      saveNotifications(updated);
-      
-      return {
-        ...prev,
-        notifications: updated,
-        unreadCount: 0,
-      };
-    });
-  }, [saveNotifications]);
-
-  const clearNotifications = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      notifications: [],
-      unreadCount: 0,
-    }));
+    if (type) params.set('type', type);
+    if (isRead !== undefined) params.set('isRead', isRead.toString());
     
-    if (user?.id) {
-      localStorage.removeItem(`${NOTIFICATION_STORAGE_KEY}-${user.id}`);
+    return `/api/notifications?${params.toString()}`;
+  }, [limit, type, isRead]);
+
+  const { data, loading: apiLoading, error: apiError, execute } = useApi<{
+    data: Notification[];
+    unreadCount: number;
+    pagination: any;
+  }>(enabled ? buildUrl() : '', { immediate: enabled });
+
+  // Atualizar estado quando dados da API mudarem
+  useEffect(() => {
+    if (data) {
+      setNotifications(data.data);
+      setUnreadCount(data.unreadCount);
+      setError(null);
     }
-  }, [user?.id]);
+  }, [data]);
 
-  const startOrderMonitoring = useCallback(() => {
-    // Verificar mudanças nos pedidos a cada 30 segundos
-    intervalRef.current = setInterval(async () => {
-      if (!isAuthenticated || !user?.id) return;
+  useEffect(() => {
+    if (apiError) {
+      setError(apiError);
+    }
+  }, [apiError]);
 
-      try {
-        const response = await fetch(`/api/orders?customerId=${user.id}&limit=10`, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
-          },
-        });
+  useEffect(() => {
+    setLoading(apiLoading);
+  }, [apiLoading]);
 
-        if (response.ok) {
-          const data = await response.json();
-          const currentOrderCount = data.total || 0;
+  // Auto refresh
+  useEffect(() => {
+    if (!autoRefresh || !enabled) return;
 
-          // Se houve mudança no número de pedidos
-          if (lastOrderCountRef.current > 0 && currentOrderCount > lastOrderCountRef.current) {
-            addNotification({
-              type: 'order_new',
-              title: 'Novo Pedido Recebido!',
-              message: 'Seu pedido foi confirmado e está sendo processado.',
-            });
-          }
+    const interval = setInterval(() => {
+      execute();
+    }, refreshInterval);
 
-          lastOrderCountRef.current = currentOrderCount;
+    return () => clearInterval(interval);
+  }, [autoRefresh, enabled, refreshInterval, execute]);
 
-          // Verificar mudanças de status nos pedidos ativos
-          const activeOrders = data.orders?.filter((order: any) => 
-            ['PENDENTE', 'CONFIRMADO', 'PREPARANDO'].includes(order.status)
-          ) || [];
+  // Marcar notificação como lida
+  const markAsRead = useCallback(async (notificationId: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ isRead: true }),
+      });
 
-          for (const order of activeOrders) {
-            // Aqui você pode adicionar lógica para detectar mudanças específicas de status
-            // Por simplicidade, vamos adicionar uma notificação genérica
+      if (response.ok) {
+        // Atualizar estado local
+        setNotifications(prev => 
+          prev.map(notification => 
+            notification.id === notificationId 
+              ? { ...notification, isRead: true }
+              : notification
+          )
+        );
+        setUnreadCount(prev => Math.max(0, prev - 1));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Erro ao marcar notificação como lida:', error);
+      return false;
+    }
+  }, []);
+
+  // Marcar todas como lidas
+  const markAllAsRead = useCallback(async () => {
+    try {
+      const response = await fetch('/api/notifications/mark-all-read', {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Atualizar estado local
+        setNotifications(prev => 
+          prev.map(notification => ({ ...notification, isRead: true }))
+        );
+        setUnreadCount(0);
+        return result.count;
+      }
+      return 0;
+    } catch (error) {
+      console.error('Erro ao marcar todas as notificações como lidas:', error);
+      return 0;
+    }
+  }, []);
+
+  // Remover notificação
+  const removeNotification = useCallback(async (notificationId: string) => {
+    try {
+      const response = await fetch(`/api/notifications/${notificationId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Remover do estado local
+        setNotifications(prev => 
+          prev.filter(notification => notification.id !== notificationId)
+        );
+        // Atualizar contador se não estava lida
+        const notification = notifications.find(n => n.id === notificationId);
+        if (notification && !notification.isRead) {
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Erro ao remover notificação:', error);
+      return false;
+    }
+  }, [notifications]);
+
+  // Criar notificação (para admin)
+  const createNotification = useCallback(async (notificationData: {
+    userId?: string;
+    title: string;
+    message: string;
+    type: NotificationType;
+    priority?: NotificationPriority;
+    data?: any;
+    expiresAt?: Date;
+  }) => {
+    try {
+      const response = await fetch('/api/notifications', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(notificationData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Adicionar ao estado local se for para o usuário atual
+        if (!notificationData.userId) {
+          setNotifications(prev => [result.data, ...prev]);
+          if (result.data.priority === 'urgent' || result.data.priority === 'high') {
+            setUnreadCount(prev => prev + 1);
           }
         }
-      } catch (error) {
-        console.error('Erro ao monitorar pedidos:', error);
+        return result.data;
       }
-    }, 30000); // 30 segundos
-  }, [isAuthenticated, user?.id, addNotification]);
-
-  // Simular notificações para demonstração
-  const addDemoNotification = useCallback(() => {
-    const demos = [
-      {
-        type: 'order_update' as const,
-        title: 'Pedido Atualizado!',
-        message: 'Seu pedido #123 mudou para "Preparando".',
-        orderId: 'demo-123',
-      },
-      {
-        type: 'system' as const,
-        title: 'Promoção Especial!',
-        message: 'Desconto de 20% em todas as bebidas hoje!',
-      },
-    ];
-
-    const randomDemo = demos[Math.floor(Math.random() * demos.length)];
-    if (randomDemo) {
-      addNotification(randomDemo);
+      return null;
+    } catch (error) {
+      console.error('Erro ao criar notificação:', error);
+      return null;
     }
-  }, [addNotification]);
+  }, []);
+
+  // Estatísticas das notificações
+  const getStats = useCallback((): NotificationStats => {
+    const byType: Record<string, number> = {};
+    const byPriority: Record<string, number> = {};
+    let unread = 0;
+
+    notifications.forEach(notification => {
+      // Por tipo
+      byType[notification.type] = (byType[notification.type] || 0) + 1;
+      
+      // Por prioridade
+      byPriority[notification.priority] = (byPriority[notification.priority] || 0) + 1;
+      
+      // Não lidas
+      if (!notification.isRead) {
+        unread++;
+      }
+    });
+
+    return {
+      total: notifications.length,
+      unread,
+      byType,
+      byPriority
+    };
+  }, [notifications]);
+
+  const refetch = useCallback(() => {
+    if (enabled) {
+      execute();
+    }
+  }, [enabled, execute]);
 
   return {
-    // Estado
-    notifications: state.notifications,
-    unreadCount: state.unreadCount,
-    isLoading: state.isLoading,
-    
-    // Ações
-    addNotification,
+    notifications,
+    unreadCount,
+    loading,
+    error,
     markAsRead,
     markAllAsRead,
-    clearNotifications,
-    addDemoNotification, // Para testes
+    removeNotification,
+    createNotification,
+    getStats,
+    refetch
   };
-};
+}

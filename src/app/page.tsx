@@ -8,6 +8,7 @@ import { useBasicMenu } from '@/hooks/useBasicMenu';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useCart } from '@/hooks/useCart';
 import { useApi } from '@/hooks/useApi';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 import { OptimizedProductCard, OptimizedProductList } from '@/components/OptimizedProductCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -21,6 +22,7 @@ import Link from 'next/link';
 export default function HomePage() {
   const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
   const { addItem, items, totalItems } = useCart();
+  const { settings: publicSettings, getWorkingDaysText, getWorkingHoursText } = usePublicSettings();
   const searchParams = useSearchParams();
   const router = useRouter();
   
@@ -38,6 +40,9 @@ export default function HomePage() {
 
   // Verificar se é staff e se há mesa na URL
   const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
+
+  // Renderizar sempre o mesmo conteúdo no servidor e cliente
+  const shouldShowStaffFeatures = isHydrated && isStaff;
   
   // Buscar dados da mesa se tableId estiver disponível
   const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
@@ -107,7 +112,7 @@ export default function HomePage() {
                 <span className="text-xl font-bold text-white">🍔</span>
               </div>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">Lanchonete</h1>
+                <h1 className="text-xl font-bold text-gray-900">{publicSettings?.restaurantName || 'Lanchonete'}</h1>
                 <p className="text-sm text-gray-600">Cardápio Online</p>
               </div>
             </Link>
@@ -196,7 +201,7 @@ export default function HomePage() {
       {/* Main Content */}
       <main className="container-app py-8">
         {/* Mesa Info para Staff */}
-        {isHydrated && isStaff && tableId && (
+        {shouldShowStaffFeatures && tableId && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -223,7 +228,7 @@ export default function HomePage() {
             <div className="flex items-center space-x-4">
               <h2 className="text-2xl font-bold text-gray-900">Cardápio</h2>
               {/* Mesa selecionada para Staff/Manager */}
-              {isHydrated && isStaff && tableId && (
+              {shouldShowStaffFeatures && tableId && (
                 <div className="flex items-center space-x-2 px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                   <span>🪑</span>
                   <span>Mesa {tableNumber || 'N/A'}</span>
@@ -232,7 +237,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center space-x-4">
               {/* Botão de seleção de mesa para Staff/Manager */}
-              {isHydrated && isStaff && (
+              {shouldShowStaffFeatures && (
                 <Button
                   variant="outline"
                   onClick={() => router.push('/table-selection')}
@@ -391,7 +396,9 @@ export default function HomePage() {
         <div className="container-app">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             <div>
-              <h3 className="font-semibold mb-4">Lanchonete</h3>
+              <h3 className="font-semibold mb-4">
+                {publicSettings?.restaurantName || 'Lanchonete'}
+              </h3>
               <p className="text-gray-400 text-sm">
                 O melhor da comida caseira com a praticidade do delivery.
               </p>
@@ -399,22 +406,20 @@ export default function HomePage() {
             <div>
               <h3 className="font-semibold mb-4">Contato</h3>
               <div className="space-y-2 text-sm text-gray-400">
-                <p>📞 (11) 99999-9999</p>
-                <p>✉️ contato@lanchonete.com</p>
-                <p>📍 Rua das Flores, 123 - Centro</p>
+                <p>📞 {publicSettings?.restaurantPhone || '(11) 99999-9999'}</p>
+                <p>✉️ {publicSettings?.restaurantEmail || 'contato@lanchonete.com'}</p>
+                <p>📍 {publicSettings?.restaurantAddress || 'Endereço não informado'}</p>
               </div>
             </div>
             <div className="sm:col-span-2 lg:col-span-1">
               <h3 className="font-semibold mb-4">Horário de Funcionamento</h3>
               <div className="space-y-1 text-sm text-gray-400">
-                <p>Segunda a Sexta: 8h às 22h</p>
-                <p>Sábado: 9h às 23h</p>
-                <p>Domingo: 10h às 21h</p>
+                <p>{getWorkingDaysText()}: {getWorkingHoursText()}</p>
               </div>
             </div>
           </div>
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-            <p>&copy; 2025 Lanchonete. Todos os direitos reservados.</p>
+            <p>&copy; 2025 {publicSettings?.restaurantName || 'Lanchonete'}. Todos os direitos reservados.</p>
           </div>
         </div>
       </footer>

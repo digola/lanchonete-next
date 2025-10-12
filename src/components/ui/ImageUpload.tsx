@@ -3,7 +3,7 @@
 import { useState, useRef } from 'react';
 import Image from 'next/image';
 import { Button } from './Button';
-import { useToastHelpers } from './Toast';
+import { toast } from '@/lib/toast';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { Upload, X, Image as ImageIcon, Loader2 } from 'lucide-react';
 
@@ -27,7 +27,7 @@ export function ImageUpload({
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { success, error: showError } = useToastHelpers();
+  // const { success, error: showError } = useToastHelpers();
   const { token } = useApiAuth();
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -37,14 +37,14 @@ export function ImageUpload({
     // Validar tipo de arquivo
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
-      showError('Tipo de arquivo não permitido. Use JPG, PNG ou WebP');
+      toast.error('Tipo de arquivo não permitido. Use JPG, PNG ou WebP');
       return;
     }
 
     // Validar tamanho (máximo 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      showError('Arquivo muito grande. Máximo 5MB');
+      toast.error('Arquivo muito grande. Máximo 5MB');
       return;
     }
 
@@ -60,7 +60,7 @@ export function ImageUpload({
       formData.append('image', file);
 
       if (!token) {
-        showError('Você precisa estar logado para fazer upload de imagens');
+        toast.error('Você precisa estar logado para fazer upload de imagens');
         return;
       }
 
@@ -81,11 +81,11 @@ export function ImageUpload({
       // Atualizar com a URL do servidor
       setPreview(result.data.url);
       onChange(result.data.url);
-      success('Imagem enviada com sucesso!');
+      toast.success('Imagem enviada com sucesso!');
 
     } catch (error: any) {
       console.error('Erro no upload:', error);
-      showError(error.message || 'Erro ao fazer upload da imagem');
+      toast.error(error.message || 'Erro ao fazer upload da imagem');
       setPreview(null);
       onChange(null);
     } finally {

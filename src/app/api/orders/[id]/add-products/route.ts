@@ -4,10 +4,10 @@ import { OrderTableAPI } from '@/lib/order-table-manager';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const orderId = params.id;
+    const { id: orderId } = await params;
     const body = await request.json();
     const { products } = body;
 
@@ -37,13 +37,16 @@ export async function POST(
     if (result.success) {
       return NextResponse.json({ 
         message: 'Produtos adicionados com sucesso',
-        data: result.data 
-      });
+        data: result.data
+           });
+         
     } else {
       return NextResponse.json(
         { message: result.error },
         { status: 400 }
+        
       );
+    
     }
 
   } catch (error) {

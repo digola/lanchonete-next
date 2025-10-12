@@ -12,12 +12,16 @@ export async function GET(request: NextRequest) {
     const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
     const isActive = searchParams.get('isActive');
+    const isPaid = searchParams.get('isPaid');
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const includeItems = searchParams.get('includeItems') === 'true';
     const includeUser = searchParams.get('includeUser') === 'true';
+    const date = searchParams.get('date');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
@@ -89,9 +93,49 @@ export async function GET(request: NextRequest) {
     if (isActive !== null) {
       where.isActive = isActive === 'true';
     }
+    if (isPaid !== null) {
+      where.isPaid = isPaid === 'true';
+    }
+
+    // Filtros de data
+    if (date) {
+      // Filtro por data específica (formato YYYY-MM-DD)
+      const parts = date.split('-').map(Number);
+      const yearNum = parts[0] || 0;
+      const monthNum = parts[1] || 0;
+      const dayNum = parts[2] || 0;
+      const startDate = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      const endDate = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      
+      where.createdAt = {
+        gte: startDate,
+        lte: endDate
+      };
+    } else if (dateFrom || dateTo) {
+      // Filtro por período (dateFrom e/ou dateTo)
+      const dateFilter: any = {};
+      
+      if (dateFrom) {
+        const parts = dateFrom.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.gte = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      }
+      
+      if (dateTo) {
+        const parts = dateTo.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.lte = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      }
+      
+      where.createdAt = dateFilter;
+    }
 
     // Verificar cache (baseado nos parâmetros da query)
-    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, page, limit, sortBy, sortOrder })}`;
+    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, isPaid, date, dateFrom, dateTo, page, limit, sortBy, sortOrder })}`;
     const cachedData = getCache(cacheKey, CACHE_DURATION.SHORT);
     
     if (cachedData) {
@@ -204,7 +248,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
+    
     // Verificar permissão
     if (!hasPermission(decoded.role, 'orders:create')) {
       return NextResponse.json(
@@ -363,6 +407,19 @@ export async function POST(request: NextRequest) {
     });
 
     console.log('🎉 Transação concluída com sucesso!');
+    
+    // Criar notificação para o novo pedido
+    try {
+      const { NotificationService } = await import('@/lib/notificationService');
+      await NotificationService.notifyNewOrder(
+        result.id, 
+        result.user?.name || 'Cliente', 
+        result.table?.number
+      );
+    } catch (error) {
+      console.error('Erro ao criar notificação de novo pedido:', error);
+      // Não falha a criação do pedido se a notificação falhar
+    }
     
     // Limpar cache de pedidos após criar novo
     clearCachePattern('orders_');

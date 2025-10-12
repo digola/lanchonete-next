@@ -159,6 +159,73 @@ export async function PUT(
                              (isReceived === true); // Também atualizar mesa quando pedido for recebido
     
     const updatedOrder = await prisma.$transaction(async (tx) => {
+      // Criar logs de mudanças antes de atualizar
+      const logsToCreate = [];
+      
+      if (status && status !== existingOrder.status) {
+        logsToCreate.push({
+          orderId,
+          userId: decoded.userId,
+          action: 'UPDATE_STATUS',
+          field: 'status',
+          oldValue: JSON.stringify({ status: existingOrder.status }),
+          newValue: JSON.stringify({ status }),
+          reason: `Status alterado de ${existingOrder.status} para ${status}`,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent'),
+        });
+      }
+      
+      if (paymentMethod && paymentMethod !== existingOrder.paymentMethod) {
+        logsToCreate.push({
+          orderId,
+          userId: decoded.userId,
+          action: 'UPDATE_PAYMENT',
+          field: 'paymentMethod',
+          oldValue: JSON.stringify({ paymentMethod: existingOrder.paymentMethod }),
+          newValue: JSON.stringify({ paymentMethod }),
+          reason: `Método de pagamento alterado de ${existingOrder.paymentMethod} para ${paymentMethod}`,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent'),
+        });
+      }
+      
+      if (isReceived !== undefined && isReceived !== existingOrder.isReceived) {
+        logsToCreate.push({
+          orderId,
+          userId: decoded.userId,
+          action: 'UPDATE_RECEIVED',
+          field: 'isReceived',
+          oldValue: JSON.stringify({ isReceived: existingOrder.isReceived }),
+          newValue: JSON.stringify({ isReceived }),
+          reason: `Status de recebimento alterado para ${isReceived ? 'recebido' : 'não recebido'}`,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent'),
+        });
+      }
+      
+      if (isActive !== undefined && isActive !== existingOrder.isActive) {
+        logsToCreate.push({
+          orderId,
+          userId: decoded.userId,
+          action: 'UPDATE_ACTIVE',
+          field: 'isActive',
+          oldValue: JSON.stringify({ isActive: existingOrder.isActive }),
+          newValue: JSON.stringify({ isActive }),
+          reason: `Status ativo alterado para ${isActive ? 'ativo' : 'inativo'}`,
+          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
+          userAgent: request.headers.get('user-agent'),
+        });
+      }
+
+      // Criar logs se houver mudanças
+      if (logsToCreate.length > 0) {
+        await tx.orderLog.createMany({
+          data: logsToCreate,
+        });
+        console.log('📝 Logs de alteração criados:', logsToCreate.length);
+      }
+
       // Atualizar pedido
       const order = await tx.order.update({
         where: { id: orderId },
@@ -223,6 +290,102 @@ export async function PUT(
           console.log('✅ Mesa liberada com sucesso');
         } else {
           console.log('🔒 Mesa mantida ocupada - há pedidos ativos');
+        }
+      }
+
+      // Atualizar estoque quando pedido for confirmado
+      if (status === 'CONFIRMADO' && existingOrder.status !== 'CONFIRMADO') {
+        console.log('📦 Pedido confirmado - atualizando estoque...');
+        
+        for (const item of existingOrder.items) {
+          // Buscar produto com informações de estoque
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { 
+              id: true, 
+              name: true, 
+              trackStock: true, 
+              stockQuantity: true 
+            }
+          });
+
+          if (product && product.trackStock) {
+            const currentStock = product.stockQuantity || 0;
+            const newStock = Math.max(0, currentStock - item.quantity);
+
+            console.log(`📦 Atualizando estoque do produto ${product.name}:`, {
+              currentStock,
+              quantity: item.quantity,
+              newStock
+            });
+
+            // Atualizar estoque do produto
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stockQuantity: newStock }
+            });
+
+            // Criar movimentação de estoque
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId,
+                type: 'SAIDA',
+                quantity: item.quantity,
+                reason: 'VENDA',
+                reference: orderId,
+                userId: decoded.userId,
+                notes: `Venda do pedido ${orderId.slice(-8)}`
+              }
+            });
+          }
+        }
+      }
+
+      // Restaurar estoque quando pedido for cancelado
+      if (status === 'CANCELADO' && existingOrder.status === 'CONFIRMADO') {
+        console.log('❌ Pedido cancelado - restaurando estoque...');
+        
+        for (const item of existingOrder.items) {
+          // Buscar produto com informações de estoque
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+            select: { 
+              id: true, 
+              name: true, 
+              trackStock: true, 
+              stockQuantity: true 
+            }
+          });
+
+          if (product && product.trackStock) {
+            const currentStock = product.stockQuantity || 0;
+            const newStock = currentStock + item.quantity;
+
+            console.log(`📦 Restaurando estoque do produto ${product.name}:`, {
+              currentStock,
+              quantity: item.quantity,
+              newStock
+            });
+
+            // Atualizar estoque do produto
+            await tx.product.update({
+              where: { id: item.productId },
+              data: { stockQuantity: newStock }
+            });
+
+            // Criar movimentação de estoque
+            await tx.stockMovement.create({
+              data: {
+                productId: item.productId,
+                type: 'ENTRADA',
+                quantity: item.quantity,
+                reason: 'CANCELAMENTO',
+                reference: orderId,
+                userId: decoded.userId,
+                notes: `Cancelamento do pedido ${orderId.slice(-8)}`
+              }
+            });
+          }
         }
       }
 

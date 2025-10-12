@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/Input';
 import { ImageUpload } from '@/components/ui/ImageUpload';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { Category } from '@/types';
 import { 
   Folder, 
@@ -41,7 +41,7 @@ export function CategoryForm({
   isLoading = false,
   mode 
 }: CategoryFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
   
   const [formData, setFormData] = useState<CategoryFormData>({
     name: category?.name || '',
@@ -84,15 +84,15 @@ export function CategoryForm({
     e.preventDefault();
     
     if (!validateForm()) {
-      error('Por favor, corrija os erros no formulário');
+      toast.error('Por favor, corrija os erros no formulário');
       return;
     }
 
     try {
       await onSubmit(formData);
-      success(mode === 'create' ? 'Categoria criada com sucesso!' : 'Categoria atualizada com sucesso!');
+      toast.success(mode === 'create' ? 'Categoria criada com sucesso!' : 'Categoria atualizada com sucesso!');
     } catch (err) {
-      error('Erro ao salvar categoria');
+      toast.error('Erro ao salvar categoria');
       console.error(err);
     }
   };
