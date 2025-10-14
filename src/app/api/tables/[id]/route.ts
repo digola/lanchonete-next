@@ -12,7 +12,7 @@ interface RouteParams {
 // GET /api/tables/[id] - Buscar mesa específica
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
@@ -75,11 +75,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/tables/[id] - Atualizar mesa
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    console.log('🔍 Atualizando mesa ID:', id);
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
     if (!token) {
+      console.log('❌ Token não fornecido');
       return NextResponse.json(
         { success: false, error: 'Token de autenticação não fornecido' },
         { status: 401 }
@@ -88,19 +90,27 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const decoded = verifyToken(token);
     if (!decoded) {
+      console.log('❌ Token inválido');
       return NextResponse.json(
         { success: false, error: 'Token inválido ou expirado' },
         { status: 401 }
       );
     }
 
+    console.log('✅ Token válido para usuário:', decoded.userId);
+    console.log('🔍 Role do usuário:', decoded.role);
+    console.log('🔍 Verificando permissão tables:write para role:', decoded.role);
+
     // Verificar permissão
-    if (!hasPermission(decoded.role, 'settings:write')) {
+    if (!hasPermission(decoded.role, 'tables:write')) {
+      console.log('❌ Sem permissão para editar - Role:', decoded.role, 'Permissão requerida: tables:write');
       return NextResponse.json(
         { success: false, error: 'Sem permissão para editar mesas' },
         { status: 403 }
       );
     }
+
+    console.log('✅ Permissão tables:write confirmada para role:', decoded.role);
 
     // Verificar se a mesa existe
     const existingTable = await prisma.table.findUnique({
@@ -108,14 +118,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!existingTable) {
+      console.log('❌ Mesa não encontrada:', id);
       return NextResponse.json(
         { success: false, error: 'Mesa não encontrada' },
         { status: 404 }
       );
     }
 
+    console.log('✅ Mesa encontrada:', existingTable);
+
     const body = await request.json();
     const { number, capacity, status, assignedTo } = body;
+    console.log('🔍 Dados recebidos para atualização:', body);
 
     // Validações
     if (number !== undefined && (number < 1 || !Number.isInteger(Number(number)))) {
@@ -167,15 +181,19 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Preparar dados para atualização
+    const updateData: any = {};
+    if (number !== undefined) updateData.number = Number(number);
+    if (capacity !== undefined) updateData.capacity = Number(capacity);
+    if (status !== undefined) updateData.status = status;
+    if (assignedTo !== undefined) updateData.assignedTo = assignedTo || null;
+
+    console.log('🔍 Dados de atualização preparados:', updateData);
+
     // Atualizar mesa
     const updatedTable = await prisma.table.update({
       where: { id },
-      data: {
-        ...(number !== undefined && { number: Number(number) }),
-        ...(capacity !== undefined && { capacity: Number(capacity) }),
-        ...(status !== undefined && { status }),
-        ...(assignedTo !== undefined && { assignedTo: assignedTo || null }),
-      },
+      data: updateData,
       include: {
         assignedUser: {
           select: {
@@ -186,6 +204,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         },
       },
     });
+
+    console.log('✅ Mesa atualizada com sucesso:', updatedTable);
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
     // await prisma.activityLog.create({
@@ -219,7 +239,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/tables/[id] - Deletar mesa
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
@@ -239,7 +259,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Verificar permissão
-    if (!hasPermission(decoded.role, 'settings:delete')) {
+    if (!hasPermission(decoded.role, 'tables:write')) {
       return NextResponse.json(
         { success: false, error: 'Sem permissão para deletar mesas' },
         { status: 403 }

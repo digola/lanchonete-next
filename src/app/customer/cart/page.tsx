@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 
 import { useBasicMenu } from '@/hooks/useBasicMenu';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { useCart } from '@/hooks/useCart';
 import { OptimizedProductCard, OptimizedProductList } from '@/components/OptimizedProductCard';
 import { Button } from '@/components/ui/Button';
@@ -13,11 +13,11 @@ import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
 import { Product, Category } from '@/types';
 import { formatCurrency } from '@/lib/utils';
-import { Search, User, LogIn, Filter, X, ShoppingCart, ArrowLeft } from 'lucide-react';
+import { Search, Filter, X } from 'lucide-react';
 import Link from 'next/link';
 
 export default function CustomerCartPage() {
-  const { isAuthenticated, user, logout, getRoleLabel } = useOptimizedAuth();
+  const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
   const { addItem, items, totalItems } = useCart();
 
   
@@ -85,55 +85,7 @@ export default function CustomerCartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container-app">
-          <div className="flex items-center justify-between py-4">
-            <Link href="/customer/dashboard" className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-primary-500 rounded-lg flex items-center justify-center">
-                <span className="text-xl font-bold text-white">🍔</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">Lanchonete</h1>
-                <p className="text-sm text-gray-600">Cardápio Online</p>
-              </div>
-            </Link>
-
-            <div className="flex items-center space-x-4">
-              {/* Indicador do carrinho */}
-              {totalItems > 0 && (
-                <Link href="/cart" className="relative inline-block">
-                  <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                    <ShoppingCart className="h-4 w-4" />
-                    <span className="text-sm font-medium">Carrinho</span>
-                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {totalItems}
-                    </span>
-                  </button>
-                </Link>
-              )}
-
-              {/* User Menu */}
-              <div className="flex items-center space-x-3">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
-                  <p className="text-xs text-gray-500">{getRoleLabel()}</p>
-                </div>
-                <button
-                  onClick={logout}
-                  className="flex items-center space-x-2 px-3 py-2 text-gray-700 hover:bg-gray-100 rounded-md transition-colors"
-                >
-                  <User className="h-4 w-4" />
-                  <span className="text-sm">Sair</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main className="container-app py-8">
+    <div className="space-y-6">
         {/* Breadcrumb */}
         <div className="flex items-center space-x-2 text-sm text-gray-600 mb-6">
           <Link href="/customer/dashboard" className="hover:text-primary-600">
@@ -263,7 +215,6 @@ export default function CustomerCartPage() {
             </Button>
           </div>
         )}
-      </main>
     </div>
   );
 }

@@ -2,9 +2,14 @@
 
 // Enums conforme Prisma schema
 export enum UserRole {
+  CUSTOMER = 'CUSTOMER',
   CLIENTE = 'CLIENTE',
-  FUNCIONARIO = 'FUNCIONARIO',
+  STAFF = 'STAFF',
+  MANAGER = 'MANAGER',
+  ADMIN = 'ADMIN',
   ADMINISTRADOR = 'ADMINISTRADOR',
+  ADMINISTRADOR_LOWER = 'administrador',
+  ADMINISTRADOR_TITLE = 'Administrador',
 }
 
 export enum OrderStatus {
@@ -13,14 +18,13 @@ export enum OrderStatus {
   PREPARANDO = 'PREPARANDO',
   PRONTO = 'PRONTO',
   ENTREGUE = 'ENTREGUE',
+  FINALIZADO = 'FINALIZADO',
   CANCELADO = 'CANCELADO',
 }
 
 export enum TableStatus {
   LIVRE = 'LIVRE',
   OCUPADA = 'OCUPADA',
-  RESERVADA = 'RESERVADA',
-  MANUTENCAO = 'MANUTENCAO',
 }
 
 export enum DeliveryType {
@@ -67,6 +71,13 @@ export interface Product {
   isAvailable: boolean;
   preparationTime: number;
   allergens?: string;
+  
+  // Campos de estoque
+  stockQuantity?: number;
+  minStockLevel?: number;
+  maxStockLevel?: number;
+  trackStock: boolean;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -90,6 +101,11 @@ export interface Order {
   deliveryType: DeliveryType;
   deliveryAddress?: string;
   paymentMethod: PaymentMethod;
+  paymentProcessedAt?: Date;
+  paymentAmount?: number;
+  isPaid: boolean;
+  isReceived: boolean;
+  isActive: boolean;
   notes?: string;
   tableId?: string;
   table?: Table;
@@ -121,6 +137,20 @@ export interface Table {
   assignedUser?: User;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  product?: Product;
+  type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
+  quantity: number;
+  reason: string;
+  reference?: string;
+  userId?: string;
+  user?: User;
+  notes?: string;
+  createdAt: Date;
 }
 
 export interface SystemSettings {
@@ -247,12 +277,19 @@ export type Permission =
   | 'profile:write'
   | 'cart:read'
   | 'cart:write'
-  | 'cart:delete';
+  | 'cart:delete'
+  | 'expedition:read'
+  | 'expedition:write'
+  | 'expedition:manage'
+  | 'tables:read'
+  | 'tables:write'
+  | 'tables:manage';
 
 export interface RolePermissions {
-  [UserRole.CLIENTE]: Permission[];
-  [UserRole.FUNCIONARIO]: Permission[];
-  [UserRole.ADMINISTRADOR]: Permission[];
+  [UserRole.CUSTOMER]: Permission[];
+  [UserRole.STAFF]: Permission[];
+  [UserRole.MANAGER]: Permission[];
+  [UserRole.ADMIN]: Permission[];
 }
 
 // Tipos para upload
@@ -451,6 +488,117 @@ export interface TableEvent {
   type: 'table_occupied' | 'table_freed' | 'table_reserved';
   table: Table;
   timestamp: Date;
+}
+
+// Tipos para Configurações do Sistema
+export interface Settings {
+  id: string;
+  key: string;
+  value: string;
+  category: 'general' | 'payment' | 'printing' | 'backup';
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Configurações Gerais
+export interface GeneralSettings {
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantPhone: string;
+  restaurantEmail: string;
+  openingTime: string; // HH:MM
+  closingTime: string; // HH:MM
+  workingDays: string[]; // ['monday', 'tuesday', ...]
+  timezone: string;
+  currency: string;
+  language: string;
+}
+
+// Configurações de Pagamento
+export interface PaymentSettings {
+  acceptedMethods: ('cash' | 'credit_card' | 'debit_card' | 'pix' | 'digital_wallet')[];
+  pixKey?: string;
+  pixEnabled: boolean;
+  cashEnabled: boolean;
+  creditCardEnabled: boolean;
+  debitCardEnabled: boolean;
+  digitalWalletEnabled: boolean;
+  taxRate: number; // Taxa em porcentagem
+  minimumOrderValue: number;
+  maximumOrderValue?: number;
+}
+
+// Configurações de Impressão
+export interface PrintingSettings {
+  printerName: string;
+  printerType: 'thermal' | 'laser' | 'inkjet';
+  paperWidth: number; // mm
+  fontSize: number;
+  printHeader: boolean;
+  printFooter: boolean;
+  printLogo: boolean;
+  logoUrl?: string;
+  headerText: string;
+  footerText: string;
+  autoPrint: boolean;
+  printOrders: boolean;
+  printReceipts: boolean;
+}
+
+// Configurações de Backup
+export interface BackupSettings {
+  autoBackupEnabled: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly';
+  backupTime: string; // HH:MM
+  backupRetention: number; // dias
+  cloudBackupEnabled: boolean;
+  localBackupEnabled: boolean;
+  backupLocation?: string;
+  lastBackupDate?: Date;
+}
+
+// Tipos de notificações
+export enum NotificationType {
+  ORDER = 'order',
+  STOCK = 'stock',
+  SYSTEM = 'system',
+  PAYMENT = 'payment',
+  USER = 'user',
+  TABLE = 'table',
+  GENERAL = 'general'
+}
+
+export enum NotificationPriority {
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  URGENT = 'urgent'
+}
+
+export interface Notification {
+  id: string;
+  userId?: string;
+  title: string;
+  message: string;
+   priority: NotificationPriority;
+  isRead: boolean;
+  isActive: boolean;
+  data?: any; // Dados adicionais (JSON)
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: User;
+}
+
+export interface NotificationData {
+  orderId?: string;
+  productId?: string;
+  tableId?: string;
+  amount?: number;
+  action?: string;
+  [key: string]: any;
 }
 
 // Exportar todos os tipos

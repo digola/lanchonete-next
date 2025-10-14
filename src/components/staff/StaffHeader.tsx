@@ -8,13 +8,10 @@ import { Badge } from '@/components/ui/Badge';
 import { 
   Menu, 
   Bell, 
-  ShoppingCart, 
   User,
   LogOut,
-  Settings,
   Home,
-  Users,
-  BarChart3
+  Users
 } from 'lucide-react';
 
 export function StaffHeader() {
@@ -32,7 +29,7 @@ export function StaffHeader() {
         <div className="flex justify-between items-center h-16">
           {/* Logo e Navegação Principal */}
           <div className="flex items-center space-x-4">
-            <Link href="/staff/dashboard" className="flex items-center space-x-2">
+            <Link href="/staff" prefetch={false} className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">L</span>
               </div>
@@ -41,25 +38,22 @@ export function StaffHeader() {
             
             <nav className="hidden md:flex items-center space-x-6">
               <Link 
-                href="/staff/dashboard" 
+                href="/staff" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Dashboard
               </Link>
               <Link 
-                href="/staff/orders" 
-                className="text-gray-600 hover:text-primary-600 transition-colors"
-              >
-                Pedidos
-              </Link>
-              <Link 
                 href="/staff/tables" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Mesas
               </Link>
               <Link 
                 href="/" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Cardápio
@@ -98,23 +92,8 @@ export function StaffHeader() {
               {showUserMenu && (
                 <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
                   <Link
-                    href="/staff/profile"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <Settings className="h-4 w-4 mr-3" />
-                    Meu Perfil
-                  </Link>
-                  <Link
-                    href="/staff/orders"
-                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                    onClick={() => setShowUserMenu(false)}
-                  >
-                    <ShoppingCart className="h-4 w-4 mr-3" />
-                    Pedidos
-                  </Link>
-                  <Link
                     href="/staff/tables"
+                    prefetch={false}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setShowUserMenu(false)}
                   >
@@ -123,6 +102,7 @@ export function StaffHeader() {
                   </Link>
                   <Link
                     href="/"
+                    prefetch={false}
                     className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     onClick={() => setShowUserMenu(false)}
                   >

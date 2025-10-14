@@ -82,7 +82,6 @@ export const verifyToken = (token: string): JWTPayload | null => {
   try {
     // Validar se o token existe e não está vazio
     if (!token || token.trim() === '') {
-      console.error('Token is empty or null');
       return null;
     }
 
@@ -90,14 +89,68 @@ export const verifyToken = (token: string): JWTPayload | null => {
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     
     if (!cleanToken || cleanToken.trim() === '') {
-      console.error('Token is empty after Bearer removal');
+      return null;
+    }
+
+    // Verificar se o token tem o formato JWT básico (3 partes separadas por pontos)
+    const tokenParts = cleanToken.split('.');
+    if (tokenParts.length !== 3) {
+      console.error('❌ Token malformado - formato JWT inválido');
+      return null;
+    }
+
+    // Verificar se cada parte do JWT não está vazia
+    if (tokenParts.some(part => !part || part.trim() === '')) {
+      console.error('❌ Token malformado - partes vazias');
       return null;
     }
 
     const decoded = jwt.verify(cleanToken, getJWTSecret()) as JWTPayload;
     return decoded;
   } catch (error) {
-    console.error('Token verification failed:', error);
+    // Log mais específico do erro
+    if (error instanceof jwt.JsonWebTokenError) {
+      console.error('❌ Token JWT inválido:', error.message);
+    } else if (error instanceof jwt.TokenExpiredError) {
+      console.error('❌ Token expirado');
+    } else if (error instanceof jwt.NotBeforeError) {
+      console.error('❌ Token não ativo ainda');
+    } else {
+      console.error('❌ Erro na verificação do token:', error);
+    }
+    return null;
+  }
+};
+
+// Versão compatível com Edge Runtime para middleware
+export const verifyTokenEdge = (token: string): JWTPayload | null => {
+  try {
+    if (!token) {
+      return null;
+    }
+
+    // Verificar se o token tem o formato correto (Bearer token)
+    const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+    
+    if (!cleanToken || cleanToken.trim() === '') {
+      return null;
+    }
+
+    // Decodificar o token manualmente (sem verificação de assinatura no Edge Runtime)
+    const parts = cleanToken.split('.');
+    if (parts.length !== 3 || !parts[1]) {
+      return null;
+    }
+
+    const payload = JSON.parse(atob(parts[1]!));
+    
+    // Verificar se o token não expirou
+    if (payload.exp && payload.exp < Date.now() / 1000) {
+      return null;
+    }
+
+    return payload as JWTPayload;
+  } catch (error) {
     return null;
   }
 };
@@ -153,6 +206,17 @@ export const getTokenFromRequest = (request: NextRequest): string | null => {
 // Verificar se o usuário tem permissão específica
 export const hasPermission = (userRole: UserRole, permission: string): boolean => {
   const ROLE_PERMISSIONS = {
+    [UserRole.CUSTOMER]: [
+      'menu:read',
+      'orders:read',
+      'orders:create',
+      'orders:update',
+      'profile:read',
+      'profile:write',
+      'cart:read',
+      'cart:write',
+      'cart:delete',
+    ],
     [UserRole.CLIENTE]: [
       'menu:read',
       'orders:read',
@@ -164,14 +228,56 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'cart:write',
       'cart:delete',
     ],
-    [UserRole.FUNCIONARIO]: [
+    [UserRole.STAFF]: [
       'menu:read',
       'orders:read',
+      'orders:create',
       'orders:update',
       'orders:write',
       'products:read',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+    ],
+    [UserRole.MANAGER]: [
+      'menu:read',
+      'orders:read',
+      'orders:create',
+      'orders:update',
+      'orders:write',
+      'products:read',
+      'profile:read',
+      'profile:write',
+      'tables:read',
+      'tables:write',
+      'reports:read',
+    ],
+    [UserRole.ADMIN]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
     [UserRole.ADMINISTRADOR]: [
       'users:read',
@@ -186,6 +292,7 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'orders:read',
       'orders:write',
       'orders:delete',
+      'orders:create',
       'reports:read',
       'settings:read',
       'settings:write',
@@ -194,6 +301,61 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'menu:delete',
       'profile:read',
       'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
+    ],
+    [UserRole.ADMINISTRADOR_LOWER]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
+    ],
+    [UserRole.ADMINISTRADOR_TITLE]: [
+      'users:read',
+      'users:write',
+      'users:delete',
+      'products:read',
+      'products:write',
+      'products:delete',
+      'categories:read',
+      'categories:write',
+      'categories:delete',
+      'orders:read',
+      'orders:write',
+      'orders:delete',
+      'orders:create',
+      'reports:read',
+      'settings:read',
+      'settings:write',
+      'menu:read',
+      'menu:write',
+      'menu:delete',
+      'profile:read',
+      'profile:write',
+      'tables:read',
+      'tables:write',
+      'tables:manage',
     ],
   };
 
@@ -203,9 +365,14 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
 // Verificar se o usuário tem role específico
 export const hasRole = (userRole: UserRole, requiredRole: UserRole): boolean => {
   const roleHierarchy = {
+    [UserRole.CUSTOMER]: 1,
     [UserRole.CLIENTE]: 1,
-    [UserRole.FUNCIONARIO]: 2,
-    [UserRole.ADMINISTRADOR]: 3,
+    [UserRole.STAFF]: 2,
+    [UserRole.MANAGER]: 3,
+    [UserRole.ADMIN]: 4,
+    [UserRole.ADMINISTRADOR]: 4,
+    [UserRole.ADMINISTRADOR_LOWER]: 4,
+    [UserRole.ADMINISTRADOR_TITLE]: 4,
   };
 
   return roleHierarchy[userRole] >= roleHierarchy[requiredRole];

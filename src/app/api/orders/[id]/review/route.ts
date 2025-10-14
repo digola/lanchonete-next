@@ -52,49 +52,50 @@ export async function POST(
       );
     }
 
-    // Verificar se já existe uma avaliação
-    const existingReview = await prisma.orderReview.findFirst({
-      where: {
-        orderId: orderId
-      }
-    });
+    // TODO: Implementar sistema de avaliações quando modelo OrderReview for criado
+    // const existingReview = await prisma.orderReview.findFirst({
+    //   where: {
+    //     orderId: orderId
+    //   }
+    // });
 
-    if (existingReview) {
-      return NextResponse.json(
-        { success: false, error: 'Este pedido já foi avaliado' },
-        { status: 400 }
-      );
-    }
+    // if (existingReview) {
+    //   return NextResponse.json(
+    //     { success: false, error: 'Este pedido já foi avaliado' },
+    //     { status: 400 }
+    //   );
+    // }
 
-    // Criar avaliação
-    const review = await prisma.orderReview.create({
-      data: {
-        orderId: orderId,
-        userId: decoded.userId,
-        rating: rating,
-        comment: comment || null
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        },
-        order: {
-          select: {
-            id: true,
-            total: true,
-            status: true
-          }
-        }
-      }
-    });
+    // TODO: Implementar criação de avaliação quando modelo OrderReview for criado
+    // const review = await prisma.orderReview.create({
+    //   data: {
+    //     orderId: orderId,
+    //     userId: decoded.userId,
+    //     rating: rating,
+    //     comment: comment || null
+    //   },
+    //   include: {
+    //     user: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //         email: true
+    //       }
+    //     },
+    //     order: {
+    //       select: {
+    //         id: true,
+    //         total: true,
+    //         status: true
+    //       }
+    //     }
+    //   }
+    // });
 
     return NextResponse.json({
       success: true,
-      data: review
+      message: 'Sistema de avaliações em desenvolvimento',
+      data: null
     });
 
   } catch (error) {
@@ -131,25 +132,26 @@ export async function GET(
       );
     }
 
-    // Buscar avaliação
-    const review = await prisma.orderReview.findFirst({
-      where: {
-        orderId: orderId
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
-      }
-    });
+    // TODO: Implementar busca de avaliação quando modelo OrderReview for criado
+    // const review = await prisma.orderReview.findFirst({
+    //   where: {
+    //     orderId: orderId
+    //   },
+    //   include: {
+    //     user: {
+    //       select: {
+    //         id: true,
+    //         name: true,
+    //         email: true
+    //       }
+    //     }
+    //   }
+    // });
 
     return NextResponse.json({
       success: true,
-      data: review
+      message: 'Sistema de avaliações em desenvolvimento',
+      data: null
     });
 
   } catch (error) {

@@ -31,10 +31,6 @@ export const TableCard = ({
         return 'bg-green-500';
       case TableStatus.OCUPADA:
         return 'bg-red-500';
-      case TableStatus.RESERVADA:
-        return 'bg-yellow-500';
-      case TableStatus.MANUTENCAO:
-        return 'bg-gray-500';
       default:
         return 'bg-gray-400';
     }
@@ -46,10 +42,6 @@ export const TableCard = ({
         return <div className="w-3 h-3 bg-green-500 rounded-full" />;
       case TableStatus.OCUPADA:
         return <div className="w-3 h-3 bg-red-500 rounded-full" />;
-      case TableStatus.RESERVADA:
-        return <div className="w-3 h-3 bg-yellow-500 rounded-full" />;
-      case TableStatus.MANUTENCAO:
-        return <div className="w-3 h-3 bg-gray-500 rounded-full" />;
       default:
         return <div className="w-3 h-3 bg-gray-400 rounded-full" />;
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useApiAuth } from './useApiAuth';
 
 interface ApiState<T = any> {
@@ -13,14 +13,17 @@ interface ApiOptions {
   onError?: (error: Error) => void;
 }
 
-/**
- * Hook genérico para fazer requisições à API
- */
 export const useApi = <T = any>(
   url: string,
   options: ApiOptions = {}
 ) => {
-  const { token, isAuthenticated } = useApiAuth();
+  const { token } = useApiAuth();
+
+  // Janela curta para deduplicar auto-fetch em desenvolvimento (React Strict Mode)
+  // Evita que o useEffect dispare duas vezes em dev, causando requisições duplicadas
+  const AUTO_FETCH_DEDUPE_WINDOW_MS = 1500;
+  const lastAutoFetchTsMap: Map<string, number> = (globalThis as any).__lastAutoFetchTsMap__ || new Map();
+  (globalThis as any).__lastAutoFetchTsMap__ = lastAutoFetchTsMap;
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     loading: false,
@@ -28,39 +31,63 @@ export const useApi = <T = any>(
   });
 
   const { immediate = true, onSuccess, onError } = options;
+  const abortRef = useRef<AbortController | null>(null);
 
   const execute = useCallback(async (customUrl?: string, customOptions?: RequestInit) => {
+    // Cancelar requisição anterior se ainda estiver em andamento
+    if (abortRef.current) {
+      try { abortRef.current.abort(); } catch {}
+    }
+    abortRef.current = new AbortController();
+
     setState(prev => ({ ...prev, loading: true, error: null }));
 
     try {
       const requestUrl = customUrl || url;
-      const requestOptions: RequestInit = {
+      
+      const response = await fetch(requestUrl, {
+        method: 'GET',
         headers: {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),
           ...customOptions?.headers,
         },
+        signal: abortRef.current.signal,
         ...customOptions,
-      };
-
-      const response = await fetch(requestUrl, requestOptions);
-      const result = await response.json();
-
+      });
+      
       if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const data = await response.json();
+      
       setState({
-        data: result,
+        data,
         loading: false,
         error: null,
       });
 
-      onSuccess?.(result);
-      return result;
+      onSuccess?.(data);
+      return data;
 
     } catch (error) {
+      // Tratar cancelamentos (AbortError) de forma silenciosa: quando cancelamos
+      // uma requisição anterior, o fetch rejeita com AbortError. Isso é esperado
+      // e não deve ser tratado como erro na UI.
+      const isAbortError =
+        error instanceof Error &&
+        (error.name === 'AbortError' || (error as any).code === 'ABORT_ERR');
+
+      if (isAbortError) {
+        // Apenas finalize o estado de loading sem marcar erro
+        setState(prev => ({ ...prev, loading: false }));
+        return null;
+      }
+
+      console.error('Erro na requisição:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+
       setState({
         data: null,
         loading: false,
@@ -83,9 +110,23 @@ export const useApi = <T = any>(
   // Executar automaticamente se immediate for true
   useEffect(() => {
     if (immediate && url) {
+      // Deduplicação: se uma auto-requisição para o mesmo recurso ocorreu há pouco tempo,
+      // evitar repetir (comum em dev por causa do Strict Mode)
+      try {
+        const key = `${url}|${token ? 'auth' : 'guest'}`;
+        const now = Date.now();
+        const lastTs = lastAutoFetchTsMap.get(key) ?? 0;
+
+        if (now - lastTs < AUTO_FETCH_DEDUPE_WINDOW_MS) {
+          return; // pular auto-fetch duplicado
+        }
+
+        lastAutoFetchTsMap.set(key, now);
+      } catch {}
+
       execute();
     }
-  }, [execute, immediate, url]);
+  }, [immediate, url, execute, token]);
 
   return {
     ...state,
@@ -115,30 +156,33 @@ export const useApiMutation = <T = any>(url: string) => {
           'Content-Type': 'application/json',
           ...(token && { 'Authorization': `Bearer ${token}` }),
         },
-        ...(data && { body: JSON.stringify(data) }),
+        body: data ? JSON.stringify(data) : null,
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || `HTTP ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const result = await response.json();
+      
       setState({
-        data: result.data,
+        data: result,
         loading: false,
         error: null,
       });
 
-      return result.data;
+      return result;
 
     } catch (error) {
+      console.error('Erro na mutação:', error);
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      
       setState({
         data: null,
         loading: false,
         error: errorMessage,
       });
+
       throw error;
     }
   }, [url, token]);
@@ -156,104 +200,4 @@ export const useApiMutation = <T = any>(url: string) => {
     mutate,
     reset,
   };
-};
-
-/**
- * Hook específico para produtos
- */
-export const useProducts = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  categoryId?: string;
-  isAvailable?: boolean;
-}) => {
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page) queryParams.set('page', params.page.toString());
-  if (params?.limit) queryParams.set('limit', params.limit.toString());
-  if (params?.search) queryParams.set('search', params.search);
-  if (params?.categoryId) queryParams.set('categoryId', params.categoryId);
-  if (params?.isAvailable !== undefined) queryParams.set('isAvailable', params.isAvailable.toString());
-
-  const url = `/api/products${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  
-  return useApi(url);
-};
-
-/**
- * Hook específico para categorias
- */
-export const useCategories = (includeProducts?: boolean) => {
-  const queryParams = new URLSearchParams();
-  if (includeProducts) queryParams.set('includeProducts', 'true');
-  
-  const url = `/api/categories${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  
-  return useApi(url);
-};
-
-/**
- * Hook específico para pedidos
- */
-export const useOrders = (params?: {
-  page?: number;
-  limit?: number;
-  status?: string;
-  deliveryType?: string;
-  userId?: string;
-}) => {
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page) queryParams.set('page', params.page.toString());
-  if (params?.limit) queryParams.set('limit', params.limit.toString());
-  if (params?.status) queryParams.set('status', params.status);
-  if (params?.deliveryType) queryParams.set('deliveryType', params.deliveryType);
-  if (params?.userId) queryParams.set('userId', params.userId);
-
-  const url = `/api/orders${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  
-  return useApi(url);
-};
-
-/**
- * Hook específico para mesas
- */
-export const useTables = (params?: {
-  status?: string;
-  assignedTo?: string;
-  includeAssignedUser?: boolean;
-}) => {
-  const queryParams = new URLSearchParams();
-  
-  if (params?.status) queryParams.set('status', params.status);
-  if (params?.assignedTo) queryParams.set('assignedTo', params.assignedTo);
-  if (params?.includeAssignedUser) queryParams.set('includeAssignedUser', 'true');
-
-  const url = `/api/tables${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  
-  return useApi(url);
-};
-
-/**
- * Hook específico para usuários
- */
-export const useUsers = (params?: {
-  page?: number;
-  limit?: number;
-  search?: string;
-  role?: string;
-  isActive?: boolean;
-}) => {
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page) queryParams.set('page', params.page.toString());
-  if (params?.limit) queryParams.set('limit', params.limit.toString());
-  if (params?.search) queryParams.set('search', params.search);
-  if (params?.role) queryParams.set('role', params.role);
-  if (params?.isActive !== undefined) queryParams.set('isActive', params.isActive.toString());
-
-  const url = `/api/users${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-  
-  return useApi(url);
 };

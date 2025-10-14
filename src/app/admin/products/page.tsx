@@ -10,8 +10,8 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
-import { ProductForm, type ProductFormData } from '@/components/admin/forms';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { ProductForm, type ProductFormData } from '@/components/admin/forms/ProductForm';
+import { toast } from '@/lib/toast';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -34,7 +34,7 @@ import { Product, Category } from '@/types';
 
 export default function AdminProductsPage() {
   const { user, token } = useApiAuth();
-  const { success, error } = useToastHelpers();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
@@ -66,7 +66,7 @@ export default function AdminProductsPage() {
     pagination: any 
   }>(buildProductsUrl());
 
-  // Buscar categorias
+  // Buscar categorias - apenas uma vez
   const { data: categoriesResponse, loading: categoriesLoading } = useApi<{ 
     data: Category[]; 
     pagination: any 
@@ -75,6 +75,16 @@ export default function AdminProductsPage() {
   const products = productsResponse?.data || [];
   const categories = categoriesResponse?.data || [];
   const pagination = productsResponse?.pagination;
+
+  // Debounce para busca
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (searchTerm !== '') {
+        refetchProducts();
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchTerm, refetchProducts]);
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
@@ -161,9 +171,9 @@ export default function AdminProductsPage() {
       setShowDeleteConfirm(false);
       setSelectedProduct(null);
       refetchProducts();
-      success('Produto deletado com sucesso!');
+      toast.success('Produto deletado com sucesso!');
     } catch (err) {
-      error('Erro ao deletar produto');
+      toast.error('Erro ao deletar produto');
     } finally {
       setIsLoading(false);
     }

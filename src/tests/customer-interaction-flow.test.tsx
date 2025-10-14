@@ -10,7 +10,7 @@ jest.mock('@/hooks/useApiAuth', () => ({
       id: 'customer-123',
       name: 'João Silva',
       email: 'joao@email.com',
-      role: 'CLIENTE',
+      role: 'CUSTOMER',
       phone: '(11) 99999-9999'
     },
     getUserDisplayName: () => 'João Silva'

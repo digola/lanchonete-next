@@ -40,17 +40,37 @@ export const useApiAuth = () => {
     checkAuthStatus,
   } = useAuthStore();
 
-  // Inicializar autenticação quando o hook é montado
+  // Inicializar autenticação quando o hook é montado (apenas uma vez)
   useEffect(() => {
     initializeAuth();
-  }, [initializeAuth]);
+  }, [initializeAuth]); // Adicionada dependência correta
 
-  // Verificar status de autenticação periodicamente (opcional)
+  // Verificar status de autenticação periodicamente (otimizado)
   useEffect(() => {
     if (isAuthenticated) {
       const interval = setInterval(() => {
-        checkAuthStatus();
-      }, 5 * 60 * 1000); // Verificar a cada 5 minutos
+        // Só verificar se o token está próximo do vencimento
+        const token = localStorage.getItem('auth-token');
+        if (token) {
+          try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length !== 3 || !tokenParts[1]) {
+              throw new Error('Token inválido');
+            }
+            const payload = JSON.parse(atob(tokenParts[1]));
+            const now = Date.now() / 1000;
+            const timeUntilExpiry = payload.exp - now;
+            
+            // Só verificar se o token expira em menos de 10 minutos
+            if (timeUntilExpiry < 600) {
+              checkAuthStatus();
+            }
+          } catch (error) {
+            // Token inválido, verificar status
+            checkAuthStatus();
+          }
+        }
+      }, 10 * 60 * 1000); // Verificar a cada 10 minutos (reduzido)
 
       return () => clearInterval(interval);
     }
@@ -113,10 +133,11 @@ export const useApiAuth = () => {
   };
 
   // Verificações de role específicas
-  const isAdmin = hasRole(UserRole.ADMINISTRADOR);
-  const isStaff = hasRole(UserRole.FUNCIONARIO);
-  const isClient = hasRole(UserRole.CLIENTE);
-  const isStaffOrAdmin = hasMinimumRole(UserRole.FUNCIONARIO);
+  const isAdmin = hasRole(UserRole.ADMIN);
+  const isStaff = hasRole(UserRole.STAFF);
+  const isManager = hasRole(UserRole.MANAGER);
+  const isClient = hasRole(UserRole.CUSTOMER);
+  const isStaffOrAdmin = hasMinimumRole(UserRole.STAFF);
 
   // Verificações de permissões específicas
   const canManageUsers = hasPermission('users:write');
@@ -127,9 +148,9 @@ export const useApiAuth = () => {
   const canManageCategories = hasPermission('categories:write');
 
   // Verificações de acesso a áreas
-  const canAccessAdmin = hasMinimumRole(UserRole.ADMINISTRADOR);
-  const canAccessStaff = hasMinimumRole(UserRole.FUNCIONARIO);
-  const canAccessCustomer = hasMinimumRole(UserRole.CLIENTE);
+  const canAccessAdmin = hasMinimumRole(UserRole.ADMIN);
+  const canAccessStaff = hasMinimumRole(UserRole.STAFF);
+  const canAccessCustomer = hasMinimumRole(UserRole.CUSTOMER);
 
   // Função para obter nome do usuário
   const getUserDisplayName = () => {
@@ -155,11 +176,11 @@ export const useApiAuth = () => {
     if (!user) return 'gray';
     
     switch (user.role) {
-      case UserRole.ADMINISTRADOR:
+      case UserRole.ADMIN:
         return 'red';
-      case UserRole.FUNCIONARIO:
+      case UserRole.STAFF:
         return 'blue';
-      case UserRole.CLIENTE:
+      case UserRole.CUSTOMER:
         return 'green';
       default:
         return 'gray';
@@ -171,14 +192,14 @@ export const useApiAuth = () => {
     if (!user) return '';
     
     switch (user.role) {
-      case UserRole.ADMINISTRADOR:
-        return 'Administrador';
-      case UserRole.FUNCIONARIO:
-        return 'Funcionário';
-      case UserRole.CLIENTE:
-        return 'Cliente';
+      case UserRole.ADMIN:
+        return 'Admin';
+      case UserRole.STAFF:
+        return 'Staff';
+      case UserRole.CUSTOMER:
+        return 'Customer';
       default:
-        return 'Usuário';
+        return 'User';
     }
   };
 
@@ -200,17 +221,24 @@ export const useApiAuth = () => {
 
   // Função para obter rota padrão baseada no role
   const getDefaultRoute = () => {
-    if (!user) return '/login';
+    try {
+      if (!user) return '/login';
 
-    switch (user.role) {
-      case UserRole.ADMINISTRADOR:
-        return '/admin/dashboard';
-      case UserRole.FUNCIONARIO:
-        return '/staff/dashboard';
-      case UserRole.CLIENTE:
-        return '/customer/dashboard';
-      default:
-        return '/';
+      switch (user.role) {
+        case 'ADMIN':
+          return '/admin/dashboard';
+        case 'STAFF':
+          return '/staff';
+        case 'MANAGER':
+          return '/expedicao';
+        case 'CUSTOMER':
+          return '/customer/dashboard';
+        default:
+          return '/';
+      }
+    } catch (error) {
+      console.error('Erro em getDefaultRoute:', error);
+      return '/';
     }
   };
 
@@ -263,6 +291,7 @@ export const useApiAuth = () => {
     // Verificações específicas de role
     isAdmin,
     isStaff,
+    isManager,
     isClient,
     isStaffOrAdmin,
     

@@ -18,8 +18,14 @@ export async function GET(request: NextRequest) {
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
     const where: any = {};
-    if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
+    if (search && search.trim()) {
+      // Remover mode: 'insensitive' para compatibilidade com SQLite.
+      // Buscar por nome ou descrição contendo o termo.
+      const term = search.trim();
+      where.OR = [
+        { name: { contains: term } },
+        { description: { contains: term } },
+      ];
     }
     if (categoryId) {
       where.categoryId = categoryId;
@@ -97,7 +103,13 @@ export async function POST(request: NextRequest) {
       categoryId, 
       isAvailable = true,
       preparationTime = 15,
-      allergens 
+      allergens,
+      
+      // Campos de estoque
+      stockQuantity = 0,
+      minStockLevel = 5,
+      maxStockLevel = 100,
+      trackStock = false
     } = body;
 
     // Validações
@@ -157,6 +169,12 @@ export async function POST(request: NextRequest) {
         isAvailable,
         preparationTime: Number(preparationTime),
         allergens: allergens?.trim(),
+        
+        // Campos de estoque (garantir valores válidos)
+        stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
+        minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
+        maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
+        trackStock,
       },
       include: {
         category: true,

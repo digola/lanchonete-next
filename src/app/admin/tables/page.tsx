@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { TableForm, type TableFormData } from '@/components/admin/forms';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -28,7 +28,7 @@ import { Table as TableType, TableStatus, UserRole } from '@/types';
 
 export default function AdminTablesPage() {
   const { user, token } = useApiAuth();
-  const { success, error } = useToastHelpers();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'LIVRE' | 'OCUPADA' | 'RESERVADA' | 'MANUTENCAO'>('all');
   const [capacityFilter, setCapacityFilter] = useState<'all' | 'small' | 'medium' | 'large'>('all');
@@ -68,19 +68,20 @@ export default function AdminTablesPage() {
   const users = usersResponse?.data || [];
   const pagination = tablesResponse?.pagination;
 
+  // Debounce otimizado - apenas para busca
   useEffect(() => {
     const timer = setTimeout(() => {
-      refetchTables();
-    }, 300);
+      if (searchTerm !== '') {
+        refetchTables();
+      }
+    }, 500);
     return () => clearTimeout(timer);
-  }, [searchTerm, statusFilter, capacityFilter, sortBy, sortOrder, refetchTables]);
+  }, [searchTerm, refetchTables]);
 
   const stats = {
     total: tables.length,
     livre: tables.filter(t => t.status === TableStatus.LIVRE).length,
     ocupada: tables.filter(t => t.status === TableStatus.OCUPADA).length,
-    reservada: tables.filter(t => t.status === TableStatus.RESERVADA).length,
-    manutencao: tables.filter(t => t.status === TableStatus.MANUTENCAO).length,
     totalCapacity: tables.reduce((sum, t) => sum + t.capacity, 0),
   };
 
@@ -90,10 +91,14 @@ export default function AdminTablesPage() {
 
   const handleStatusFilter = (status: 'all' | 'LIVRE' | 'OCUPADA' | 'RESERVADA' | 'MANUTENCAO') => {
     setStatusFilter(status);
+    // Refetch manual para filtros
+    setTimeout(() => refetchTables(), 100);
   };
 
   const handleCapacityFilter = (capacity: 'all' | 'small' | 'medium' | 'large') => {
     setCapacityFilter(capacity);
+    // Refetch manual para filtros
+    setTimeout(() => refetchTables(), 100);
   };
 
   // Funções CRUD
@@ -115,9 +120,9 @@ export default function AdminTablesPage() {
 
       setShowCreateModal(false);
       refetchTables();
-      success('Mesa criada com sucesso!');
+      toast.success('Mesa criada com sucesso!');
     } catch (err: any) {
-      error(err.message || 'Erro ao criar mesa');
+      toast.error(err.message || 'Erro ao criar mesa');
     } finally {
       setIsLoading(false);
     }
@@ -144,9 +149,9 @@ export default function AdminTablesPage() {
       setShowEditModal(false);
       setSelectedTable(null);
       refetchTables();
-      success('Mesa atualizada com sucesso!');
+      toast.success('Mesa atualizada com sucesso!');
     } catch (err: any) {
-      error(err.message || 'Erro ao atualizar mesa');
+      toast.error(err.message || 'Erro ao atualizar mesa');
     } finally {
       setIsLoading(false);
     }
@@ -171,9 +176,9 @@ export default function AdminTablesPage() {
       setShowDeleteConfirm(false);
       setSelectedTable(null);
       refetchTables();
-      success('Mesa deletada com sucesso!');
+      toast.success('Mesa deletada com sucesso!');
     } catch (err: any) {
-      error(err.message || 'Erro ao deletar mesa');
+      toast.error(err.message || 'Erro ao deletar mesa');
     } finally {
       setIsLoading(false);
     }
@@ -200,10 +205,6 @@ export default function AdminTablesPage() {
         return 'Livre';
       case TableStatus.OCUPADA:
         return 'Ocupada';
-      case TableStatus.RESERVADA:
-        return 'Reservada';
-      case TableStatus.MANUTENCAO:
-        return 'Manutenção';
       default:
         return status;
     }
@@ -215,10 +216,6 @@ export default function AdminTablesPage() {
         return 'bg-green-100 text-green-800';
       case TableStatus.OCUPADA:
         return 'bg-red-100 text-red-800';
-      case TableStatus.RESERVADA:
-        return 'bg-yellow-100 text-yellow-800';
-      case TableStatus.MANUTENCAO:
-        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -342,7 +339,7 @@ export default function AdminTablesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Reservada</p>
-                <p className="text-lg font-bold text-gray-900">{stats.reservada}</p>
+                <p className="text-lg font-bold text-gray-900">0</p>
               </div>
             </div>
           </CardContent>
@@ -356,7 +353,7 @@ export default function AdminTablesPage() {
               </div>
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Manutenção</p>
-                <p className="text-lg font-bold text-gray-900">{stats.manutencao}</p>
+                <p className="text-lg font-bold text-gray-900">0</p>
               </div>
             </div>
           </CardContent>

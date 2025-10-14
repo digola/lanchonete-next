@@ -27,33 +27,32 @@ export const useCart = () => {
     const loadCartFromStorage = () => {
       try {
         const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-        console.log('🔄 Carregando carrinho do localStorage:', savedCart);
         
-        if (savedCart) {
-          const cartData = JSON.parse(savedCart);
-          console.log('📦 Dados parseados do localStorage:', cartData);
+        if (savedCart && savedCart.trim() !== '') {
+          // Verificar se o JSON é válido antes de fazer parse
+          if (savedCart.startsWith('{') || savedCart.startsWith('[')) {
+            const cartData = JSON.parse(savedCart);
           
-          // Verificar se há itens para carregar
-          if (cartData.items && cartData.items.length > 0) {
-            console.log('✅ Itens encontrados, carregando...');
-            // Converter strings de data de volta para objetos Date
-            const itemsWithDates = cartData.items.map((item: any) => ({
-              ...item,
-              addedAt: new Date(item.addedAt),
-            }));
-            console.log('🔄 Enviando LOAD_CART com itens:', itemsWithDates);
-            dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
-            isInitializedRef.current = true;
+            // Verificar se há itens para carregar
+            if (cartData.items && cartData.items.length > 0) {
+              // Converter strings de data de volta para objetos Date
+              const itemsWithDates = cartData.items.map((item: any) => ({
+                ...item,
+                addedAt: new Date(item.addedAt),
+              }));
+              dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
+              isInitializedRef.current = true;
+            } else {
+              isInitializedRef.current = true;
+            }
           } else {
-            console.log('❌ Nenhum item encontrado no localStorage');
+            localStorage.removeItem(CART_STORAGE_KEY);
             isInitializedRef.current = true;
           }
         } else {
-          console.log('❌ Nenhum carrinho salvo no localStorage');
           isInitializedRef.current = true;
         }
       } catch (error) {
-        console.error('❌ Erro ao carregar carrinho:', error);
         localStorage.removeItem(CART_STORAGE_KEY);
       }
     };
@@ -72,18 +71,10 @@ export const useCart = () => {
     const currentUserId = user?.id || null;
     const previousUserId = previousUserIdRef.current;
 
-    console.log('👤 Verificando mudança de usuário:', {
-      currentUserId,
-      previousUserId,
-      willClear: previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null
-    });
-
-    // TEMPORARIAMENTE DESABILITADO PARA DEBUG
     // Só limpar se realmente mudou de um usuário para outro
     // Não limpar na inicialização (previousUserId === null)
     // Não limpar se ambos são null (usuário não logado)
-    if (false && previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null) {
-      console.log('🧹 Limpando carrinho devido à mudança de usuário');
+    if (previousUserId !== null && previousUserId !== currentUserId && currentUserId !== null) {
       dispatch({ type: 'CLEAR_CART' });
       localStorage.removeItem(CART_STORAGE_KEY);
     }
@@ -92,47 +83,33 @@ export const useCart = () => {
     previousUserIdRef.current = currentUserId;
   }, [user?.id]);
 
-  // Salvar carrinho no localStorage sempre que mudar
+  // Salvar carrinho no localStorage com debounce para evitar muitas escritas
   useEffect(() => {
-    try {
-      console.log('💾 Salvando carrinho no localStorage:', {
-        items: state.items.length,
-        totalItems: state.totalItems,
-        totalPrice: state.totalPrice,
-        state: state
-      });
-      
-      // Só salvar se já foi inicializado e não for o estado inicial vazio
-      if (isInitializedRef.current && (state.items.length > 0 || state.totalItems > 0 || state.totalPrice > 0)) {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
-        console.log('✅ Carrinho salvo com sucesso no localStorage');
-      } else if (!isInitializedRef.current) {
-        console.log('⏭️ Pulando salvamento - ainda não inicializado');
-      } else {
-        console.log('⏭️ Pulando salvamento - estado vazio');
+    const saveToStorage = () => {
+      try {
+        // Só salvar se já foi inicializado e não for o estado inicial vazio
+        if (isInitializedRef.current && (state.items.length > 0 || state.totalItems > 0 || state.totalPrice > 0)) {
+          localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
+        }
+      } catch (error) {
+        console.error('❌ Erro ao salvar carrinho:', error);
       }
-    } catch (error) {
-      console.error('❌ Erro ao salvar carrinho:', error);
-    }
+    };
+
+    // Debounce para evitar muitas escritas no localStorage
+    const timeoutId = setTimeout(saveToStorage, 300);
+    
+    return () => clearTimeout(timeoutId);
   }, [state]);
 
   // Adicionar item ao carrinho
   const addItem = useCallback((product: Product, quantity: number = 1) => {
-    console.log('🛒 useCart.addItem chamado:', {
-      productId: product.id,
-      productName: product.name,
-      price: product.price,
-      quantity,
-      isAvailable: product.isAvailable
-    });
 
     if (!product.isAvailable) {
-      console.log('❌ Produto indisponível, não adicionando');
       dispatch({ type: 'SET_ERROR', payload: 'Produto indisponível' });
       return;
     }
 
-    console.log('✅ Enviando ADD_ITEM para o reducer');
     dispatch({ type: 'ADD_ITEM', payload: { product, quantity } });
   }, []);
 
@@ -154,7 +131,6 @@ export const useCart = () => {
 
   // Limpar carrinho ao fazer logout
   const clearCartOnLogout = useCallback(() => {
-    console.log('Logout detectado, limpando carrinho...');
     dispatch({ type: 'CLEAR_CART' });
     localStorage.removeItem(CART_STORAGE_KEY);
   }, []);
@@ -163,7 +139,6 @@ export const useCart = () => {
   const reloadCartFromStorage = useCallback(() => {
     try {
       const savedCart = localStorage.getItem(CART_STORAGE_KEY);
-      console.log('useCart - Forçando recarregamento:', savedCart);
       if (savedCart) {
         const cartData = JSON.parse(savedCart);
         const itemsWithDates = cartData.items.map((item: any) => ({

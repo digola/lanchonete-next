@@ -2,23 +2,33 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { OrderStatus, UserRole } from '@/types';
+import { getCache, setCache, clearCachePattern, CACHE_DURATION } from '@/lib/cache';
 
 // GET /api/orders - Listar pedidos
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
+    const tableId = searchParams.get('tableId');
     const status = searchParams.get('status');
+    const isActive = searchParams.get('isActive');
+    const isPaid = searchParams.get('isPaid');
     const limit = parseInt(searchParams.get('limit') || '20');
     const page = parseInt(searchParams.get('page') || '1');
     const sortBy = searchParams.get('sortBy') || 'createdAt';
     const sortOrder = searchParams.get('sortOrder') || 'desc';
+    const includeItems = searchParams.get('includeItems') === 'true';
+    const includeUser = searchParams.get('includeUser') === 'true';
+    const date = searchParams.get('date');
+    const dateFrom = searchParams.get('dateFrom');
+    const dateTo = searchParams.get('dateTo');
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
+    
     if (!token) {
       return NextResponse.json(
         { success: false, error: 'Token de acesso necessário' },
@@ -27,6 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     const decoded = verifyToken(token);
+    
     if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Token inválido' },
@@ -37,73 +48,178 @@ export async function GET(request: NextRequest) {
     // Construir filtros baseado no role
     const where: any = {};
     
-    if (decoded.role === UserRole.CLIENTE) {
-      // Clientes só podem ver seus próprios pedidos
-      where.userId = decoded.userId;
-    } else if (decoded.role === UserRole.FUNCIONARIO) {
-      // Funcionários podem ver todos os pedidos
-      // Sem filtro adicional
-    } else if (decoded.role === UserRole.ADMINISTRADOR) {
-      // Administradores podem ver todos os pedidos
-      // Sem filtro adicional
-    }
+          if (decoded.role === UserRole.CUSTOMER) {
+            // Clientes só podem ver seus próprios pedidos
+            where.userId = decoded.userId;
+          } else if (decoded.role === UserRole.STAFF || decoded.role === UserRole.ADMIN) {
+            // Staff e admins podem ver todos os pedidos do dia atual
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            where.createdAt = {
+              gte: today
+            };
+          } else if (decoded.role === UserRole.MANAGER) {
+            // Manager vê pedidos criados por STAFF ou por ele mesmo (MANAGER), apenas do dia atual
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            where.user = {
+              role: {
+                in: [UserRole.STAFF, UserRole.MANAGER]
+              }
+            };
+            where.createdAt = {
+              gte: today
+            };
+          }
 
     // Aplicar filtros adicionais
     if (userId) {
       where.userId = userId;
     }
+    if (tableId) {
+      where.tableId = tableId;
+    }
     if (status) {
-      where.status = status;
+      // Se o status contém vírgula, significa que são múltiplos status
+      if (status.includes(',')) {
+        const statusArray = status.split(',').map(s => s.trim());
+        where.status = {
+          in: statusArray
+        };
+      } else {
+        where.status = status;
+      }
+    }
+    if (isActive !== null) {
+      where.isActive = isActive === 'true';
+    }
+    if (isPaid !== null) {
+      where.isPaid = isPaid === 'true';
     }
 
-    const [orders, total] = await Promise.all([
-      prisma.order.findMany({
-        where,
+    // Filtros de data
+    if (date) {
+      // Filtro por data específica (formato YYYY-MM-DD)
+      const parts = date.split('-').map(Number);
+      const yearNum = parts[0] || 0;
+      const monthNum = parts[1] || 0;
+      const dayNum = parts[2] || 0;
+      const startDate = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      const endDate = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      
+      where.createdAt = {
+        gte: startDate,
+        lte: endDate
+      };
+    } else if (dateFrom || dateTo) {
+      // Filtro por período (dateFrom e/ou dateTo)
+      const dateFilter: any = {};
+      
+      if (dateFrom) {
+        const parts = dateFrom.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.gte = new Date(yearNum, monthNum - 1, dayNum, 0, 0, 0, 0);
+      }
+      
+      if (dateTo) {
+        const parts = dateTo.split('-').map(Number);
+        const yearNum = parts[0] || 0;
+        const monthNum = parts[1] || 0;
+        const dayNum = parts[2] || 0;
+        dateFilter.lte = new Date(yearNum, monthNum - 1, dayNum, 23, 59, 59, 999);
+      }
+      
+      where.createdAt = dateFilter;
+    }
+
+    // Verificar cache (baseado nos parâmetros da query)
+    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, isPaid, date, dateFrom, dateTo, page, limit, sortBy, sortOrder })}`;
+    const cachedData = getCache(cacheKey, CACHE_DURATION.SHORT);
+    
+    if (cachedData) {
+      return NextResponse.json(cachedData);
+    }
+
+    // Construir include baseado nos parâmetros
+    const include: any = {};
+    
+    if (includeUser) {
+      include.user = {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+        },
+      };
+    }
+    
+    if (includeItems) {
+      include.items = {
         include: {
-          user: {
+          product: {
             select: {
               id: true,
               name: true,
-              email: true,
-            },
-          },
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  price: true,
-                  imageUrl: true,
-                },
-              },
-            },
-          },
-          table: {
-            select: {
-              id: true,
-              number: true,
-              capacity: true,
+              price: true,
+              imageUrl: true,
             },
           },
         },
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.order.count({ where }),
-    ]);
-
-    return NextResponse.json({
-      success: true,
-      data: orders,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
+      };
+    }
+    
+    include.table = {
+      select: {
+        id: true,
+        number: true,
+        capacity: true,
       },
-    });
+    };
+
+    let orders;
+    let total;
+
+    try {
+      // Query única otimizada - busca tudo de uma vez para evitar N+1
+      const result = await prisma.$transaction([
+        prisma.order.findMany({
+          where,
+          include,
+          orderBy,
+          skip,
+          take: limit,
+        }),
+        prisma.order.count({ where }),
+      ]);
+
+      orders = result[0];
+      total = result[1];
+      
+      // Preparar resposta
+      const responseData = {
+        success: true,
+        data: orders,
+        pagination: {
+          page,
+          limit,
+          total,
+          totalPages: Math.ceil(total / limit),
+        },
+      };
+      
+      // Salvar no cache
+      setCache(cacheKey, responseData);
+      
+      return NextResponse.json(responseData);
+    } catch (queryError: any) {
+      console.error('❌ Erro na query do Prisma:', queryError);
+      return NextResponse.json(
+        { success: false, error: 'Erro ao carregar pedidos', details: queryError.message },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error('Erro ao buscar pedidos:', error);
     return NextResponse.json(
@@ -132,7 +248,7 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
+    
     // Verificar permissão
     if (!hasPermission(decoded.role, 'orders:create')) {
       return NextResponse.json(
@@ -142,6 +258,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
+    console.log('📥 Dados recebidos na API:', body);
     const { 
       items, 
       deliveryType = 'RETIRADA', 
@@ -150,6 +267,15 @@ export async function POST(request: NextRequest) {
       notes,
       tableId 
     } = body;
+
+    console.log('🔍 Parâmetros extraídos:', { 
+      itemsCount: items?.length, 
+      deliveryType, 
+      deliveryAddress, 
+      paymentMethod, 
+      notes, 
+      tableId 
+    });
 
     // Validações
     if (!items || !Array.isArray(items) || items.length === 0) {
@@ -161,7 +287,13 @@ export async function POST(request: NextRequest) {
 
     // Verificar se todos os produtos existem e calcular total
     let total = 0;
-    const validatedItems = [];
+    const validatedItems: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+      notes?: string;
+      customizations?: string | null;
+    }> = [];
 
     for (const item of items) {
       const product = await prisma.product.findUnique({
@@ -208,50 +340,89 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Criar pedido
-    const order = await prisma.order.create({
-      data: {
-        userId: decoded.userId,
-        status: OrderStatus.PENDENTE,
-        total,
-        deliveryType,
-        deliveryAddress: deliveryAddress?.trim(),
-        paymentMethod,
-        notes: notes?.trim(),
-        tableId,
-        items: {
-          create: validatedItems,
-        },
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
+    // Criar pedido e atualizar status da mesa em uma transação
+    console.log('🔄 Iniciando transação para criar pedido...');
+    const result = await prisma.$transaction(async (tx) => {
+      // Criar pedido
+      console.log('📝 Criando pedido no banco...');
+      const order = await tx.order.create({
+        data: {
+          userId: decoded.userId,
+          status: OrderStatus.CONFIRMADO,
+          total,
+          deliveryType,
+          deliveryAddress: deliveryAddress?.trim(),
+          paymentMethod,
+          notes: notes?.trim(),
+          tableId,
+          items: {
+            create: validatedItems,
           },
         },
-        items: {
-          include: {
-            product: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                imageUrl: true,
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+          items: {
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  imageUrl: true,
+                },
               },
             },
           },
-        },
-        table: {
-          select: {
-            id: true,
-            number: true,
-            capacity: true,
+          table: {
+            select: {
+              id: true,
+              number: true,
+              capacity: true,
+            },
           },
         },
-      },
+      });
+
+      // Atualizar status da mesa para OCUPADA se tableId foi fornecido
+      if (tableId) {
+        console.log('🪑 Atualizando status da mesa:', tableId);
+        await tx.table.update({
+          where: { id: tableId },
+          data: { 
+            status: 'OCUPADA',
+            assignedTo: decoded.userId 
+          },
+        });
+        console.log('✅ Status da mesa atualizado para OCUPADA');
+      }
+
+      console.log('✅ Pedido criado com sucesso na transação:', order.id);
+      return order;
     });
+
+    console.log('🎉 Transação concluída com sucesso!');
+    
+    // Criar notificação para o novo pedido
+    try {
+      const { NotificationService } = await import('@/lib/notificationService');
+      await NotificationService.notifyNewOrder(
+        result.id, 
+        result.user?.name || 'Cliente', 
+        result.table?.number
+      );
+    } catch (error) {
+      console.error('Erro ao criar notificação de novo pedido:', error);
+      // Não falha a criação do pedido se a notificação falhar
+    }
+    
+    // Limpar cache de pedidos após criar novo
+    clearCachePattern('orders_');
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
     // await prisma.activityLog.create({
@@ -273,7 +444,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: order,
+      data: result,
     });
   } catch (error) {
     console.error('Erro ao criar pedido:', error);

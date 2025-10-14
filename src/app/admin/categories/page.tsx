@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { CategoryForm, type CategoryFormData } from '@/components/admin/forms';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -33,7 +33,7 @@ import { Category } from '@/types';
 
 export default function AdminCategoriesPage() {
   const { user, token } = useApiAuth();
-  const { success, error } = useToastHelpers();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'createdAt'>('name');
@@ -72,7 +72,7 @@ export default function AdminCategoriesPage() {
   // Executar busca quando parâmetros mudarem
   useEffect(() => {
     refetchCategories();
-  }, [searchTerm, statusFilter, sortBy, sortOrder, refetchCategories]);
+  }, [searchTerm, statusFilter, sortBy, sortOrder]); // Removido refetchCategories das dependências
 
   const categories = categoriesResponse?.data || [];
   const categoriesWithProducts = categoriesWithProductsResponse?.data || [];
@@ -170,9 +170,9 @@ export default function AdminCategoriesPage() {
       setShowDeleteConfirm(false);
       setSelectedCategory(null);
       refetchCategories();
-      success('Categoria deletada com sucesso!');
+      toast.success('Categoria deletada com sucesso!');
     } catch (err) {
-      error('Erro ao deletar categoria');
+      toast.error('Erro ao deletar categoria');
     } finally {
       setIsLoading(false);
     }

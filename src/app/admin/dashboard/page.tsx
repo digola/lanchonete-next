@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
+import { useChartsData } from '@/hooks/useChartsData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { RevenueChart, OrdersChart, ProductsChart, TablesChart } from '@/components/admin/charts';
 import { 
   Users,
   ShoppingBag,
@@ -23,7 +25,7 @@ import {
   CheckCircle,
   AlertTriangle,
   BarChart3,
-  Eye,
+
   Edit,
   Plus,
   ArrowUpRight,
@@ -32,9 +34,18 @@ import {
 import { Order, OrderStatus, Product, Category, User, Table as TableType, TableStatus } from '@/types';
 
 export default function AdminDashboard() {
-  const { user, getUserDisplayName } = useApiAuth();
+ // const { user, getUserDisplayName } = useApiAuth();
   
-  // Buscar dados para o dashboard
+  // Estado para filtros dos gráficos
+  const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('7d');
+  
+  // Dados dos gráficos
+  const { data: chartsData, loading: chartsLoading, error: chartsError, refetch } = useChartsData({
+    period: chartPeriod,
+    chartType: 'all'
+  });
+  
+  // Buscar dados para o dashboard - com cache otimizado
   const ordersUrl = '/api/orders?limit=10&sortBy=createdAt&sortOrder=desc';
   const { data: ordersResponse, loading: ordersLoading } = useApi<{ data: Order[]; pagination: any }>(ordersUrl);
 
@@ -79,9 +90,9 @@ export default function AdminDashboard() {
   // Estatísticas dos usuários
   const userStats = {
     total: recentUsers.length,
-    customers: recentUsers.filter(user => user.role === 'CLIENTE').length,
-    staff: recentUsers.filter(user => user.role === 'FUNCIONARIO').length,
-    admins: recentUsers.filter(user => user.role === 'ADMINISTRADOR').length,
+    customers: recentUsers.filter(user => user.role === 'CUSTOMER').length,
+    staff: recentUsers.filter(user => user.role === 'STAFF').length,
+    admins: recentUsers.filter(user => user.role === 'ADMIN').length,
     active: recentUsers.filter(user => user.isActive).length,
   };
 
@@ -90,8 +101,6 @@ export default function AdminDashboard() {
     total: tables.length,
     free: tables.filter(table => table.status === TableStatus.LIVRE).length,
     occupied: tables.filter(table => table.status === TableStatus.OCUPADA).length,
-    reserved: tables.filter(table => table.status === TableStatus.RESERVADA).length,
-    maintenance: tables.filter(table => table.status === TableStatus.MANUTENCAO).length,
   };
 
   const getStatusIcon = (status: OrderStatus) => {
@@ -301,14 +310,14 @@ export default function AdminDashboard() {
                   <Clock className="h-4 w-4 text-yellow-600" />
                   <span className="text-sm">Reservadas</span>
                 </div>
-                <span className="font-semibold">{tableStats.reserved}</span>
+                <span className="font-semibold">0</span>
               </div>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <AlertTriangle className="h-4 w-4 text-gray-600" />
                   <span className="text-sm">Manutenção</span>
                 </div>
-                <span className="font-semibold">{tableStats.maintenance}</span>
+                <span className="font-semibold">0</span>
               </div>
             </div>
           </CardContent>
@@ -349,6 +358,12 @@ export default function AdminDashboard() {
                 Ver Todos os Pedidos
               </Button>
             </Link>
+            <Link href="/admin/inventory">
+              <Button variant="outline" className="w-full justify-start">
+                <Package className="h-4 w-4 mr-2" />
+                Gestão de Estoque
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
@@ -366,8 +381,8 @@ export default function AdminDashboard() {
                 <Users className="h-6 w-6 text-primary-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">{user?.name}</p>
-                <p className="text-sm text-gray-600">{user?.email}</p>
+                <p className="font-medium text-gray-900">{Users?.name}</p>
+              
                 <Badge variant="default" className="mt-1">Administrador</Badge>
               </div>
             </div>
@@ -445,7 +460,7 @@ export default function AdminDashboard() {
                       </p>
                       <Link href={`/admin/orders/${order.id}`}>
                         <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
+                         
                           Ver
                         </Button>
                       </Link>
@@ -543,6 +558,178 @@ export default function AdminDashboard() {
           )}
         </CardContent>
       </Card>
+
+      {/* Filtros dos Gráficos */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <BarChart3 className="h-5 w-5 mr-2" />
+            Análises e Gráficos
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <label className="text-sm font-medium text-gray-700">Período:</label>
+              <select
+                value={chartPeriod}
+                onChange={(e) => setChartPeriod(e.target.value as '7d' | '30d' | '90d')}
+                className="px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="7d">Últimos 7 dias</option>
+                <option value="30d">Últimos 30 dias</option>
+                <option value="90d">Últimos 90 dias</option>
+              </select>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={refetch}
+              disabled={chartsLoading}
+            >
+              {chartsLoading ? (
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mr-2"></div>
+              ) : (
+                <Activity className="h-4 w-4 mr-2" />
+              )}
+              Atualizar
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Seção de Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Gráfico de Receita */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <BarChart3 className="h-5 w-5 mr-2" />
+              Evolução da Receita
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <RevenueChart 
+                data={chartsData?.revenue || []}
+                height={250}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Gráfico de Pedidos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Activity className="h-5 w-5 mr-2" />
+              Pedidos por Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <OrdersChart 
+                data={chartsData?.orders || []}
+                height={250}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Top Produtos */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <TrendingUp className="h-5 w-5 mr-2" />
+              Produtos Mais Vendidos
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <ProductsChart 
+                data={chartsData?.products || []}
+                height={300}
+                maxItems={5}
+              />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Status das Mesas */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Table className="h-5 w-5 mr-2" />
+              Ocupação das Mesas
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {chartsLoading ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+                  <p className="text-gray-500">Carregando dados...</p>
+                </div>
+              </div>
+            ) : chartsError ? (
+              <div className="h-64 flex items-center justify-center">
+                <div className="text-center">
+                  <p className="text-red-500 mb-2">Erro ao carregar dados</p>
+                  <p className="text-sm text-gray-400">{chartsError}</p>
+                </div>
+              </div>
+            ) : (
+              <TablesChart 
+                data={chartsData?.tables || []}
+                height={300}
+                maxItems={6}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import {
   Package,
   Table
 } from 'lucide-react';
+import { NotificationBell } from '@/components/ui/NotificationBell';
 
 export function AdminHeader() {
   const { user, logout, getRoleLabel, getUserDisplayName } = useApiAuth();
@@ -35,28 +36,31 @@ export function AdminHeader() {
         <div className="flex justify-between items-center h-16">
           {/* Logo e Navegação Principal */}
           <div className="flex items-center space-x-4">
-            <Link href="/admin/dashboard" className="flex items-center space-x-2">
+            <Link href="/admin/dashboard" prefetch={false} className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
                 <Shield className="h-5 w-5 text-white" />
               </div>
-              <span className="text-xl font-bold text-gray-900">Admin</span>
+              <span className="text-xl font-bold text-gray-900">Lanchonete</span>
             </Link>
             
             <nav className="hidden md:flex items-center space-x-6">
               <Link 
                 href="/admin/dashboard" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Dashboard
               </Link>
               <Link 
                 href="/admin/products" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Produtos
               </Link>
               <Link 
                 href="/admin/categories" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Categorias
@@ -79,9 +83,7 @@ export function AdminHeader() {
           {/* Ações do Usuário */}
           <div className="flex items-center space-x-4">
             {/* Notificações */}
-            <Button variant="ghost" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
+            <NotificationBell />
 
             {/* Menu do Usuário */}
             <div className="relative">
@@ -113,6 +115,14 @@ export function AdminHeader() {
                   >
                     <Settings className="h-4 w-4 mr-3" />
                     Meu Perfil
+                  </Link>
+                  <Link
+                    href="/admin/notifications"
+                    className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    onClick={() => setShowUserMenu(false)}
+                  >
+                    <Bell className="h-4 w-4 mr-3" />
+                    Notificações
                   </Link>
                   <Link
                     href="/admin/settings"

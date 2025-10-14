@@ -30,22 +30,13 @@ export type CartAction =
 
 // Função reducer para gerenciar estado do carrinho
 export const cartReducer = (state: CartState, action: CartAction): CartState => {
-  console.log('🔄 cartReducer - Ação recebida:', action.type, 'payload' in action ? action.payload : 'N/A');
-  
   switch (action.type) {
     case 'ADD_ITEM': {
       const { product, quantity = 1 } = action.payload;
-      console.log('➕ ADD_ITEM - Processando:', {
-        productId: product.id,
-        productName: product.name,
-        quantity,
-        currentItems: state.items.length
-      });
       
       const existingItem = state.items.find(item => item.productId === product.id);
       
       if (existingItem) {
-        console.log('🔄 Item já existe, atualizando quantidade');
         // Atualizar quantidade do item existente
         const updatedItems = state.items.map(item =>
           item.productId === product.id
@@ -53,22 +44,13 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
             : item
         );
 
-        const newState = {
+        return {
           ...state,
           items: updatedItems,
           totalItems: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
           totalPrice: updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         };
-        
-        console.log('✅ Estado atualizado (item existente):', {
-          totalItems: newState.totalItems,
-          totalPrice: newState.totalPrice,
-          itemsCount: newState.items.length
-        });
-        
-        return newState;
       } else {
-        console.log('➕ Item novo, adicionando ao carrinho');
         // Adicionar novo item
         const newItem: CartItem = {
           id: `cart_${product.id}_${Date.now()}`,
@@ -80,20 +62,12 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
         };
 
         const updatedItems = [...state.items, newItem];
-        const newState = {
+        return {
           ...state,
           items: updatedItems,
           totalItems: updatedItems.reduce((sum, item) => sum + item.quantity, 0),
           totalPrice: updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         };
-        
-        console.log('✅ Estado atualizado (item novo):', {
-          totalItems: newState.totalItems,
-          totalPrice: newState.totalPrice,
-          itemsCount: newState.items.length
-        });
-        
-        return newState;
       }
     }
     

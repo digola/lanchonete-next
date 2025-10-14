@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { UserForm, type UserFormData } from '@/components/admin/forms';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -30,10 +30,10 @@ import {
 import { User as UserType, UserRole } from '@/types';
 
 export default function AdminUsersPage() {
-  const { user, token } = useOptimizedAuth();
-  const { success, error } = useToastHelpers();
+  const { user, token } = useApiAuth();
+  // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
-  const [roleFilter, setRoleFilter] = useState<'all' | 'CLIENTE' | 'FUNCIONARIO' | 'ADMINISTRADOR'>('all');
+  const [roleFilter, setRoleFilter] = useState<'all' | 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'ADMIN'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'email' | 'createdAt'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
@@ -77,16 +77,17 @@ export default function AdminUsersPage() {
     total: users.length,
     active: users.filter(u => u.isActive).length,
     inactive: users.filter(u => !u.isActive).length,
-    clients: users.filter(u => u.role === UserRole.CLIENTE).length,
-    staff: users.filter(u => u.role === UserRole.FUNCIONARIO).length,
-    admins: users.filter(u => u.role === UserRole.ADMINISTRADOR).length,
+    clients: users.filter(u => u.role === UserRole.CUSTOMER).length,
+    staff: users.filter(u => u.role === UserRole.STAFF).length,
+    managers: users.filter(u => u.role === UserRole.MANAGER).length,
+    admins: users.filter(u => u.role === UserRole.ADMIN).length,
   };
 
   const handleSearch = (term: string) => {
     setSearchTerm(term);
   };
 
-  const handleRoleFilter = (role: 'all' | 'CLIENTE' | 'FUNCIONARIO' | 'ADMINISTRADOR') => {
+  const handleRoleFilter = (role: 'all' | 'CUSTOMER' | 'STAFF' | 'MANAGER' | 'ADMIN') => {
     setRoleFilter(role);
   };
 
@@ -113,9 +114,9 @@ export default function AdminUsersPage() {
 
       setShowCreateModal(false);
       refetchUsers();
-      success('Usuário criado com sucesso!');
+      toast.success('Usuário criado com sucesso!');
     } catch (err: any) {
-      error(err.message || 'Erro ao criar usuário');
+      toast.error(err.message || 'Erro ao criar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -150,10 +151,10 @@ export default function AdminUsersPage() {
       setShowEditModal(false);
       setSelectedUser(null);
       refetchUsers();
-      success('Usuário atualizado com sucesso!');
+      toast.success('Usuário atualizado com sucesso!');
     } catch (err: any) {
       console.error('❌ Erro ao atualizar usuário:', err);
-      error(err.message || 'Erro ao atualizar usuário');
+      toast.error(err.message || 'Erro ao atualizar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -178,9 +179,9 @@ export default function AdminUsersPage() {
       setShowDeleteConfirm(false);
       setSelectedUser(null);
       refetchUsers();
-      success('Usuário deletado com sucesso!');
+      toast.success('Usuário deletado com sucesso!');
     } catch (err: any) {
-      error(err.message || 'Erro ao deletar usuário');
+      toast.error(err.message || 'Erro ao deletar usuário');
     } finally {
       setIsLoading(false);
     }
@@ -227,9 +228,9 @@ export default function AdminUsersPage() {
       const roleLabel = getRoleLabel(user.role);
       const action = newStatus ? 'ativado' : 'desativado';
       
-      success(`${roleLabel} ${user.name} foi ${action} com sucesso!`);
+      toast.success(`${roleLabel} ${user.name} foi ${action} com sucesso!`);
     } catch (err: any) {
-      error(err.message || 'Erro ao alterar status do usuário');
+      toast.error(err.message || 'Erro ao alterar status do usuário');
     } finally {
       setIsLoading(false);
     }
@@ -237,12 +238,14 @@ export default function AdminUsersPage() {
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
-        return 'Cliente';
-      case UserRole.FUNCIONARIO:
-        return 'Funcionário';
-      case UserRole.ADMINISTRADOR:
-        return 'Administrador';
+      case UserRole.CUSTOMER:
+        return 'Customer';
+      case UserRole.STAFF:
+        return 'Staff';
+      case UserRole.MANAGER:
+        return 'Manager';
+      case UserRole.ADMIN:
+        return 'Admin';
       default:
         return role;
     }
@@ -250,11 +253,13 @@ export default function AdminUsersPage() {
 
   const getRoleColor = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
+      case UserRole.CUSTOMER:
         return 'bg-blue-100 text-blue-800';
-      case UserRole.FUNCIONARIO:
+      case UserRole.STAFF:
         return 'bg-green-100 text-green-800';
-      case UserRole.ADMINISTRADOR:
+      case UserRole.MANAGER:
+        return 'bg-purple-100 text-purple-800';
+      case UserRole.ADMIN:
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -312,9 +317,10 @@ export default function AdminUsersPage() {
               onChange={(e) => handleRoleFilter(e.target.value as any)}
             >
               <option value="all">Todos os Roles</option>
-              <option value="CLIENTE">Clientes</option>
-              <option value="FUNCIONARIO">Funcionários</option>
-              <option value="ADMINISTRADOR">Administradores</option>
+              <option value="CUSTOMER">Customers</option>
+              <option value="STAFF">Staff</option>
+              <option value="MANAGER">Managers</option>
+              <option value="ADMIN">Admins</option>
             </select>
             <select
               className="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
@@ -339,7 +345,7 @@ export default function AdminUsersPage() {
       </Card>
 
       {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-6">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center">
@@ -405,6 +411,20 @@ export default function AdminUsersPage() {
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Funcionários</p>
                 <p className="text-lg font-bold text-gray-900">{stats.staff}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex items-center">
+              <div className="p-2 bg-purple-100 rounded-lg">
+                <User className="h-5 w-5 text-purple-600" />
+              </div>
+              <div className="ml-3">
+                <p className="text-sm font-medium text-gray-600">Managers</p>
+                <p className="text-lg font-bold text-gray-900">{stats.managers}</p>
               </div>
             </div>
           </CardContent>

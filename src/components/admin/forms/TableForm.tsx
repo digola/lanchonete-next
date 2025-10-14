@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { TableStatus, UserRole, Table as TableType } from '@/types';
 import { Table, Edit, Eye, Save, X, Users } from 'lucide-react';
 
@@ -33,7 +33,7 @@ interface TableFormProps {
 }
 
 export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, users = [] }: TableFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
 
   const {
     register,
@@ -69,7 +69,7 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
     try {
       await onSubmit(data);
     } catch (err: any) {
-      error(err.message || 'Erro ao salvar mesa');
+      toast.error(err.message || 'Erro ao salvar mesa');
     }
   };
 
@@ -79,10 +79,6 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
         return 'Livre';
       case TableStatus.OCUPADA:
         return 'Ocupada';
-      case TableStatus.RESERVADA:
-        return 'Reservada';
-      case TableStatus.MANUTENCAO:
-        return 'Manutenção';
       default:
         return status;
     }
@@ -94,10 +90,6 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
         return 'bg-green-100 text-green-800';
       case TableStatus.OCUPADA:
         return 'bg-red-100 text-red-800';
-      case TableStatus.RESERVADA:
-        return 'bg-yellow-100 text-yellow-800';
-      case TableStatus.MANUTENCAO:
-        return 'bg-gray-100 text-gray-800';
       default:
         return 'bg-gray-100 text-gray-800';
     }
@@ -192,8 +184,6 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
             >
               <option value={TableStatus.LIVRE}>Livre</option>
               <option value={TableStatus.OCUPADA}>Ocupada</option>
-              <option value={TableStatus.RESERVADA}>Reservada</option>
-              <option value={TableStatus.MANUTENCAO}>Manutenção</option>
             </select>
             {errors.status && (
               <p className="mt-1 text-sm text-red-600">{errors.status.message}</p>
@@ -212,10 +202,10 @@ export function TableForm({ table, onSubmit, onCancel, isLoading = false, mode, 
             >
               <option value="">Nenhum</option>
               {users
-                .filter(user => user.role === UserRole.FUNCIONARIO || user.role === UserRole.ADMINISTRADOR)
+                .filter(user => user.role === UserRole.STAFF || user.role === UserRole.ADMIN)
                 .map(user => (
                   <option key={user.id} value={user.id}>
-                    {user.name} ({user.role === UserRole.FUNCIONARIO ? 'Funcionário' : 'Administrador'})
+                    {user.name} ({user.role === UserRole.STAFF ? 'Staff' : 'Admin'})
                   </option>
                 ))}
             </select>

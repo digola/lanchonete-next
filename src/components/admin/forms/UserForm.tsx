@@ -7,7 +7,7 @@ import { z } from 'zod';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { useToastHelpers } from '@/components/ui/Toast';
+import { toast } from '@/lib/toast';
 import { UserRole, User as UserType } from '@/types';
 import { User, Edit, Eye, Save, X } from 'lucide-react';
 
@@ -41,7 +41,7 @@ interface UserFormProps {
 }
 
 export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: UserFormProps) {
-  const { success, error } = useToastHelpers();
+  // const { success, error } = useToastHelpers();
   const [showPassword, setShowPassword] = useState(false);
 
   const {
@@ -56,7 +56,7 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
       name: user?.name || '',
       email: user?.email || '',
       password: '',
-      role: user?.role || UserRole.CLIENTE,
+      role: user?.role || UserRole.CUSTOMER,
       isActive: user?.isActive ? 'true' : 'false',
     },
   });
@@ -92,18 +92,20 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
         await onSubmit(processedData);
       }
     } catch (err: any) {
-      error(err.message || 'Erro ao salvar usuário');
+      toast.error(err.message || 'Erro ao salvar usuário');
     }
   };
 
   const getRoleLabel = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
-        return 'Cliente';
-      case UserRole.FUNCIONARIO:
-        return 'Funcionário';
-      case UserRole.ADMINISTRADOR:
-        return 'Administrador';
+      case UserRole.CUSTOMER:
+        return 'Customer';
+      case UserRole.STAFF:
+        return 'Staff';
+      case UserRole.MANAGER:
+        return 'Manager';
+      case UserRole.ADMIN:
+        return 'Admin';
       default:
         return role;
     }
@@ -111,11 +113,13 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
 
   const getRoleColor = (role: UserRole) => {
     switch (role) {
-      case UserRole.CLIENTE:
+      case UserRole.CUSTOMER:
         return 'bg-blue-100 text-blue-800';
-      case UserRole.FUNCIONARIO:
+      case UserRole.STAFF:
         return 'bg-green-100 text-green-800';
-      case UserRole.ADMINISTRADOR:
+      case UserRole.MANAGER:
+        return 'bg-purple-100 text-purple-800';
+      case UserRole.ADMIN:
         return 'bg-red-100 text-red-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -228,9 +232,10 @@ export function UserForm({ user, onSubmit, onCancel, isLoading = false, mode }: 
               className="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
               disabled={isReadOnly}
             >
-              <option value={UserRole.CLIENTE}>Cliente</option>
-              <option value={UserRole.FUNCIONARIO}>Funcionário</option>
-              <option value={UserRole.ADMINISTRADOR}>Administrador</option>
+              <option value={UserRole.CUSTOMER}>Customer</option>
+              <option value={UserRole.STAFF}>Staff</option>
+              <option value={UserRole.MANAGER}>Manager</option>
+              <option value={UserRole.ADMIN}>Admin</option>
             </select>
             {errors.role && (
               <p className="mt-1 text-sm text-red-600">{errors.role.message}</p>

@@ -1,151 +1,82 @@
-'use client';
+import { useState, useEffect, useMemo } from 'react';
+import { useApiCache } from './useApiCache';
+import { Product, Category } from '@/types';
 
-import { useMemo } from 'react';
-import { useOptimizedProducts, useOptimizedCategories } from './useOptimizedApi';
-
-/**
- * Hook otimizado para dados do menu
- * Combina cache, batch queries e smart queries
- */
-export const useOptimizedMenu = (filters?: {
+interface UseOptimizedMenuOptions {
   search?: string;
   categoryId?: string;
   isAvailable?: boolean;
-}) => {
-  // Usar hooks otimizados individuais
-  const { data: categories, loading: categoriesLoading } = useOptimizedCategories();
-  const { data: productsResponse, loading: productsLoading, refresh: refetchProducts } = useOptimizedProducts({
-    ...(filters?.search && { search: filters.search }),
-    ...(filters?.categoryId && { categoryId: filters.categoryId }),
-    ...(filters?.isAvailable !== undefined && { isAvailable: filters.isAvailable }),
+}
+
+export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
+  const { search, categoryId, isAvailable } = options;
+
+  // Buscar categorias com cache de 5 minutos
+  const {
+    data: categoriesData,
+    loading: categoriesLoading,
+    execute: refetchCategories,
+  } = useApiCache<{ data: Category[] }>('/api/categories', {
+    cacheTime: 5 * 60 * 1000, // 5 minutos
+    immediate: true,
+    dedupe: true,
   });
 
-  // Dados memoizados
-  const menuData = useMemo(() => ({
-    categories: categories?.data || [],
-    products: productsResponse?.data || [],
-    pagination: productsResponse?.pagination || null,
-    loading: {
-      categories: categoriesLoading,
-      products: productsLoading,
-      any: categoriesLoading || productsLoading,
-    },
-    errors: {
-      categories: null,
-      products: null,
-      any: false,
-    },
-    isStale: {
-      categories: false,
-      products: false,
-    },
-  }), [categories, productsResponse, categoriesLoading, productsLoading]);
+  // Construir URL de produtos apenas quando necessário
+  const productsUrl = useMemo(() => {
+    const params = new URLSearchParams();
+    if (isAvailable) params.append('isAvailable', 'true');
+    if (categoryId) params.append('categoryId', categoryId);
+    if (search) params.append('search', search);
+    params.append('limit', '50'); // Limitar a 50 produtos
+    
+    return `/api/products?${params.toString()}`;
+  }, [search, categoryId, isAvailable]);
 
-  return {
-    ...menuData,
-    refetch: refetchProducts,
-  };
-};
-
-/**
- * Hook para dados do dashboard otimizado
- */
-export const useOptimizedDashboard = () => {
-  const { data: categories, loading: categoriesLoading } = useOptimizedCategories();
-  const { data: productsResponse, loading: productsLoading, refresh: refetchProducts } = useOptimizedProducts({
-    isAvailable: true,
+  // Buscar produtos com cache de 2 minutos
+  const {
+    data: productsData,
+    loading: productsLoading,
+    execute: refetchProducts,
+    invalidateCache: invalidateProductsCache,
+  } = useApiCache<{ data: Product[]; pagination: any }>(productsUrl, {
+    cacheTime: 2 * 60 * 1000, // 2 minutos
+    immediate: true,
+    dedupe: true,
   });
 
-  const dashboardData = useMemo(() => ({
-    // Dados principais
-    categories: categories?.data || [],
-    products: productsResponse?.data || [],
+  const categories = useMemo(() => categoriesData?.data || [], [categoriesData]);
+  const products = useMemo(() => productsData?.data || [], [productsData]);
+  const pagination = useMemo(() => productsData?.pagination || null, [productsData]);
+
+  // Filtrar produtos no cliente se houver busca (para melhor performance)
+  const filteredProducts = useMemo(() => {
+    if (!search) return products;
     
-    // Estatísticas calculadas
-    stats: {
-      totalProducts: productsResponse?.data?.length || 0,
-      totalCategories: categories?.data?.length || 0,
-      availableProducts: productsResponse?.data?.filter((p: any) => p.isAvailable).length || 0,
-    },
-    
-    // Estados
-    loading: {
-      categories: categoriesLoading,
-      products: productsLoading,
-      any: categoriesLoading || productsLoading,
-    },
-    errors: {
-      categories: null,
-      products: null,
-      any: false,
-    },
-  }), [categories, productsResponse, categoriesLoading, productsLoading]);
+    const searchLower = search.toLowerCase();
+    return products.filter(product =>
+      product.name.toLowerCase().includes(searchLower) ||
+      product.description?.toLowerCase().includes(searchLower)
+    );
+  }, [products, search]);
 
-  return {
-    ...dashboardData,
-    refetch: refetchProducts,
-  };
-};
-
-/**
- * Hook para dados de pedidos otimizado
- */
-export const useOptimizedOrders = (filters?: {
-  status?: string;
-  userId?: string;
-  tableId?: string;
-}) => {
-  // Por enquanto, retornar dados vazios para evitar erros
-  const ordersData = useMemo(() => ({
-    orders: [],
-    tables: [],
-    
-    loading: {
-      orders: false,
-      tables: false,
-      any: false,
-    },
-    errors: {
-      orders: null,
-      tables: null,
-      any: false,
-    },
-  }), []);
-
-  return {
-    ...ordersData,
-    refetch: () => Promise.resolve(),
-  };
-};
-
-/**
- * Hook para invalidar cache do menu
- */
-export const useMenuCacheInvalidation = () => {
-  const invalidateProducts = () => {
-    // Invalidar cache de produtos
-    window.dispatchEvent(new CustomEvent('invalidate-queries', {
-      detail: { pattern: 'products' }
-    }));
+  const loading = {
+    categories: categoriesLoading,
+    products: productsLoading,
   };
 
-  const invalidateCategories = () => {
-    // Invalidar cache de categorias
-    window.dispatchEvent(new CustomEvent('invalidate-queries', {
-      detail: { pattern: 'categories' }
-    }));
-  };
-
-  const invalidateAll = () => {
-    // Invalidar todo o cache
-    window.dispatchEvent(new CustomEvent('invalidate-queries', {
-      detail: { pattern: '.*' }
-    }));
+  const refetch = {
+    categories: refetchCategories,
+    products: refetchProducts,
   };
 
   return {
-    invalidateProducts,
-    invalidateCategories,
-    invalidateAll,
+    categories,
+    products: filteredProducts,
+    pagination,
+    loading,
+    refetch,
+    invalidateProductsCache,
   };
-};
+}
+

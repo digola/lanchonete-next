@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, description, imageUrl, color, isActive = true } = body;
+    const { name, description, color, isActive = true } = body;
 
     // Validações
     if (!name || !name.trim()) {
@@ -133,7 +133,6 @@ export async function POST(request: NextRequest) {
       data: {
         name: name.trim(),
         description: description?.trim(),
-        imageUrl: imageUrl?.trim(),
         color: color?.trim(),
         isActive,
       },
