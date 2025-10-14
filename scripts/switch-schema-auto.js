@@ -9,8 +9,12 @@ function main() {
   try {
     const dbUrl = process.env.DATABASE_URL || '';
     const prismaDir = path.join(process.cwd(), 'prisma');
+    // Preferir PostgreSQL em ambientes de produção/Vercel mesmo que DATABASE_URL
+    // não esteja disponível durante o build (caso comum em Preview).
+    const isVercel = !!process.env.VERCEL;
+    const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
 
-    const usePostgres = /^postgres(ql)?:\/\//i.test(dbUrl);
+    const usePostgres = isProdLike || /^postgres(ql)?:\/\//i.test(dbUrl);
     const sourceFile = usePostgres ? 'schema-postgresql.prisma' : 'schema-sqlite.prisma';
     const sourcePath = path.join(prismaDir, sourceFile);
     const targetPath = path.join(prismaDir, 'schema.prisma');

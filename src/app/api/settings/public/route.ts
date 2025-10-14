@@ -4,10 +4,10 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     // Buscar apenas configurações gerais (públicas)
-    const settings = await prisma.settings.findMany({
-      where: { 
-        category: 'general',
-        isActive: true 
+    // Ajustado para o modelo Prisma correto: SystemSettings
+    const settings = await prisma.systemSettings.findMany({
+      where: {
+        category: 'GENERAL',
       },
       select: {
         key: true,
