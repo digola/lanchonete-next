@@ -8,6 +8,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Usado pelo Prisma Migrate quando a URL principal é pool (PgBouncer)
+  // Configure DIRECT_URL com uma conexão direta (sem pool)
+  directUrl = env("DIRECT_URL")
 }
 
 // Modelo User
