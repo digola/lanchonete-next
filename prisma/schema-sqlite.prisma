@@ -85,6 +85,7 @@ model Order {
   user User @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
   items OrderItem[]
+  reviews OrderReview[]
 
   @@map("orders")
 }
