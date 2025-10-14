@@ -7,7 +7,8 @@ generator client {
 
 datasource db {
   provider = "sqlite"
-  url      = env("DATABASE_URL")
+  // Usar caminho local para evitar depender de env em geração de cliente
+  url      = "file:./dev.db"
 }
 
 // Modelo User
