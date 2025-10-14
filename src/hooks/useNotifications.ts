@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-export interface Notification {
+// Evitar conflito com o tipo global do navegador (Notification)
+export interface AppNotification {
   id: string;
   title: string;
   message: string;
@@ -25,7 +26,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     autoRemoveDelay = 5000
   } = options;
 
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [permission, setPermission] = useState<NotificationPermission>('default');
 
   // Solicitar permissão para notificações
@@ -44,8 +45,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   }, []);
 
   // Adicionar notificação
-  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
-    const newNotification: Notification = {
+  const addNotification = useCallback((notification: Omit<AppNotification, 'id' | 'timestamp' | 'read'>) => {
+    const newNotification: AppNotification = {
       ...notification,
       id: Date.now().toString(),
       timestamp: new Date(),
@@ -58,8 +59,8 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
     });
 
     // Mostrar notificação do navegador se permitido
-    if (permission === 'granted') {
-      const browserNotification = new Notification(notification.title, {
+    if (permission === 'granted' && 'Notification' in window) {
+      const browserNotification = new window.Notification(notification.title, {
         body: notification.message,
         icon: '/favicon.ico',
         tag: newNotification.id
@@ -101,7 +102,7 @@ export function useNotifications(options: UseNotificationsOptions = {}) {
   // Verificar permissão ao montar
   useEffect(() => {
     if ('Notification' in window) {
-      setPermission(Notification.permission);
+      setPermission(window.Notification.permission);
     }
   }, []);
 
