@@ -4,10 +4,20 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Configurar DATABASE_URL padrão se não estiver definida
+// Detectar ambiente Vercel/produção
+const isVercel = !!process.env.VERCEL;
+const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
+
+// Configurar DATABASE_URL padrão somente em desenvolvimento local
 if (!process.env.DATABASE_URL) {
-  console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
-  process.env.DATABASE_URL = 'file:./dev.db';
+  if (isProdLike) {
+    // Em produção (inclui Vercel), não usar SQLite.
+    // Isso evita 500 causados por tentativa de usar arquivo SQLite em filesystem read-only.
+    console.error('❌ DATABASE_URL não definida em produção. Configure a variável no Vercel (Project Settings → Environment Variables).');
+  } else {
+    console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
+    process.env.DATABASE_URL = 'file:./dev.db';
+  }
 }
 
 // Lazy initialization: cria o client apenas no primeiro acesso
@@ -16,6 +26,10 @@ let prismaClient: PrismaClient | undefined = globalForPrisma.prisma;
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     if (!prismaClient) {
+      // Bloquear inicialização sem DATABASE_URL em ambientes de produção/Vercel
+      if (isProdLike && !process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL não definida no ambiente de produção. Configure-a no Vercel para habilitar o banco de dados.');
+      }
       prismaClient = new PrismaClient();
       if (process.env.NODE_ENV !== 'production') {
         globalForPrisma.prisma = prismaClient;
