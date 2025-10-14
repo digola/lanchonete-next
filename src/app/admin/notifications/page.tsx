@@ -10,7 +10,6 @@ import { formatDateTime } from '@/lib/utils';
 import { 
   Bell, 
   Check, 
-  CheckCheck, 
   Trash2, 
   Filter,
   AlertCircle,
@@ -201,7 +200,7 @@ export default function NotificationsPage() {
               variant="primary"
               onClick={handleMarkAllAsRead}
             >
-              <CheckCheck className="h-4 w-4 mr-2" />
+              <Check className="h-4 w-4 mr-2" />
               Marcar todas como lidas
             </Button>
           )}

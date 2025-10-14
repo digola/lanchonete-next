@@ -222,7 +222,7 @@ export default function ExpedicaoPage() {
       refetchOrders();
     } catch (error) {
       console.error('Erro ao atualizar pedido:', error);
-      alert('Erro ao atualizar status do pedido');
+      alert('Erro ao atualizar status do pedido3');
     }
   };
 

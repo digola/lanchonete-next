@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, X, Check, CheckCheck, Trash2, AlertCircle, ShoppingBag, Package, CreditCard, Users, Settings } from 'lucide-react';
+import { Bell, X, Check, Trash2, AlertCircle, ShoppingBag, Package, CreditCard, Users, Settings } from 'lucide-react';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Notification, NotificationType, NotificationPriority } from '@/types';
 import { formatDateTime } from '@/lib/utils';
@@ -134,7 +134,7 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
                 onClick={handleMarkAllAsRead}
                 className="text-xs"
               >
-                <CheckCheck className="h-3 w-3 mr-1" />
+                <Check className="h-3 w-3 mr-1" />
                 Marcar todas
               </Button>
             )}

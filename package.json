@@ -4,7 +4,7 @@
   "description": "Sistema completo de gestão para lanchonetes e restaurantes",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbo",
     "build": "next build",
     "build:analyze": "ANALYZE=true next build",
     "build:production": "prisma generate && next build",

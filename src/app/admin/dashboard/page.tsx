@@ -25,7 +25,7 @@ import {
   CheckCircle,
   AlertTriangle,
   BarChart3,
-  Eye,
+
   Edit,
   Plus,
   ArrowUpRight,
@@ -34,7 +34,7 @@ import {
 import { Order, OrderStatus, Product, Category, User, Table as TableType, TableStatus } from '@/types';
 
 export default function AdminDashboard() {
-  const { user, getUserDisplayName } = useApiAuth();
+ // const { user, getUserDisplayName } = useApiAuth();
   
   // Estado para filtros dos gráficos
   const [chartPeriod, setChartPeriod] = useState<'7d' | '30d' | '90d'>('7d');
@@ -381,8 +381,8 @@ export default function AdminDashboard() {
                 <Users className="h-6 w-6 text-primary-600" />
               </div>
               <div>
-                <p className="font-medium text-gray-900">{user?.name}</p>
-                <p className="text-sm text-gray-600">{user?.email}</p>
+                <p className="font-medium text-gray-900">{Users?.name}</p>
+              
                 <Badge variant="default" className="mt-1">Administrador</Badge>
               </div>
             </div>
@@ -460,7 +460,7 @@ export default function AdminDashboard() {
                       </p>
                       <Link href={`/admin/orders/${order.id}`}>
                         <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4 mr-2" />
+                         
                           Ver
                         </Button>
                       </Link>

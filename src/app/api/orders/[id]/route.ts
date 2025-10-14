@@ -35,8 +35,15 @@ export async function PUT(
       );
     }
 
-    // Verificar permissão (staff, admins, managers ou o próprio cliente para seus pedidos)
-    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN && decoded.role !== UserRole.MANAGER) {
+    // Verificar permissão (staff, managers ou qualquer variação de admin; caso contrário, somente o dono do pedido)
+    if (
+      decoded.role !== UserRole.STAFF &&
+      decoded.role !== UserRole.MANAGER &&
+      decoded.role !== UserRole.ADMIN &&
+      decoded.role !== UserRole.ADMINISTRADOR &&
+      decoded.role !== UserRole.ADMINISTRADOR_LOWER &&
+      decoded.role !== UserRole.ADMINISTRADOR_TITLE
+    ) {
       // Se for cliente, verificar se é o dono do pedido
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -67,10 +74,11 @@ export async function PUT(
 
     // Validar status se fornecido
     if (status) {
-      const validStatuses = ['PENDENTE', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'ENTREGUE', 'CANCELADO'];
+      // Incluir todos os status válidos conforme enum OrderStatus
+      const validStatuses = ['PENDENTE', 'CONFIRMADO', 'PREPARANDO', 'PRONTO', 'ENTREGUE', 'FINALIZADO', 'CANCELADO'];
       if (!validStatuses.includes(status)) {
         return NextResponse.json(
-          { success: false, error: 'Status inválido' },
+          { success: false, error: `Status inválido: ${status}` },
           { status: 400 }
         );
       }
@@ -487,8 +495,15 @@ export async function GET(
       );
     }
 
-    // Verificar permissão (staff, admins, managers ou o próprio cliente para seus pedidos)
-    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN && decoded.role !== UserRole.MANAGER) {
+    // Verificar permissão (staff, managers ou qualquer variação de admin; caso contrário, somente o dono do pedido)
+    if (
+      decoded.role !== UserRole.STAFF &&
+      decoded.role !== UserRole.MANAGER &&
+      decoded.role !== UserRole.ADMIN &&
+      decoded.role !== UserRole.ADMINISTRADOR &&
+      decoded.role !== UserRole.ADMINISTRADOR_LOWER &&
+      decoded.role !== UserRole.ADMINISTRADOR_TITLE
+    ) {
       if (order.userId !== decoded.userId) {
         return NextResponse.json(
           { success: false, error: 'Acesso negado: você só pode visualizar seus próprios pedidos' },

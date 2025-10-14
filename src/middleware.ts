@@ -34,23 +34,44 @@ export async function middleware(request: NextRequest) {
 
     // Verificar rotas de STAFF
     if (STAFF_ROUTES.some(route => pathname.startsWith(route))) {
-      if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.MANAGER && decoded.role !== UserRole.ADMIN) {
+      const allowedRolesForStaff = [
+        UserRole.STAFF,
+        UserRole.MANAGER,
+        UserRole.ADMIN,
+        UserRole.ADMINISTRADOR,
+        UserRole.ADMINISTRADOR_LOWER,
+        UserRole.ADMINISTRADOR_TITLE,
+      ];
+      if (!allowedRolesForStaff.includes(decoded.role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de MANAGER (apenas MANAGER)
+    // Verificar rotas de MANAGER (permitir MANAGER e ADMIN/ADMINISTRADOR)
     if (MANAGER_ROUTES.some(route => pathname.startsWith(route))) {
-      if (decoded.role !== UserRole.MANAGER) {
+      const allowedRolesForManager = [
+        UserRole.MANAGER,
+        UserRole.ADMIN,
+        UserRole.ADMINISTRADOR,
+        UserRole.ADMINISTRADOR_LOWER,
+        UserRole.ADMINISTRADOR_TITLE,
+      ];
+      if (!allowedRolesForManager.includes(decoded.role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de ADMIN
+    // Verificar rotas de ADMIN (permitir variações de ADMINISTRADOR)
     if (ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      if (decoded.role !== UserRole.ADMIN) {
+      const allowedRolesForAdmin = [
+        UserRole.ADMIN,
+        UserRole.ADMINISTRADOR,
+        UserRole.ADMINISTRADOR_LOWER,
+        UserRole.ADMINISTRADOR_TITLE,
+      ];
+      if (!allowedRolesForAdmin.includes(decoded.role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }

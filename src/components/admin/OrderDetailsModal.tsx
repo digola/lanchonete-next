@@ -133,7 +133,7 @@ export function OrderDetailsModal({
       // Recarregar logs após atualização
       await fetchLogs();
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+      console.error('Erro ao atualizar status1:', error);
     } finally {
       setIsUpdating(false);
     }

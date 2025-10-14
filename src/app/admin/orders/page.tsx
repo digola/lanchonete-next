@@ -222,23 +222,27 @@ export default function AdminOrdersPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token || ''}`
         },
-        body: JSON.stringify({
-          status: newStatus
-        })
+        body: JSON.stringify({ status: newStatus })
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao atualizar status do pedido');
+        let serverMessage = '';
+        try {
+          const data = await response.json();
+          serverMessage = data?.error || data?.message || '';
+        } catch {}
+        throw new Error(serverMessage || `Falha (${response.status}) ao atualizar status`);
       }
-
+      
       refetchOrders();
       setShowOrderDetails(false);
       setSelectedOrder(null);
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
-      alert('Erro ao atualizar status do pedido');
+      const msg = error instanceof Error ? error.message : 'Erro ao atualizar status do pedido';
+      alert(msg);
     }
   };
 
