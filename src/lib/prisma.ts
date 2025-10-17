@@ -8,12 +8,36 @@ const globalForPrisma = globalThis as unknown as {
 const isVercel = !!process.env.VERCEL;
 const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
 
+// Aliases/fallbacks para variáveis de ambiente de banco (compat com Supabase/Prisma)
+const DB_ALIASES = [
+  'DATABASE_URL',
+  'POSTGRES_PRISMA_URL', // Supabase: Prisma URL (pooled)
+  'POSTGRES_URL',        // Supabase: pooled URL
+  'SUPABASE_DB_URL',     // genérico
+];
+
+function resolveDatabaseUrl(): string | undefined {
+  for (const key of DB_ALIASES) {
+    const val = process.env[key];
+    if (val && typeof val === 'string' && val.trim().length > 0) {
+      return val.trim();
+    }
+  }
+  return undefined;
+}
+
 // Configurar DATABASE_URL padrão somente em desenvolvimento local
 if (!process.env.DATABASE_URL) {
+  const resolved = resolveDatabaseUrl();
+  if (resolved && !process.env.DATABASE_URL) {
+    process.env.DATABASE_URL = resolved;
+  }
   if (isProdLike) {
     // Em produção (inclui Vercel), não usar SQLite.
     // Isso evita 500 causados por tentativa de usar arquivo SQLite em filesystem read-only.
-    console.error('❌ DATABASE_URL não definida em produção. Configure a variável no Vercel (Project Settings → Environment Variables).');
+    if (!process.env.DATABASE_URL) {
+      console.error('❌ DATABASE_URL não definida em produção. Configure a variável no Vercel (Project Settings → Environment Variables).');
+    }
   } else {
     console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
     process.env.DATABASE_URL = 'file:./dev.db';
