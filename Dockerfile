@@ -1,6 +1,6 @@
-# Dockerfile DEMO — Next.js + Prisma (SQLite efêmero)
-# Atenção: este container cria o banco SQLite dentro do filesystem do container.
-# Em Cloud Run, o filesystem é efêmero. Use apenas para demonstração inicial.
+# Dockerfile PRODUÇÃO — Next.js + Prisma (Cloud Run + Cloud SQL)
+# Este Dockerfile prepara a aplicação para produção em Cloud Run.
+# Requer migrations versionadas e configuração de DATABASE_URL (PostgreSQL via Cloud SQL).
 
 # 1) Dependências
 FROM node:20-bullseye-slim AS deps
@@ -18,7 +18,7 @@ RUN npx prisma generate
 # Compilar Next
 RUN npm run build
 
-# 3) Runner (DEMO com SQLite efêmero)
+# 3) Runner (PRODUÇÃO com Cloud SQL)
 FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -30,5 +30,6 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-# Em DEMO: cria o banco SQLite e popula a cada start (efêmero)
-CMD ["sh", "-c", "npx prisma db push && npm run db:seed && npm run start"]
+# Em PRODUÇÃO: aplicar migrations versionadas
+# OBS: As migrations devem existir em prisma/migrations (geradas com `prisma migrate dev`)
+CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
