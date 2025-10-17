@@ -1,13 +1,16 @@
-// Schema SQLite para desenvolvimento local
-// Este arquivo substitui o schema.prisma quando usando SQLite
+// Schema PostgreSQL para produção
+// Este arquivo é usado para deploy em ambientes com PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Usado pelo Prisma Migrate quando a URL principal é pool (PgBouncer)
+  // Configure DIRECT_URL com uma conexão direta (sem pool)
+  directUrl = env("DIRECT_URL")
 }
 
 // Modelo User
@@ -24,7 +27,15 @@ model User {
   // Relacionamentos
   orders Order[]
   tables Table[]
+  cart   Cart?
+  notifications Notification[]
+  activityLogs ActivityLog[]
+  orderReviews OrderReview[]
 
+  // Índices para performance
+  @@index([email])
+  @@index([role])
+  @@index([isActive])
   @@map("users")
 }
 
@@ -33,7 +44,7 @@ model Category {
   id          String    @id @default(cuid())
   name        String    @unique
   description String?
-  icon        String?
+  imageUrl    String?
   color       String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -50,7 +61,7 @@ model Product {
   id              String    @id @default(cuid())
   name            String
   description     String
-  price           Float     // Usando Float em vez de Decimal para SQLite
+  price           Float
   categoryId      String
   preparationTime Int       @default(15) // em minutos
   allergens       String?
@@ -60,65 +71,213 @@ model Product {
   updatedAt       DateTime  @updatedAt
 
   // Relacionamentos
-  category Category @relation(fields: [categoryId], references: [id])
+  category  Category  @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
+  cartItems  CartItem[]
 
+  // Índices para performance
+  @@index([categoryId])
+  @@index([isAvailable])
+  @@index([price])
+  @@index([name])
   @@map("products")
 }
 
 // Modelo Order
 model Order {
-  id              String   @id @default(cuid())
-  userId          String
-  status          String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
-  total           Float    // Usando Float em vez de Decimal para SQLite
-  deliveryType    String   @default("RETIRADA") // RETIRADA, DELIVERY
-  deliveryAddress String?
-  paymentMethod   String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
-  notes           String?
-  tableId         String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  userId                String
+  status                String   @default("PENDENTE")
+  total                 Float
+  deliveryType          String   @default("RETIRADA")
+  deliveryAddress       String?
+  estimatedDeliveryTime Int?
+  deliveryFee           Float    @default(0)
+  paymentMethod         String   @default("DINHEIRO")
+  notes                 String?
+  tableId               String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // Relacionamentos
-  user User @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
   items OrderItem[]
+  reviews OrderReview[]
 
+  // Índices para performance
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([tableId])
+  @@index([deliveryType])
   @@map("orders")
 }
 
 // Modelo OrderItem
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Float   // Preço no momento da compra
-  notes     String?
-  customizations Json?
+  id             String  @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  price          Float
+  notes          String?
+  customizations String?
 
   // Relacionamentos
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id])
 
+  // Índices para performance
+  @@index([orderId])
+  @@index([productId])
   @@map("order_items")
+}
+
+// Modelo OrderReview (avaliações de pedidos)
+model OrderReview {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  rating    Int      // 1 a 5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices
+  @@unique([orderId, userId])
+  @@index([orderId])
+  @@index([userId])
+  @@map("order_reviews")
+}
+
+// Modelo Cart (carrinho temporário)
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     CartItem[]
+
+  // Relacionamentos
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices para performance
+  @@unique([userId]) // Um carrinho por usuário
+  @@index([userId])
+  @@index([createdAt])
+  @@map("carts")
+}
+
+// Modelo CartItem (itens do carrinho)
+model CartItem {
+  id        String   @id @default(cuid())
+  cartId    String
+  productId String
+  quantity  Int
+  price     Float    // Preço no momento da adição
+  notes     String?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  // Índices para performance
+  @@unique([cartId, productId]) // Evita duplicação de produtos no carrinho
+  @@index([cartId])
+  @@index([productId])
+  @@index([createdAt])
+  @@map("cart_items")
 }
 
 // Modelo Table
 model Table {
-  id              String   @id @default(cuid())
-  number          Int      @unique
-  capacity        Int      @default(4)
-  status          String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
-  currentOrderId  String?
-  assignedTo      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(cuid())
+  number     Int      @unique
+  capacity   Int      @default(4)
+  status     String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
+  area       String?  // Área da mesa (ex: "Área VIP", "Terraço")
+  qrCode     String?  // Código QR da mesa
+  assignedTo String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relacionamentos
   assignedUser User? @relation(fields: [assignedTo], references: [id])
   orders       Order[]
 
+  // Índices para performance
+  @@index([number])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([area])
   @@map("tables")
+}
+
+// Modelo Notification (notificações do sistema)
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?  // null = notificação global
+  type      String   // ORDER, SYSTEM, PROMOTION
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  priority  String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices para performance
+  @@index([userId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+  @@index([priority])
+  @@map("notifications")
+}
+
+// Modelo SystemSettings (configurações do sistema)
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // JSON string
+  type        String   @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
+  category    String   @default("GENERAL") // GENERAL, DELIVERY, PAYMENT, RESTAURANT
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  // Índices para performance
+  @@index([key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// Modelo ActivityLog
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // CREATE_ORDER, UPDATE_PRODUCT, etc.
+  entityType  String   // Order, Product, User
+  entityId    String
+  details     String?  // JSON com dados específicos
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relacionamentos
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Índices para performance
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
 }

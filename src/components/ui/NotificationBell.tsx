@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Bell, X, Check, CheckCheck, Trash2, AlertCircle, ShoppingBag, Package, CreditCard, Users, Settings } from 'lucide-react';
-import { useNotifications } from '@/hooks/useNotifications';
-import { Notification, NotificationType, NotificationPriority } from '@/types';
+import { Bell, X, Check, Trash2, AlertCircle, AlertTriangle, CheckCircle, XCircle, Info } from 'lucide-react';
+import { useNotifications, AppNotification as LocalNotification } from '@/hooks/useNotifications';
+// Removemos os tipos de notificação do '@/types' para alinhar com o hook local
 import { formatDateTime } from '@/lib/utils';
 import { Button } from './Button';
 import { Badge } from './Badge';
@@ -12,50 +12,17 @@ interface NotificationBellProps {
   className?: string;
 }
 
-const getNotificationIcon = (type: string) => {
+const getNotificationIcon = (type: LocalNotification['type']) => {
   switch (type) {
-    case NotificationType.ORDER:
-      return ShoppingBag;
-    case NotificationType.STOCK:
-      return Package;
-    case NotificationType.PAYMENT:
-      return CreditCard;
-    case NotificationType.USER:
-      return Users;
-    case NotificationType.SYSTEM:
-      return Settings;
+    case 'success':
+      return CheckCircle;
+    case 'warning':
+      return AlertTriangle;
+    case 'error':
+      return XCircle;
+    case 'info':
     default:
-      return AlertCircle;
-  }
-};
-
-const getPriorityColor = (priority: NotificationPriority) => {
-  switch (priority) {
-    case NotificationPriority.LOW:
-      return 'text-gray-500';
-    case NotificationPriority.NORMAL:
-      return 'text-blue-500';
-    case NotificationPriority.HIGH:
-      return 'text-orange-500';
-    case NotificationPriority.URGENT:
-      return 'text-red-500';
-    default:
-      return 'text-gray-500';
-  }
-};
-
-const getPriorityBgColor = (priority: NotificationPriority) => {
-  switch (priority) {
-    case NotificationPriority.LOW:
-      return 'bg-gray-50';
-    case NotificationPriority.NORMAL:
-      return 'bg-blue-50';
-    case NotificationPriority.HIGH:
-      return 'bg-orange-50';
-    case NotificationPriority.URGENT:
-      return 'bg-red-50';
-    default:
-      return 'bg-gray-50';
+      return Info;
   }
 };
 
@@ -65,15 +32,10 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
   const { 
     notifications, 
     unreadCount, 
-    loading, 
     markAsRead, 
     markAllAsRead, 
     removeNotification 
-  } = useNotifications({ 
-    limit: 10,
-    autoRefresh: true,
-    refreshInterval: 30000
-  });
+  } = useNotifications();
 
   // Fechar dropdown quando clicar fora
   useEffect(() => {
@@ -87,18 +49,18 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleMarkAsRead = async (notification: Notification) => {
-    if (!notification.isRead) {
-      await markAsRead(notification.id);
+  const handleMarkAsRead = (notification: LocalNotification) => {
+    if (!notification.read) {
+      markAsRead(notification.id);
     }
   };
 
-  const handleRemoveNotification = async (notification: Notification) => {
-    await removeNotification(notification.id);
+  const handleRemoveNotification = (notification: LocalNotification) => {
+    removeNotification(notification.id);
   };
 
-  const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
   };
 
   return (
@@ -134,7 +96,7 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
                 onClick={handleMarkAllAsRead}
                 className="text-xs"
               >
-                <CheckCheck className="h-3 w-3 mr-1" />
+                <Check className="h-3 w-3 mr-1" />
                 Marcar todas
               </Button>
             )}
@@ -142,12 +104,7 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
 
           {/* Lista de notificações */}
           <div className="max-h-96 overflow-y-auto">
-            {loading ? (
-              <div className="p-4 text-center">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto"></div>
-                <p className="text-sm text-gray-500 mt-2">Carregando...</p>
-              </div>
-            ) : notifications.length === 0 ? (
+            {notifications.length === 0 ? (
               <div className="p-4 text-center text-gray-500">
                 <Bell className="h-8 w-8 mx-auto mb-2 opacity-50" />
                 <p className="text-sm">Nenhuma notificação</p>
@@ -155,40 +112,38 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
             ) : (
               notifications.map((notification) => {
                 const IconComponent = getNotificationIcon(notification.type);
-                const priorityColor = getPriorityColor(notification.priority);
-                const priorityBgColor = getPriorityBgColor(notification.priority);
 
                 return (
                   <div
                     key={notification.id}
                     className={`p-4 border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                      !notification.isRead ? 'bg-blue-50' : ''
+                      !notification.read ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-3">
                       {/* Ícone */}
-                      <div className={`p-2 rounded-full ${priorityBgColor}`}>
-                        <IconComponent className={`h-4 w-4 ${priorityColor}`} />
+                      <div className={`p-2 rounded-full bg-gray-50`}>
+                        <IconComponent className={`h-4 w-4 text-gray-600`} />
                       </div>
 
                       {/* Conteúdo */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <p className={`text-sm font-medium ${!notification.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
+                            <p className={`text-sm font-medium ${!notification.read ? 'text-gray-900' : 'text-gray-700'}`}>
                               {notification.title}
                             </p>
                             <p className="text-sm text-gray-600 mt-1">
                               {notification.message}
                             </p>
                             <p className="text-xs text-gray-400 mt-1">
-                              {formatDateTime(notification.createdAt)}
+                              {formatDateTime(notification.timestamp)}
                             </p>
                           </div>
 
                           {/* Ações */}
                           <div className="flex items-center space-x-1 ml-2">
-                            {!notification.isRead && (
+                            {!notification.read && (
                               <button
                                 onClick={() => handleMarkAsRead(notification)}
                                 className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
@@ -206,18 +161,6 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
                             </button>
                           </div>
                         </div>
-
-                        {/* Badge de prioridade */}
-                        {notification.priority === NotificationPriority.URGENT && (
-                          <Badge variant="destructive" className="mt-2 text-xs">
-                            Urgente
-                          </Badge>
-                        )}
-                        {notification.priority === NotificationPriority.HIGH && (
-                          <Badge variant="outline" className="mt-2 text-xs border-orange-500 text-orange-600">
-                            Alta
-                          </Badge>
-                        )}
                       </div>
                     </div>
                   </div>
@@ -230,7 +173,7 @@ export function NotificationBell({ className = '' }: NotificationBellProps) {
           {notifications.length > 0 && (
             <div className="p-4 border-t border-gray-200 bg-gray-50">
               <p className="text-xs text-gray-500 text-center">
-                {unreadCount} não lidas de {notifications.length} total
+                {unreadCount} não lidas de {notifications.length} no total
               </p>
             </div>
           )}

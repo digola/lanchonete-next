@@ -1,8 +1,31 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Desativar Strict Mode em desenvolvimento para evitar efeitos duplicados
+  // e reduzir requisições automáticas duplicadas
+  reactStrictMode: false,
   // Otimizações experimentais
+  // Desabilitar temporariamente otimização de imports para evitar erros de
+  // clientReferenceManifest em desenvolvimento com Next 15
+  // Referência: problemas conhecidos ao otimizar pacotes de ícones
   experimental: {
-    optimizePackageImports: ['lucide-react', '@heroicons/react'],
+    // Mantemos optimizePackageImports desabilitado manualmente aqui devido a erros
+    // observados em desenvolvimento com Next 15.5 (clientReferenceManifest).
+    // Nota: Algumas bibliotecas como lucide-react já são otimizadas por padrão
+    // pelo Next.js, conforme a documentação oficial.
+    // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports
+    // optimizePackageImports: ['lucide-react', '@heroicons/react'],
+  },
+
+  // Configuração específica do Turbopack (Next.js) para suportar loaders
+  // recomendados oficialmente, como @svgr/webpack para SVGs.
+  // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack
+  turbopack: {
+    rules: {
+      '*.svg': {
+        loaders: ['@svgr/webpack'],
+        as: '*.js',
+      },
+    },
   },
   
   // Configurações de TypeScript para deploy
@@ -45,15 +68,16 @@ const nextConfig = {
   generateEtags: true,
 
   // Webpack customizado
-  webpack: (config, { isServer }) => {
+  webpack: (config, { isServer, dev }) => {
     // Suporte a SVG
     config.module.rules.push({
       test: /\.svg$/,
       use: ['@svgr/webpack'],
     });
 
-    // Otimizações de produção
-    if (!isServer) {
+    // Otimizações de produção (apenas em build/start)
+    // Evita sobrecarga no HMR durante desenvolvimento
+    if (!isServer && !dev) {
       config.optimization = {
         ...config.optimization,
         splitChunks: {

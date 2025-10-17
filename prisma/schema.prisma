@@ -16,25 +16,23 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("CUSTOMER") // CUSTOMER, STAFF, ADMIN
+  role      String   @default("CLIENTE") // CLIENTE, FUNCIONARIO, ADMINISTRADOR
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relacionamentos
   orders Order[]
-  finalizedOrders Order[] @relation("FinalizedOrders")
   tables Table[]
   cart   Cart?
-  stockMovements StockMovement[]
-  orderLogs OrderLog[] @relation("OrderLogs")
   notifications Notification[]
+  activityLogs ActivityLog[]
+  orderReviews OrderReview[]
 
   // Índices para performance
   @@index([email])
   @@index([role])
   @@index([isActive])
-  @@index([role, isActive])
   @@map("users")
 }
 
@@ -43,6 +41,7 @@ model Category {
   id          String    @id @default(cuid())
   name        String    @unique
   description String?
+  imageUrl    String?
   color       String?
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
@@ -65,13 +64,6 @@ model Product {
   allergens       String?
   isAvailable     Boolean   @default(true)
   imageUrl        String?
-  
-  // Campos de estoque
-  stockQuantity   Int?      @default(0)    // Quantidade em estoque
-  minStockLevel   Int?      @default(5)    // Nível mínimo de estoque
-  trackStock      Boolean   @default(false) // Se deve controlar estoque
-  maxStockLevel   Int?      @default(100)  // Nível máximo de estoque
-  
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -79,44 +71,36 @@ model Product {
   category Category @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
   cartItems CartItem[]
-  stockMovements StockMovement[]
 
   // Índices para performance
   @@index([categoryId])
   @@index([isAvailable])
   @@index([price])
   @@index([name])
-  @@index([categoryId, isAvailable])
-  @@index([name, isAvailable])
-  @@index([trackStock])
-  @@index([stockQuantity])
   @@map("products")
 }
 
 // Modelo Order
 model Order {
-  id              String   @id @default(cuid())
-  userId          String
-  status          String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, FINALIZADO, CANCELADO
-  total           Float    // Usando Float em vez de Decimal para SQLite
-  deliveryType    String   @default("RETIRADA") // RETIRADA, DELIVERY
-  deliveryAddress String?
-  paymentMethod   String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
-  isPaid          Boolean  @default(false) // Status de pagamento
-  isReceived      Boolean  @default(false) // Se o pedido foi recebido pelo cliente
-  isActive        Boolean  @default(true) // Status do pedido ativo/inativo
-  notes           String?
-  tableId         String?
-  finalizedBy     String?  // ID do funcionário que finalizou o pedido
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id                    String   @id @default(cuid())
+  userId                String
+  status                String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
+  total                 Float    // Usando Float em vez de Decimal para SQLite
+  deliveryType          String   @default("RETIRADA") // RETIRADA, DELIVERY
+  deliveryAddress       String?
+  estimatedDeliveryTime Int?     // Tempo estimado de entrega em minutos
+  deliveryFee           Float    @default(0) // Taxa de entrega
+  paymentMethod         String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
+  notes                 String?
+  tableId               String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
 
   // Relacionamentos
   user User @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
+  reviews OrderReview[]
   items OrderItem[]
-  finalizedByUser User? @relation("FinalizedOrders", fields: [finalizedBy], references: [id])
-  logs OrderLog[]
 
   // Índices para performance
   @@index([userId])
@@ -124,14 +108,6 @@ model Order {
   @@index([createdAt])
   @@index([tableId])
   @@index([deliveryType])
-  @@index([finalizedBy])
-  @@index([isActive])
-  @@index([status, tableId])
-  @@index([userId, status])
-  @@index([createdAt, status])
-  @@index([tableId, status])
-  @@index([isActive, status])
-  @@index([userId, isActive])
   @@map("orders")
 }
 
@@ -152,8 +128,27 @@ model OrderItem {
   // Índices para performance
   @@index([orderId])
   @@index([productId])
-  @@index([orderId, productId])
   @@map("order_items")
+}
+
+// Modelo OrderReview (avaliações de pedidos)
+model OrderReview {
+  id        String   @id @default(cuid())
+  orderId   String
+  userId    String
+  rating    Int      // 1 a 5
+  comment   String?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Índices
+  @@unique([orderId, userId]) // Um review por usuário por pedido
+  @@index([orderId])
+  @@index([userId])
+  @@map("order_reviews")
 }
 
 // Modelo Cart (carrinho temporário)
@@ -201,7 +196,7 @@ model Table {
   id              String   @id @default(cuid())
   number          Int      @unique
   capacity        Int      @default(4)
-  status          String   @default("LIVRE") // LIVRE, OCUPADA
+  status          String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
   area            String?  // Área da mesa (ex: "Área VIP", "Terraço")
   qrCode          String?  // Código QR da mesa
   assignedTo      String?
@@ -217,95 +212,20 @@ model Table {
   @@index([status])
   @@index([assignedTo])
   @@index([area])
-  @@index([status, assignedTo])
   @@map("tables")
-}
-
-// Modelo StockMovement (movimentações de estoque)
-model StockMovement {
-  id          String   @id @default(cuid())
-  productId   String
-  type        String   // ENTRADA, SAIDA, AJUSTE
-  quantity    Int      // Quantidade (positiva para entrada, negativa para saída)
-  reason      String   // Motivo da movimentação
-  reference   String?  // Referência (ex: número do pedido, nota fiscal)
-  userId      String?  // Usuário que fez a movimentação
-  notes       String?  // Observações adicionais
-  createdAt   DateTime @default(now())
-
-  // Relacionamentos
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  user    User?   @relation(fields: [userId], references: [id])
-
-  // Índices para performance
-  @@index([productId])
-  @@index([type])
-  @@index([createdAt])
-  @@index([userId])
-  @@index([productId, createdAt])
-  @@index([type, createdAt])
-  @@map("stock_movements")
-}
-
-// Modelo OrderLog (log de mudanças de status dos pedidos)
-model OrderLog {
-  id          String   @id @default(cuid())
-  orderId     String
-  userId      String?  // Usuário que fez a alteração
-  action      String   // CREATE, UPDATE_STATUS, CANCEL, etc.
-  oldValue    String?  // Valor anterior (JSON)
-  newValue    String?  // Novo valor (JSON)
-  field       String?  // Campo alterado (status, paymentMethod, etc.)
-  reason      String?  // Motivo da alteração
-  ipAddress   String?  // IP do usuário
-  userAgent   String?  // User agent
-  createdAt   DateTime @default(now())
-
-  // Relacionamentos
-  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  user  User? @relation("OrderLogs", fields: [userId], references: [id])
-
-  // Índices para performance
-  @@index([orderId])
-  @@index([userId])
-  @@index([createdAt])
-  @@index([action])
-  @@index([orderId, createdAt])
-  @@map("order_logs")
-}
-
-// Modelo Settings (Configurações do Sistema)
-model Settings {
-  id          String   @id @default(cuid())
-  key         String   @unique // Chave única da configuração
-  value       String   // Valor da configuração (JSON string)
-  category    String   // Categoria: general, payment, printing, backup
-  description String?  // Descrição da configuração
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Índices para performance
-  @@index([category])
-  @@index([key])
-  @@index([category, isActive])
-  @@map("settings")
 }
 
 // Modelo Notification (notificações do sistema)
 model Notification {
   id          String   @id @default(cuid())
-  userId      String?  // Usuário destinatário (null = todos os usuários)
-  title       String   // Título da notificação
-  message     String   // Mensagem da notificação
-  type        String   // Tipo: order, stock, system, payment, etc.
-  priority    String   @default("normal") // low, normal, high, urgent
+  userId      String?  // null = notificação global
+  type        String   // ORDER, SYSTEM, PROMOTION
+  title       String
+  message     String
   isRead      Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  data        String?  // Dados adicionais (JSON string)
-  expiresAt   DateTime? // Data de expiração da notificação
+  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  expiresAt   DateTime?
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
 
   // Relacionamentos
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -313,13 +233,48 @@ model Notification {
   // Índices para performance
   @@index([userId])
   @@index([type])
-  @@index([priority])
   @@index([isRead])
-  @@index([isActive])
   @@index([createdAt])
-  @@index([userId, isRead])
-  @@index([type, isActive])
-  @@index([expiresAt])
+  @@index([priority])
   @@map("notifications")
 }
 
+// Modelo SystemSettings (configurações do sistema)
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String   // JSON string
+  type        String   @default("STRING") // STRING, NUMBER, BOOLEAN, JSON
+  category    String   @default("GENERAL") // GENERAL, DELIVERY, PAYMENT, RESTAURANT
+  description String?
+  updatedAt   DateTime @updatedAt
+
+  // Índices para performance
+  @@index([key])
+  @@index([category])
+  @@map("system_settings")
+}
+
+// Modelo ActivityLog (logs de atividade)
+model ActivityLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String   // CREATE_ORDER, UPDATE_PRODUCT, etc.
+  entityType  String   // Order, Product, User
+  entityId    String
+  details     String?  // JSON com dados específicos
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  // Relacionamentos
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  // Índices para performance
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([entityId])
+  @@index([createdAt])
+  @@map("activity_logs")
+}

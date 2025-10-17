@@ -6,6 +6,8 @@ export interface CartItem {
   product: Product;
   quantity: number;
   price: number; // Preço no momento da adição
+  notes?: string;
+  customizations?: Record<string, any>;
   addedAt: Date;
 }
 

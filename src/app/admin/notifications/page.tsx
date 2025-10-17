@@ -4,161 +4,103 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
-import { useNotifications } from '@/hooks/useNotifications';
-import { NotificationType, NotificationPriority } from '@/types';
+import { useNotifications, AppNotification } from '@/hooks/useNotifications';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Bell, 
   Check, 
-  CheckCheck, 
   Trash2, 
   Filter,
-  AlertCircle,
-  ShoppingBag,
-  Package,
-  CreditCard,
-  Users,
-  Settings,
-  RefreshCw
+  Info,
+  CheckCircle,
+  AlertTriangle,
+  XCircle
 } from 'lucide-react';
 
-const getNotificationIcon = (type: string) => {
+const getNotificationIcon = (type: AppNotification['type']) => {
   switch (type) {
-    case NotificationType.ORDER:
-      return ShoppingBag;
-    case NotificationType.STOCK:
-      return Package;
-    case NotificationType.PAYMENT:
-      return CreditCard;
-    case NotificationType.USER:
-      return Users;
-    case NotificationType.SYSTEM:
-      return Settings;
+    case 'success':
+      return CheckCircle;
+    case 'warning':
+      return AlertTriangle;
+    case 'error':
+      return XCircle;
+    case 'info':
     default:
-      return AlertCircle;
+      return Info;
   }
 };
 
-const getPriorityColor = (priority: NotificationPriority) => {
-  switch (priority) {
-    case NotificationPriority.LOW:
-      return 'text-gray-500 bg-gray-100';
-    case NotificationPriority.NORMAL:
-      return 'text-blue-500 bg-blue-100';
-    case NotificationPriority.HIGH:
-      return 'text-orange-500 bg-orange-100';
-    case NotificationPriority.URGENT:
-      return 'text-red-500 bg-red-100';
-    default:
-      return 'text-gray-500 bg-gray-100';
-  }
-};
+// Removido: prioridade não existe no hook local
 
-const getTypeColor = (type: string) => {
+const getTypeColor = (type: AppNotification['type']) => {
   switch (type) {
-    case NotificationType.ORDER:
+    case 'success':
       return 'text-green-600 bg-green-100';
-    case NotificationType.STOCK:
+    case 'warning':
       return 'text-yellow-600 bg-yellow-100';
-    case NotificationType.PAYMENT:
-      return 'text-purple-600 bg-purple-100';
-    case NotificationType.USER:
-      return 'text-indigo-600 bg-indigo-100';
-    case NotificationType.SYSTEM:
-      return 'text-gray-600 bg-gray-100';
+    case 'error':
+      return 'text-red-600 bg-red-100';
+    case 'info':
     default:
-      return 'text-gray-600 bg-gray-100';
+      return 'text-blue-600 bg-blue-100';
   }
 };
 
 export default function NotificationsPage() {
-  const [filterType, setFilterType] = useState<string>('all');
+  const [filterType, setFilterType] = useState<'all' | AppNotification['type']>('all');
   const [filterRead, setFilterRead] = useState<'all' | 'read' | 'unread'>('all');
 
   const { 
     notifications, 
     unreadCount, 
-    loading, 
     markAsRead, 
     markAllAsRead, 
     removeNotification,
-    refetch,
-    getStats
-  } = useNotifications({ 
-    limit: 50,
-    autoRefresh: true,
-    refreshInterval: 30000
-  });
-
-  const stats = getStats();
+    addNotification,
+    clearAll
+  } = useNotifications();
 
   // Filtrar notificações
   const filteredNotifications = notifications.filter(notification => {
     if (filterType !== 'all' && notification.type !== filterType) return false;
-    if (filterRead === 'read' && !notification.isRead) return false;
-    if (filterRead === 'unread' && notification.isRead) return false;
+    if (filterRead === 'read' && !notification.read) return false;
+    if (filterRead === 'unread' && notification.read) return false;
     return true;
   });
 
-  const handleMarkAsRead = async (notificationId: string) => {
-    await markAsRead(notificationId);
+  const handleMarkAsRead = (notificationId: string) => {
+    markAsRead(notificationId);
   };
 
-  const handleRemoveNotification = async (notificationId: string) => {
-    await removeNotification(notificationId);
+  const handleRemoveNotification = (notificationId: string) => {
+    removeNotification(notificationId);
   };
 
-  const handleMarkAllAsRead = async () => {
-    await markAllAsRead();
+  const handleMarkAllAsRead = () => {
+    markAllAsRead();
   };
 
   const handleRefresh = () => {
-    refetch();
+    addNotification({
+      title: 'Lista atualizada',
+      message: 'As notificações locais foram atualizadas.',
+      type: 'info'
+    });
   };
 
-  const handleCreateTestNotifications = async () => {
-    try {
-      const response = await fetch('/api/admin/notifications/test', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ type: 'all' }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(`${result.message}`);
-        refetch(); // Atualizar a lista
-      } else {
-        alert('Erro ao criar notificações de teste');
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao criar notificações de teste');
-    }
+  const handleCreateTestNotifications = () => {
+    const samples: Omit<AppNotification, 'id' | 'timestamp' | 'read'>[] = [
+      { title: 'Pedido Confirmado! ✅', message: 'Seu pedido foi confirmado e está sendo preparado.', type: 'success' },
+      { title: 'Pedido Saiu para Entrega! 🚚', message: 'Seu pedido saiu para entrega. Chegada estimada em 30 minutos.', type: 'info' },
+      { title: 'Atenção ao Estoque!', message: 'Um produto está com estoque baixo.', type: 'warning' },
+      { title: 'Erro de Sistema', message: 'Falha ao sincronizar com o servidor.', type: 'error' }
+    ];
+    samples.forEach(n => addNotification(n));
   };
 
-  const handleCleanupNotifications = async () => {
-    try {
-      const response = await fetch('/api/admin/notifications/cleanup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        alert(result.message);
-        refetch(); // Atualizar a lista
-      } else {
-        alert('Erro ao limpar notificações');
-      }
-    } catch (error) {
-      console.error('Erro:', error);
-      alert('Erro ao limpar notificações');
-    }
+  const handleCleanupNotifications = () => {
+    clearAll();
   };
 
   return (
@@ -175,7 +117,6 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             onClick={handleCreateTestNotifications}
-            disabled={loading}
           >
             <Bell className="h-4 w-4 mr-2" />
             Criar Teste
@@ -183,7 +124,6 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             onClick={handleCleanupNotifications}
-            disabled={loading}
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Limpar
@@ -191,9 +131,8 @@ export default function NotificationsPage() {
           <Button
             variant="outline"
             onClick={handleRefresh}
-            disabled={loading}
           >
-            <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+            <Info className={`h-4 w-4 mr-2`} />
             Atualizar
           </Button>
           {unreadCount > 0 && (
@@ -201,22 +140,22 @@ export default function NotificationsPage() {
               variant="primary"
               onClick={handleMarkAllAsRead}
             >
-              <CheckCheck className="h-4 w-4 mr-2" />
+              <Check className="h-4 w-4 mr-2" />
               Marcar todas como lidas
             </Button>
           )}
         </div>
       </div>
 
-      {/* Estatísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* Estatísticas simples */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center">
               <Bell className="h-8 w-8 text-blue-500" />
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Total</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-2xl font-bold text-gray-900">{notifications.length}</p>
               </div>
             </div>
           </CardContent>
@@ -225,7 +164,7 @@ export default function NotificationsPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-orange-500" />
+              <AlertTriangle className="h-8 w-8 text-orange-500" />
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Não lidas</p>
                 <p className="text-2xl font-bold text-gray-900">{unreadCount}</p>
@@ -240,21 +179,7 @@ export default function NotificationsPage() {
               <Check className="h-8 w-8 text-green-500" />
               <div className="ml-3">
                 <p className="text-sm font-medium text-gray-600">Lidas</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total - unreadCount}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <AlertCircle className="h-8 w-8 text-red-500" />
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-600">Urgentes</p>
-                <p className="text-2xl font-bold text-gray-900">
-                  {stats.byPriority[NotificationPriority.URGENT] || 0}
-                </p>
+                <p className="text-2xl font-bold text-gray-900">{notifications.length - unreadCount}</p>
               </div>
             </div>
           </CardContent>
@@ -277,15 +202,14 @@ export default function NotificationsPage() {
               </label>
               <select
                 value={filterType}
-                onChange={(e) => setFilterType(e.target.value as NotificationType | 'all')}
+                onChange={(e) => setFilterType(e.target.value as AppNotification['type'] | 'all')}
                 className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="all">Todos os tipos</option>
-                <option value={NotificationType.ORDER}>Pedidos</option>
-                <option value={NotificationType.STOCK}>Estoque</option>
-                <option value={NotificationType.PAYMENT}>Pagamento</option>
-                <option value={NotificationType.USER}>Usuários</option>
-                <option value={NotificationType.SYSTEM}>Sistema</option>
+                <option value="success">Sucesso</option>
+                <option value="info">Informações</option>
+                <option value="warning">Avisos</option>
+                <option value="error">Erros</option>
               </select>
             </div>
 
@@ -315,12 +239,7 @@ export default function NotificationsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          {loading ? (
-            <div className="p-8 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-              <p className="text-gray-500 mt-2">Carregando notificações...</p>
-            </div>
-          ) : filteredNotifications.length === 0 ? (
+          {filteredNotifications.length === 0 ? (
             <div className="p-8 text-center">
               <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-500">Nenhuma notificação encontrada</p>
@@ -329,14 +248,13 @@ export default function NotificationsPage() {
             <div className="divide-y divide-gray-200">
               {filteredNotifications.map((notification) => {
                 const IconComponent = getNotificationIcon(notification.type);
-                const priorityColor = getPriorityColor(notification.priority);
                 const typeColor = getTypeColor(notification.type);
 
                 return (
                   <div
                     key={notification.id}
                     className={`p-4 hover:bg-gray-50 transition-colors ${
-                      !notification.isRead ? 'bg-blue-50' : ''
+                      !notification.read ? 'bg-blue-50' : ''
                     }`}
                   >
                     <div className="flex items-start space-x-4">
@@ -350,14 +268,11 @@ export default function NotificationsPage() {
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-1">
-                              <h3 className={`text-sm font-medium ${
-                                !notification.isRead ? 'text-gray-900' : 'text-gray-700'
-                              }`}>
-                                {notification.title}
-                              </h3>
-                              <Badge className={`text-xs ${priorityColor}`}>
-                                {notification.priority}
-                              </Badge>
+                               <h3 className={`text-sm font-medium ${
+                                !notification.read ? 'text-gray-900' : 'text-gray-700'
+                               }`}>
+                                 {notification.title}
+                               </h3>
                               <Badge variant="outline" className="text-xs">
                                 {notification.type}
                               </Badge>
@@ -366,13 +281,13 @@ export default function NotificationsPage() {
                               {notification.message}
                             </p>
                             <p className="text-xs text-gray-400">
-                              {formatDateTime(notification.createdAt)}
+                              {formatDateTime(notification.timestamp)}
                             </p>
                           </div>
 
                           {/* Ações */}
                           <div className="flex items-center space-x-2 ml-4">
-                            {!notification.isRead && (
+                            {!notification.read && (
                               <Button
                                 variant="outline"
                                 size="sm"

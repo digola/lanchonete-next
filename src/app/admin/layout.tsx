@@ -32,8 +32,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     user.role === 'Administrador' ||
     user.role?.toLowerCase() === 'administrador' ||
     user.role?.toLowerCase().includes('admin')
+   
   );
-  
+   console.log(user);
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center">

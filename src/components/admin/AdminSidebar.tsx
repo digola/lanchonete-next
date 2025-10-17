@@ -144,6 +144,7 @@ export function AdminSidebar() {
                 <Link
                   key={item.name}
                   href={item.href}
+                  prefetch={false}
                   className={cn(
                     'flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-colors',
                     isActive
@@ -194,6 +195,7 @@ export function AdminSidebar() {
           <nav className="space-y-1">
             <Link
               href="/admin/help"
+              prefetch={false}
               className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
             >
               <HelpCircle className="h-5 w-5 mr-3" />
@@ -201,6 +203,7 @@ export function AdminSidebar() {
             </Link>
             <Link
               href="/admin/logs"
+              prefetch={false}
               className="flex items-center px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
             >
               <Database className="h-5 w-5 mr-3" />

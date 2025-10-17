@@ -36,7 +36,7 @@ export function AdminHeader() {
         <div className="flex justify-between items-center h-16">
           {/* Logo e Navegação Principal */}
           <div className="flex items-center space-x-4">
-            <Link href="/admin/dashboard" className="flex items-center space-x-2">
+            <Link href="/admin/dashboard" prefetch={false} className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-primary-500 rounded-lg flex items-center justify-center">
                 <Shield className="h-5 w-5 text-white" />
               </div>
@@ -46,18 +46,21 @@ export function AdminHeader() {
             <nav className="hidden md:flex items-center space-x-6">
               <Link 
                 href="/admin/dashboard" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Dashboard
               </Link>
               <Link 
                 href="/admin/products" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Produtos
               </Link>
               <Link 
                 href="/admin/categories" 
+                prefetch={false}
                 className="text-gray-600 hover:text-primary-600 transition-colors"
               >
                 Categorias

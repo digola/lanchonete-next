@@ -1,8 +1,7 @@
 'use client';
 
 import { useCart } from '@/hooks/useCart';
-import { useApiAuth } from '@/hooks/useApiAuth';
-import { useApi } from '@/hooks/useApi';
+import { useOptimizedAuth } from '@/hooks/useOptimizedAuth';
 import { Button } from '@/components/ui/Button';
 import { Card, CardContent } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
@@ -10,8 +9,8 @@ import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function CartPage() {
   const {
@@ -25,37 +24,14 @@ export default function CartPage() {
     isEmpty,
   } = useCart();
 
-  const { isAuthenticated, user } = useApiAuth();
+  const { isAuthenticated, user } = useOptimizedAuth();
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [deliveryType, setDeliveryType] = useState('RETIRADA');
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
-  const [tableId, setTableId] = useState<string | null>(null);
-  const [tableNumber, setTableNumber] = useState<number | null>(null);
-
-  // Verificar se é staff e se há mesa na URL
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  
-  // Buscar dados da mesa se tableId estiver disponível
-  const { data: tableData } = useApi<any>(tableId ? `/api/tables/${tableId}` : '', { immediate: !!tableId });
-  
-  useEffect(() => {
-    const tableIdParam = searchParams.get('tableId');
-    if (tableIdParam) {
-      setTableId(tableIdParam);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (tableData) {
-      const table = tableData.data || tableData;
-      setTableNumber(table?.number);
-    }
-  }, [tableData]);
 
   // Função para finalizar o pedido
   const handleFinalizeOrder = async () => {
@@ -73,56 +49,47 @@ export default function CartPage() {
     setIsProcessing(true);
 
     try {
-      console.log('🚀 Iniciando finalização do pedido...');
-      console.log('📦 Itens do carrinho:', items);
-      console.log('🏪 É staff?', isStaff);
-      console.log('🪑 TableId:', tableId);
+      console.log('🛒 Iniciando finalização do pedido:', {
+        items: items,
+        totalPrice: totalPrice,
+        userId: user?.id
+      });
 
       // Preparar dados do pedido
       const orderData = {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
-          price: item.price
+          price: item.price,
+          notes: item.notes || null,
+          customizations: item.customizations || null
         })),
-        ...(isStaff && tableId ? { tableId } : {
-          deliveryType: deliveryType,
-          deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
-        }),
-        // Para staff, usar pagamento em dinheiro
-        ...(isStaff ? { paymentMethod: 'DINHEIRO' } : { paymentMethod: paymentMethod }),
+        deliveryType: deliveryType,
+        paymentMethod: paymentMethod,
+        deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
         notes: orderNotes,
         total: totalPrice
       };
 
-      console.log('📋 Dados do pedido preparados:', orderData);
-
-      // Verificar token
-      const token = localStorage.getItem('auth-token');
-      console.log('🔑 Token presente?', !!token);
+      console.log('📦 Dados do pedido preparados:', orderData);
 
       // Fazer requisição para criar o pedido no banco
-      console.log('🌐 Enviando requisição para /api/orders...');
       const response = await fetch('/api/orders', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
         },
         body: JSON.stringify(orderData)
       });
 
-      console.log('📡 Resposta recebida:', response.status, response.statusText);
       const result = await response.json();
-      console.log('📄 Resultado:', result);
 
       if (!response.ok) {
-        console.error('❌ Erro na resposta:', result);
         throw new Error(result.error || 'Erro ao criar pedido');
       }
 
-      console.log('✅ Pedido criado com sucesso:', result.data);
-
+      console.log('✅ Pedido criado com sucesso:', result);
 
       // Limpar carrinho após sucesso
       clearCart();
@@ -130,28 +97,29 @@ export default function CartPage() {
       // Mostrar mensagem de sucesso
       setOrderCompleted(true);
       
-      // Redirecionar baseado no tipo de usuário
+      // Redirecionar para dashboard após 3 segundos
       setTimeout(() => {
-        if (user?.role === 'STAFF' || user?.role === 'ADMIN') {
-          // Staff vai para /staff após finalizar pedido
-          router.push('/staff');
-        } else if (user?.role === 'MANAGER') {
-          // Manager vai para expedição após finalizar pedido
-          router.push('/expedicao');
-        } else {
-          // Clientes vão para dashboard
-          router.push('/customer/dashboard');
-        }
+        router.push('/customer/dashboard');
       }, 3000);
       
-    } catch (error: any) {
-      console.error('❌ Erro ao finalizar pedido:', error);
-      alert(`Erro ao finalizar pedido: ${error.message || 'Tente novamente.'}`);
+    } catch (err) {
+      console.error('❌ Erro ao finalizar pedido:', err);
+      const message = err instanceof Error ? err.message : 'Tente novamente.';
+      alert(`Erro ao finalizar pedido: ${message}`);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  // Debug: Log detalhado na página /cart
+  console.log('🛒 CartPage - Estado completo:', {
+    itemsCount: items.length,
+    totalItems,
+    totalPrice,
+    isEmpty,
+    items: items,
+    localStorage: typeof window !== 'undefined' ? localStorage.getItem('lanchonete-cart-v2') : 'N/A'
+  });
 
 
 
@@ -180,12 +148,30 @@ export default function CartPage() {
           <div className="text-center">
             <div className="text-6xl mb-6">🛒</div>
             <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            você será Redirecionado...
+              Seu carrinho está vazio
             </h1>
             <p className="text-gray-600 mb-8">
               Que tal adicionar alguns produtos deliciosos?
             </p>
             
+            {/* Debug Panel */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 max-w-md mx-auto">
+              <h3 className="font-semibold text-yellow-800 mb-2">🔧 Debug Panel</h3>
+              <div className="text-sm text-yellow-700 space-y-1">
+                <p>Items: {items.length}</p>
+                <p>Total Items: {totalItems}</p>
+                <p>Total Price: R$ {totalPrice.toFixed(2)}</p>
+                <p>Is Empty: {isEmpty ? 'SIM' : 'NÃO'}</p>
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => window.location.reload()}
+                className="mt-2"
+              >
+                🔄 Recarregar Página
+              </Button>
+            </div>
             
             <Link href="/">
               <Button variant="primary" size="lg" leftIcon={<ArrowLeft className="h-5 w-5" />}>
@@ -319,16 +305,13 @@ export default function CartPage() {
                   <div className="text-center py-8">
                     <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
                     <h2 className="text-xl font-semibold text-gray-900 mb-2">
-                      {isStaff ? 'Pedido Enviado para Cozinha!' : 'Pedido Enviado com Sucesso!'}
+                      Pedido Enviado com Sucesso!
                     </h2>
                     <p className="text-gray-600 mb-4">
-                      {isStaff 
-                        ? `Pedido da Mesa ${tableNumber || 'N/A'} foi enviado para a cozinha e está sendo preparado.`
-                        : 'Seu pedido foi enviado e está sendo processado.'
-                      }
+                      Seu pedido foi enviado e está sendo processado.
                     </p>
                     <p className="text-sm text-gray-500">
-                      {isStaff ? 'Redirecionando para o painel de staff...' : 'Redirecionando para o dashboard...'}
+                      Redirecionando para o dashboard...
                     </p>
                   </div>
                 ) : (
@@ -358,64 +341,39 @@ export default function CartPage() {
 
                 {/* Campos de seleção do pedido */}
                 <div className="space-y-4 mb-6">
-                  {/* Para Staff: Exibir número da mesa */}
-                  {isStaff && tableId && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Mesa Selecionada
-                      </label>
-                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-2xl">🪑</span>
-                          <div>
-                            <p className="font-semibold text-blue-900">
-                              Mesa {tableNumber || 'N/A'}
-                            </p>
-                            <p className="text-sm text-blue-700">
-                              Pedido será criado para esta mesa
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+                  {/* Tipo de entrega */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Tipo de Entrega
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('RETIRADA')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          deliveryType === 'RETIRADA'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        🏪 Retirada
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDeliveryType('DELIVERY')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          deliveryType === 'DELIVERY'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        🚚 Delivery
+                      </button>
                     </div>
-                  )}
+                  </div>
 
-
-                  {/* Para Clientes: Tipo de entrega */}
-                  {!isStaff && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Tipo de Entrega
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryType('RETIRADA')}
-                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                            deliveryType === 'RETIRADA'
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          🏪 Retirada
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryType('DELIVERY')}
-                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                            deliveryType === 'DELIVERY'
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          🚚 Delivery
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Endereço de entrega (se delivery e não for staff) */}
-                  {!isStaff && deliveryType === 'DELIVERY' && (
+                  {/* Endereço de entrega (se delivery) */}
+                  {deliveryType === 'DELIVERY' && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
                         Endereço de Entrega
@@ -430,38 +388,36 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {/* Método de pagamento - apenas para clientes */}
-                  {!isStaff && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Método de Pagamento
-                      </label>
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('DINHEIRO')}
-                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                            paymentMethod === 'DINHEIRO'
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          💵 Dinheiro
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('CARTAO')}
-                          className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
-                            paymentMethod === 'CARTAO'
-                              ? 'border-primary-500 bg-primary-50 text-primary-700'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                          }`}
-                        >
-                          💳 Cartão
-                        </button>
-                      </div>
+                  {/* Método de pagamento */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Método de Pagamento
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('DINHEIRO')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          paymentMethod === 'DINHEIRO'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        💵 Dinheiro
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod('CARTAO')}
+                        className={`p-3 text-sm font-medium rounded-lg border-2 transition-colors ${
+                          paymentMethod === 'CARTAO'
+                            ? 'border-primary-500 bg-primary-50 text-primary-700'
+                            : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        💳 Cartão
+                      </button>
                     </div>
-                  )}
+                  </div>
 
                   {/* Observações */}
                   <div>
@@ -484,7 +440,7 @@ export default function CartPage() {
                   fullWidth 
                   className="mb-4"
                   onClick={handleFinalizeOrder}
-                  disabled={isProcessing || (!isStaff && deliveryType === 'DELIVERY' && !deliveryAddress.trim())}
+                  disabled={isProcessing || (deliveryType === 'DELIVERY' && !deliveryAddress.trim())}
                 >
                   {isProcessing ? (
                     <>
@@ -493,17 +449,8 @@ export default function CartPage() {
                     </>
                   ) : (
                     <>
-                      {isStaff ? (
-                        <>
-                          <CheckCircle className="h-5 w-5 mr-2" />
-                          Enviar pra Cozinha
-                        </>
-                      ) : (
-                        <>
-                          <ShoppingCart className="h-5 w-5 mr-2" />
-                          Finalizar Pedido
-                        </>
-                      )}
+                      <ShoppingCart className="h-5 w-5 mr-2" />
+                      Finalizar Pedido
                     </>
                   )}
                 </Button>

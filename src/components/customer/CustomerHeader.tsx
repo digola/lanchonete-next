@@ -164,7 +164,7 @@ export function CustomerHeader() {
                         <div
                           key={notification.id}
                           className={`px-4 py-3 hover:bg-gray-50 cursor-pointer border-l-4 ${
-                            notification.isRead 
+                            notification.read 
                               ? 'border-transparent bg-white' 
                               : 'border-primary-500 bg-primary-50'
                           }`}
@@ -182,7 +182,7 @@ export function CustomerHeader() {
                                 {formatNotificationTime(notification.timestamp)}
                               </p>
                             </div>
-                            {!notification.isRead && (
+                            {!notification.read && (
                               <div className="w-2 h-2 bg-primary-500 rounded-full flex-shrink-0 mt-1 ml-2"></div>
                             )}
                           </div>

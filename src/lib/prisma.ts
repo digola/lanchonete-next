@@ -1,45 +1,51 @@
-import type { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Configurar DATABASE_URL padrão se não estiver definida
+// Detectar ambiente Vercel/produção
+const isVercel = !!process.env.VERCEL;
+const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
+
+// Configurar DATABASE_URL padrão somente em desenvolvimento local
 if (!process.env.DATABASE_URL) {
-  console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
-  process.env.DATABASE_URL = 'file:./dev.db';
+  if (isProdLike) {
+    // Em produção (inclui Vercel), não usar SQLite.
+    // Isso evita 500 causados por tentativa de usar arquivo SQLite em filesystem read-only.
+    console.error('❌ DATABASE_URL não definida em produção. Configure a variável no Vercel (Project Settings → Environment Variables).');
+  } else {
+    console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
+    process.env.DATABASE_URL = 'file:./dev.db';
+  }
 }
 
-let prismaInstance: PrismaClient | undefined = globalForPrisma.prisma;
+// Lazy initialization: cria o client apenas no primeiro acesso
+let prismaClient: PrismaClient | undefined = globalForPrisma.prisma;
 
-function createClient(): PrismaClient {
-  const { PrismaClient } = require('@prisma/client') as typeof import('@prisma/client');
-  return new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['error', 'warn'] : ['error'],
-  });
-}
-
-export const getPrisma = (): PrismaClient => {
-  if (!prismaInstance) {
-    prismaInstance = createClient();
-    if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prismaInstance;
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop, receiver) {
+    if (!prismaClient) {
+      // Bloquear inicialização sem DATABASE_URL em ambientes de produção/Vercel
+      if (isProdLike && !process.env.DATABASE_URL) {
+        throw new Error('DATABASE_URL não definida no ambiente de produção. Configure-a no Vercel para habilitar o banco de dados.');
+      }
+      prismaClient = new PrismaClient();
+      if (process.env.NODE_ENV !== 'production') {
+        globalForPrisma.prisma = prismaClient;
+      }
+    }
+    // @ts-ignore acessa propriedades dinamicamente do PrismaClient
+    return Reflect.get(prismaClient, prop, receiver);
   }
-  return prismaInstance;
-};
-
-// Proxy para inicialização lazy: só cria o cliente quando for usado
-export const prisma = new Proxy({}, {
-  get(_target, prop) {
-    const client = getPrisma() as unknown as Record<string | symbol, unknown>;
-    return client[prop as keyof typeof client];
-  }
-}) as unknown as PrismaClient;
+});
 
 // Função para conectar ao banco
 export const connectDatabase = async () => {
   try {
+    // força criação do client e conexão
     await prisma.$connect();
-    console.log('✅ Conectado ao banco de dados PostgreSQL');
+    console.log('✅ Conectado ao banco de dados');
   } catch (error) {
     console.error('❌ Erro ao conectar ao banco de dados:', error);
     throw error;
@@ -67,22 +73,19 @@ export const checkDatabaseHealth = async () => {
   }
 };
 
-// Middleware para logging de queries (desabilitado por padrão)
-// Para habilitar, defina ENABLE_QUERY_LOGS=true no .env
-if (process.env.NODE_ENV === 'development' && process.env.ENABLE_QUERY_LOGS === 'true') {
-  prisma.$use(async (params: any, next: any) => {
-    const before = Date.now();
-    const result = await next(params);
-    const after = Date.now();
-    
-    // Log apenas queries muito lentas (>500ms)
-    if (after - before > 500) {
-      console.log(`⚠️ Very Slow Query: ${params.model}.${params.action} took ${after - before}ms`);
-      console.log(`   Model: ${params.model}, Action: ${params.action}`);
-    }
-    
-    return result;
-  });
+// Middleware para logging de queries (apenas em desenvolvimento)
+if (process.env.NODE_ENV === 'development') {
+  // inicializa e aplica middleware somente quando usado
+  (async () => {
+    const client = (prisma as unknown as PrismaClient);
+    client.$use(async (params: any, next: any) => {
+      const before = Date.now();
+      const result = await next(params);
+      const after = Date.now();
+      console.log(`🔍 Query ${params.model}.${params.action} took ${after - before}ms`);
+      return result;
+    });
+  })().catch(() => {});
 }
 
 export default prisma;
