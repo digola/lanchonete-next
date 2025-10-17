@@ -40,7 +40,7 @@ CLI opcional:
 - `vercel env pull .env` (sincronizar env local)
 
 ## Banco de Dados (Prisma)
-- Em produção, preferir PostgreSQL. O repositório possui `schema-postgresql.prisma` e `scripts/switch-schema.js` caso deseje alternar.
+- Em produção, preferir PostgreSQL. O repositório alterna automaticamente o schema para PostgreSQL durante o build (não é necessário rodar scripts manuais).
 - Migrações em produção:
   - Execute: `npx prisma migrate deploy` usando `DATABASE_URL` de produção.
   - Pode ser incluído no `build` para automatizar (ver abaixo).
@@ -49,17 +49,18 @@ CLI opcional:
   - Alternativa: Vercel Postgres (gerenciado).
 
 ## Comando de Build recomendado
-No `package.json`, ajuste o script de build para:
+Use o script único de build que consolida mapeamento de variáveis, alternância de schema, geração do Prisma e migrações:
 
-```json
-{
-  "scripts": {
-    "build": "prisma generate && prisma migrate deploy && next build"
-  }
-}
+```
+node scripts/build-vercel.js
 ```
 
-Isso garante que o Prisma Client esteja gerado e migrações estejam aplicadas antes do build.
+Esse script assegura que:
+- `DATABASE_URL`/`DIRECT_URL` sejam resolvidas (incluindo aliases do Supabase);
+- o schema Prisma seja alternado automaticamente para PostgreSQL em produção/Vercel;
+- o Prisma Client seja gerado;
+- migrações sejam aplicadas com `migrate deploy` quando as variáveis estiverem corretas;
+- o `next build` seja executado em seguida.
 
 ## Runtime e Compatibilidade (Node.js)
 - Prisma requer runtime Node (não Edge). Em rotas/API que usam Prisma, se necessário, declare:

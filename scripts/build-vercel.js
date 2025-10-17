@@ -10,6 +10,8 @@
  */
 
 const { spawnSync } = require('child_process');
+const fs = require('fs');
+const path = require('path');
 
 function log(msg) {
   console.log(`[build] ${msg}`);
@@ -55,13 +57,73 @@ function mapEnvAliases() {
   }
 }
 
+function ensurePgbouncerOn6543() {
+  const urlStr = process.env.DATABASE_URL;
+  if (!urlStr) return;
+  try {
+    const u = new URL(urlStr);
+    if (u.port === '6543') {
+      if (!u.searchParams.has('pgbouncer')) {
+        u.searchParams.set('pgbouncer', 'true');
+        process.env.DATABASE_URL = u.toString();
+        log('Appended pgbouncer=true to DATABASE_URL (port 6543)');
+      }
+      if (!u.searchParams.has('sslmode')) {
+        u.searchParams.set('sslmode', 'require');
+        process.env.DATABASE_URL = u.toString();
+        log('Appended sslmode=require to DATABASE_URL');
+      }
+    }
+  } catch (_) {
+    // ignore parse issues; user may use non-standard URL
+  }
+}
+
+function validateDbEnv() {
+  const db = process.env.DATABASE_URL || '';
+  const direct = process.env.DIRECT_URL || '';
+  if (/host:5432/.test(db)) {
+    console.warn('⚠️ DATABASE_URL parece conter placeholder "host:5432". Configure um host real (ex.: db.<project-ref>.supabase.co)');
+  }
+  if (/host:5432/.test(direct)) {
+    console.warn('⚠️ DIRECT_URL parece conter placeholder "host:5432". Configure um host real (ex.: db.<project-ref>.supabase.co)');
+  }
+  // Aviso: migrations devem usar porta 5432 (sem pool)
+  try {
+    if (direct) {
+      const du = new URL(direct);
+      if (du.port && du.port !== '5432') {
+        console.warn('⚠️ DIRECT_URL não está na porta 5432. Recomenda-se usar 5432 para migrações (conexão direta, sem pool).');
+      }
+    }
+  } catch (_) {}
+}
+
+function switchSchemaAuto() {
+  const prismaDir = path.join(process.cwd(), 'prisma');
+  const targetPath = path.join(prismaDir, 'schema.prisma');
+  const isVercel = !!process.env.VERCEL;
+  const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
+  const dbUrl = process.env.DATABASE_URL || '';
+  const usePostgres = isProdLike || /^postgres(ql)?:\/\//i.test(dbUrl);
+  const sourceFile = usePostgres ? 'schema-postgresql.prisma' : 'schema-sqlite.prisma';
+  const sourcePath = path.join(prismaDir, sourceFile);
+  if (!fs.existsSync(sourcePath)) {
+    throw new Error(`Source schema not found: ${sourcePath}`);
+  }
+  fs.copyFileSync(sourcePath, targetPath);
+  log(`Active schema set to: ${sourceFile} -> schema.prisma`);
+}
+
 async function main() {
   try {
     // 1) Map aliases FIRST to ensure schema switch sees DATABASE_URL
     mapEnvAliases();
+    ensurePgbouncerOn6543();
+    validateDbEnv();
 
     // 2) Switch schema automatically
-    run('node', ['scripts/switch-schema-auto.js']);
+    switchSchemaAuto();
 
     // 3) Generate Prisma client
     run('npx', ['prisma', 'generate']);
