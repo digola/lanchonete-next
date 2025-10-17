@@ -147,7 +147,7 @@ JWT_SECRET="a8f3k2j9d7s6h4g1m5n8b3v2c7x9z4q1w6e8r5t2y7u3i9o0p4l6k2j8h5g3f1d"
 NEXTAUTH_SECRET="z4x9c7v2b8n3m5g1h6s4d2j9k3f7l1p6o0i9u3y2t7r5e8w6q1a4k2j8h5g3f1d"
 NEXTAUTH_URL="https://lanchonete-next.vercel.app"
 NODE_ENV="production"
-```
+```   
 
 ---
 
