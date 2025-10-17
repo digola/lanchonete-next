@@ -10,17 +10,24 @@ Copie e cole essas variáveis em: **Vercel Dashboard → Settings → Environmen
 
 ```env
 DATABASE_URL
+DIRECT_URL
 ```
-**Valor**: Cole a connection string do seu banco de dados
+**Valor**:
+- DATABASE_URL: use a conexão Pooled (PgBouncer) para o runtime da aplicação
+- DIRECT_URL: use a conexão Direta (sem PgBouncer) para migrações do Prisma
 
-**Onde obter**:
-- **Supabase**: Settings → Database → Connection string (URI)
-- **Vercel Postgres**: Será gerado automaticamente
-- **PlanetScale**: Dashboard → Connect → Prisma
+**Onde obter (Supabase)**:
+- Project Settings → Database → Connection string (URI)
+- Pooled (porta 6543) → DATABASE_URL
+- Direct (porta 5432) → DIRECT_URL
 
-**Exemplo**:
+**Exemplos Supabase** (substitua SEUPROJECTREF e SUA_SENHA):
 ```
-postgresql://postgres.xxxxx:SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres
+# Runtime (Pooled)
+postgresql://postgres:SUA_SENHA@db.SEUPROJECTREF.supabase.co:6543/postgres?sslmode=require&pgbouncer=true&connection_limit=1&schema=public
+
+# Migrações (Direto)
+postgresql://postgres:SUA_SENHA@db.SEUPROJECTREF.supabase.co:5432/postgres?sslmode=require&schema=public
 ```
 
 ---
@@ -88,7 +95,25 @@ https://lanchonete-next-seu-usuario.vercel.app
 
 ---
 
-## 5️⃣ Node Environment
+## 5️⃣ App URL
+
+```env
+APP_URL
+```
+**Valor**: Igual ao NEXTAUTH_URL (use https em produção)
+
+**Exemplos**:
+```
+# Development
+APP_URL="http://localhost:3000"
+
+# Preview / Production
+APP_URL="https://seu-app.vercel.app"  # ou seu domínio
+```
+
+---
+
+## 6️⃣ Node Environment
 
 ```env
 NODE_ENV
@@ -102,10 +127,12 @@ production
 
 ## ✅ Checklist de Configuração
 
-- [ ] DATABASE_URL configurada e testada
+- [ ] DATABASE_URL (Pooled) configurada e testada
+- [ ] DIRECT_URL (Direta) configurada
 - [ ] JWT_SECRET gerado (32+ caracteres)
 - [ ] NEXTAUTH_SECRET gerado (32+ caracteres, diferente do JWT)
 - [ ] NEXTAUTH_URL configurada
+- [ ] APP_URL configurada
 - [ ] NODE_ENV=production
 - [ ] Todas as variáveis salvas no Vercel
 - [ ] Deploy realizado
@@ -125,7 +152,7 @@ production
    - Clique em **Add**
    - Cole o **Nome** (ex: `DATABASE_URL`)
    - Cole o **Valor** (ex: a connection string)
-   - Selecione **Production, Preview, Development**
+   - Selecione **Production, Preview, Development** (adicione pelo menos Preview e Production)
    - Clique em **Save**
 
 ---
@@ -142,10 +169,12 @@ production
 ## 📝 Exemplo Completo
 
 ```env
-DATABASE_URL="postgresql://postgres.abc123:SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL="postgresql://postgres:SENHA@db.SEUPROJECTREF.supabase.co:6543/postgres?sslmode=require&pgbouncer=true&connection_limit=1&schema=public"
+DIRECT_URL="postgresql://postgres:SENHA@db.SEUPROJECTREF.supabase.co:5432/postgres?sslmode=require&schema=public"
 JWT_SECRET="a8f3k2j9d7s6h4g1m5n8b3v2c7x9z4q1w6e8r5t2y7u3i9o0p4l6k2j8h5g3f1d"
 NEXTAUTH_SECRET="z4x9c7v2b8n3m5g1h6s4d2j9k3f7l1p6o0i9u3y2t7r5e8w6q1a4k2j8h5g3f1d"
 NEXTAUTH_URL="https://lanchonete-next.vercel.app"
+APP_URL="https://lanchonete-next.vercel.app"
 NODE_ENV="production"
 ```
 

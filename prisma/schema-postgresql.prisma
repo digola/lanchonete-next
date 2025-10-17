@@ -8,6 +8,9 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Usado pelo Prisma Migrate quando a URL principal é pool (PgBouncer)
+  // Configure DIRECT_URL com uma conexão direta (sem pool)
+  directUrl = env("DIRECT_URL")
 }
 
 // Modelo User
@@ -100,6 +103,7 @@ model Order {
   user  User  @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
   items OrderItem[]
+  reviews OrderReview[]
 
   // Índices para performance
   @@index([userId])
