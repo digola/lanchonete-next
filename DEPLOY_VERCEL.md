@@ -62,6 +62,12 @@ Esse script assegura que:
 - migrações sejam aplicadas com `migrate deploy` quando as variáveis estiverem corretas;
 - o `next build` seja executado em seguida.
 
+Se precisar liberar o build temporariamente enquanto corrige variáveis do banco:
+- Adicione uma das flags abaixo nas variáveis de ambiente do Vercel (Production/Preview):
+  - `PRISMA_SKIP_MIGRATIONS=true` (ou `SKIP_PRISMA_MIGRATIONS=true` / `VERCEL_SKIP_MIGRATIONS=true`)
+- Com isso, o script pulará `prisma migrate deploy` e seguirá para o `next build`.
+- Recomenda-se aplicar as migrações manualmente depois com `npx prisma migrate deploy` usando `DIRECT_URL` correto (porta 5432, host `db.<project-ref>.supabase.co`).
+
 ## Runtime e Compatibilidade (Node.js)
 - Prisma requer runtime Node (não Edge). Em rotas/API que usam Prisma, se necessário, declare:
 

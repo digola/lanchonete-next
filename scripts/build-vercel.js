@@ -99,6 +99,28 @@ function validateDbEnv() {
   } catch (_) {}
 }
 
+function hasPlaceholderHost(url) {
+  if (!url) return false;
+  return /(^|@)host:5432/i.test(url) || /(^|@)host(?::|\/)/i.test(url);
+}
+
+function shouldSkipMigrations() {
+  const flags = [
+    process.env.SKIP_PRISMA_MIGRATIONS,
+    process.env.PRISMA_SKIP_MIGRATIONS,
+    process.env.VERCEL_SKIP_MIGRATIONS,
+  ];
+  if (flags.some((v) => String(v).toLowerCase() === 'true')) {
+    log('Skipping prisma migrations due to skip flag (SKIP_PRISMA_MIGRATIONS/PRISMA_SKIP_MIGRATIONS/VERCEL_SKIP_MIGRATIONS)');
+    return true;
+  }
+  if (hasPlaceholderHost(process.env.DIRECT_URL)) {
+    log('Skipping prisma migrations: DIRECT_URL contém host placeholder (ex.: "host:5432").');
+    return true;
+  }
+  return false;
+}
+
 function switchSchemaAuto() {
   const prismaDir = path.join(process.cwd(), 'prisma');
   const targetPath = path.join(prismaDir, 'schema.prisma');
@@ -128,9 +150,13 @@ async function main() {
     // 3) Generate Prisma client
     run('npx', ['prisma', 'generate']);
 
-    // 4) Migrate if env is complete
+    // 4) Migrate if env is complete and not skipped
     if (process.env.DIRECT_URL && process.env.DATABASE_URL) {
-      run('npx', ['prisma', 'migrate', 'deploy']);
+      if (shouldSkipMigrations()) {
+        log('Prisma migrate deploy SKIPPED. Prossiga com o build.');
+      } else {
+        run('npx', ['prisma', 'migrate', 'deploy']);
+      }
     } else {
       log('Skipping prisma migrate deploy: require DATABASE_URL and DIRECT_URL (or POSTGRES_URL_NON_POOLING/DATABASE_URL_NON_POOLING)');
     }
