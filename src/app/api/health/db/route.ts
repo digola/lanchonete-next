@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { checkDatabaseHealth } from '@/src/lib/prisma';
+import { checkDatabaseHealth } from '@/lib/prisma';
 
 export const runtime = 'nodejs';
 
