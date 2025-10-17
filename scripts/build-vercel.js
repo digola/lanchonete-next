@@ -17,18 +17,30 @@ function log(msg) {
   console.log(`[build] ${msg}`);
 }
 
+// Ensure cross-platform command resolution (Windows needs *.cmd executables)
+const isWin = process.platform === 'win32';
+const npxCmd = isWin ? 'npx.cmd' : 'npx';
+
 function run(cmd, args = [], opts = {}) {
+  const useShell = opts.shell !== undefined ? opts.shell : isWin;
   log(`Running: ${cmd} ${args.join(' ')}`);
-  const res = spawnSync(cmd, args, {
-    stdio: 'inherit',
-    env: process.env,
-    shell: false,
-    ...opts,
-  });
+  const res = useShell
+    ? spawnSync(`${cmd} ${args.join(' ')}`, {
+        stdio: 'inherit',
+        env: process.env,
+        shell: true,
+        ...opts,
+      })
+    : spawnSync(cmd, args, {
+        stdio: 'inherit',
+        env: process.env,
+        shell: false,
+        ...opts,
+      });
   if (res.error) {
     throw res.error;
   }
-  if (typeof res.status === 'number' && res.status !== 0) {
+  if (typeof res.status === 'number' && res.status !== 0) {    
     throw new Error(`Command failed: ${cmd} ${args.join(' ')} (exit ${res.status})`);
   }
 }
@@ -147,22 +159,22 @@ async function main() {
     // 2) Switch schema automatically
     switchSchemaAuto();
 
-    // 3) Generate Prisma client
-    run('npx', ['prisma', 'generate']);
+  // 3) Generate Prisma client
+    run(npxCmd, ['prisma', 'generate']);
 
     // 4) Migrate if env is complete and not skipped
     if (process.env.DIRECT_URL && process.env.DATABASE_URL) {
       if (shouldSkipMigrations()) {
         log('Prisma migrate deploy SKIPPED. Prossiga com o build.');
       } else {
-        run('npx', ['prisma', 'migrate', 'deploy']);
+        run(npxCmd, ['prisma', 'migrate', 'deploy']);
       }
     } else {
       log('Skipping prisma migrate deploy: require DATABASE_URL and DIRECT_URL (or POSTGRES_URL_NON_POOLING/DATABASE_URL_NON_POOLING)');
     }
 
-    // 5) Build Next.js
-    run('npx', ['next', 'build']);
+  // 5) Build Next.js
+    run(npxCmd, ['next', 'build']);
 
     log('Build completed successfully.');
   } catch (err) {
