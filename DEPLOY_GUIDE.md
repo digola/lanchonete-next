@@ -32,7 +32,37 @@ postgresql://postgres.xxxxx:SUA_SENHA@aws-0-sa-east-1.pooler.supabase.com:5432/p
 
 1. No painel da Vercel, clique em `Storage`
 2. `Create Database` → `Postgres`
-3. Copie automaticamente a `DATABASE_URL`
+3. Ao criar, defina o campo **Custom Prefix** para `DATABASE`
+   - Isso faz com que as variáveis sejam criadas como:
+     - `DATABASE_URL` (pooled)
+     - `DATABASE_URL_NON_POOLING` (direta, ideal para migrations)
+     - `DATABASE_USER`, `DATABASE_PASSWORD`, `DATABASE_HOST`, etc.
+4. Nosso build já mapeia automaticamente `DIRECT_URL` a partir de `DATABASE_URL_NON_POOLING` durante o deploy.
+   - Se preferir, você pode também criar manualmente uma variável `DIRECT_URL` com o mesmo valor de `DATABASE_URL_NON_POOLING`.
+
+#### Gerar .env.vercel automaticamente (Supabase)
+
+Para agilizar, você pode usar nosso script para gerar um arquivo `.env.vercel` completo para importação na Vercel:
+
+```bash
+node scripts/setup-env.js --provider supabase \
+  --project-ref <PROJECT_REF> \
+  --db-password <DB_PASSWORD> \
+  --app-url https://seu-app.vercel.app \
+  --nextauth-url https://seu-app.vercel.app \
+  --pooler-host aws-1-sa-east-1.pooler.supabase.com \
+  --app-name "Sabores Do Mundo"
+```
+
+O script cria `.env.vercel` com:
+- DATABASE_URL (pooled/PgBouncer)
+- DIRECT_URL (non-pooled, usado por Prisma Migrate)
+- DATABASE_URL_NON_POOLING (compatibilidade)
+- NEXTAUTH_URL, APP_URL, JWT/NEXTAUTH secrets, etc.
+
+Depois, importe o conteúdo de `.env.vercel` em:
+- Vercel → Project → Settings → Environment Variables (Preview & Production)
+- Em seguida, faça Redeploy com Clear Build Cache.
 
 ---
 
@@ -93,8 +123,14 @@ git push origin main
 Clique em `Environment Variables` e adicione:
 
 ```env
-# Database
-DATABASE_URL = sua_connection_string_do_supabase
+# Database (Pooled)
+DATABASE_URL = sua_connection_string_pooleada (Supabase PgBouncer, Neon/Vercel Postgres)
+
+# Database (Direct/Non-Pooling) — usado por Prisma Migrate
+DIRECT_URL = sua_connection_string_sem_pool
+# Em Vercel Postgres, se você usar Custom Prefix = DATABASE,
+# você pode apenas deixar que o build mapeie automaticamente
+# DATABASE_URL_NON_POOLING -> DIRECT_URL.
 
 # JWT Secret (cole a chave gerada)
 JWT_SECRET = sua_chave_jwt_gerada
@@ -102,8 +138,9 @@ JWT_SECRET = sua_chave_jwt_gerada
 # NextAuth Secret (cole a chave gerada)
 NEXTAUTH_SECRET = sua_chave_nextauth_gerada
 
-# URL (será atualizada após deploy)
+# URLs do app (serão atualizadas após o deploy)
 NEXTAUTH_URL = https://seu-app.vercel.app
+APP_URL = https://seu-app.vercel.app
 
 # Node Environment
 NODE_ENV = production
@@ -132,17 +169,13 @@ https://lanchonete-next.vercel.app
 
 ### 2. Rodar Migrations
 
-No Vercel, vá em `Settings` → `Functions` e execute:
+Durante o deploy, o build já executa `prisma migrate deploy` automaticamente quando `DATABASE_URL` está definido.
 
+Se precisar rodar manualmente (ex.: primeiro provisionamento), use o terminal local:
 ```bash
-npx prisma migrate deploy
-npx prisma db seed
-```
-
-Ou use o terminal local:
-```bash
-DATABASE_URL="sua_url_de_producao" npx prisma migrate deploy
-DATABASE_URL="sua_url_de_producao" npx prisma db seed
+# Use a URL direta (non-pooling) para migrations
+DIRECT_URL="sua_url_direta" DATABASE_URL="sua_url_pooleada" npx prisma migrate deploy
+DATABASE_URL="sua_url_pooleada" npx prisma db seed
 ```
 
 ### 3. Testar!

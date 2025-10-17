@@ -1,3 +1,3 @@
 {
-  "buildCommand": "node scripts/switch-schema-auto.js && prisma generate && if [ -n \"$DATABASE_URL\" ]; then prisma migrate deploy; else echo 'Skipping prisma migrate deploy: DATABASE_URL not set'; fi && next build"
+  "buildCommand": "node scripts/switch-schema-auto.js && npx prisma generate && if [ -n \"$DATABASE_URL_NON_POOLING\" ] && [ -z \"$DIRECT_URL\" ]; then export DIRECT_URL=\"$DATABASE_URL_NON_POOLING\"; fi; if [ -n \"$DIRECT_URL\" ] && [ -n \"$DATABASE_URL\" ]; then npx prisma migrate deploy; else echo 'Skipping prisma migrate deploy: require DATABASE_URL and DIRECT_URL (or DATABASE_URL_NON_POOLING)'; fi; next build"
 }
