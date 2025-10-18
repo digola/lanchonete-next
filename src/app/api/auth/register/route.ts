@@ -14,51 +14,58 @@ import {
 } from '@/lib/auth';
 import { User } from '@/types';
 import { RegisterData } from '@/types';
+import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const log = createLogger('api.auth.register', requestId);
+  const json = (payload: any, status: number) => {
+    const res = NextResponse.json(payload, { status });
+    return withRequestIdHeader(res, requestId);
+  };
   try {
     const body: RegisterData = await request.json();
     const { name, email, password, confirmPassword } = body;
 
     // Validações básicas
     if (!name || !email || !password || !confirmPassword) {
-      return NextResponse.json(
+      return json(
         createAuthError('Todos os campos são obrigatórios'),
-        { status: 400 }
+        400
       );
     }
 
     // Validar nome
     const nameValidation = isValidName(name);
     if (!nameValidation.isValid) {
-      return NextResponse.json(
+      return json(
         createAuthError(nameValidation.errors.join(', ')),
-        { status: 400 }
+        400
       );
     }
 
     // Validar email
     if (!isValidEmail(email)) {
-      return NextResponse.json(
+      return json(
         createAuthError('Email inválido'),
-        { status: 400 }
+        400
       );
     }
 
     // Validar senha
     const passwordValidation = isValidPassword(password);
     if (!passwordValidation.isValid) {
-      return NextResponse.json(
+      return json(
         createAuthError(passwordValidation.errors.join(', ')),
-        { status: 400 }
+        400
       );
     }
 
     // Verificar se as senhas coincidem
     if (password !== confirmPassword) {
-      return NextResponse.json(
+      return json(
         createAuthError('As senhas não coincidem'),
-        { status: 400 }
+        400
       );
     }
 
@@ -68,9 +75,9 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingUser) {
-      return NextResponse.json(
+      return json(
         createAuthError('Email já está em uso'),
-        { status: 400 }
+        400
       );
     }
 
@@ -92,69 +99,45 @@ export async function POST(request: NextRequest) {
     const tokens = generateTokenPair(user as User);
 
     // Criar resposta
-    const response = NextResponse.json(
+    const response = json(
       createAuthSuccess(user as User, tokens),
-      { status: 201 }
+      201
     );
 
     // Definir cookies
     response.cookies.set('token', tokens.accessToken, COOKIE_CONFIG);
     response.cookies.set('refreshToken', tokens.refreshToken, REFRESH_COOKIE_CONFIG);
 
-    // Log da atividade (comentado para SQLite - modelo activityLog não existe)
-    // try {
-    //   await prisma.activityLog.create({
-        // data: {
-        //   userId: user.id,
-        //   action: 'REGISTER',
-        //   entityType: 'User',
-        //   entityId: user.id,
-        //   details: JSON.stringify({
-        //     email: user.email,
-        //     name: user.name,
-        //     role: user.role,
-        //     userAgent: request.headers.get('user-agent'),
-        //     ipAddress: request.headers.get('x-forwarded-for') || 
-        //                request.headers.get('x-real-ip') || 
-        //                'unknown',
-        //   }),
-        //   ipAddress: request.headers.get('x-forwarded-for') || 
-        //              request.headers.get('x-real-ip') || 
-        //              'unknown',
-        //   userAgent: request.headers.get('user-agent'),
-        // },
-      // });
-    // } catch (logError) {
-    //   console.error('Erro ao registrar log de registro:', logError);
-    //   // Não falhar o registro por causa do log
-    // }
-
+    log.info('Register success', { userId: (user as User).id });
     return response;
 
   } catch (error) {
-    console.error('Erro no registro:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    log.error('Register failed', { error: msg });
     
     // Verificar se é erro de duplicação de email
     if (error instanceof Error && error.message.includes('Unique constraint')) {
-      return NextResponse.json(
+      return json(
         createAuthError('Email já está em uso'),
-        { status: 400 }
+        400
       );
     }
 
-    return NextResponse.json(
+    return json(
       createAuthError('Erro interno do servidor'),
-      { status: 500 }
+      500
     );
   }
 }
 
 // Método GET para verificar se o endpoint está funcionando
-export async function GET() {
-  return NextResponse.json({
+export async function GET(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const res = NextResponse.json({
     message: 'Register endpoint is working',
     method: 'POST',
     requiredFields: ['name', 'email', 'password', 'confirmPassword'],
     defaultRole: 'CLIENTE',
   });
+  return withRequestIdHeader(res, requestId);
 }
