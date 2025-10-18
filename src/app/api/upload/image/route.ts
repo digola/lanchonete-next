@@ -53,18 +53,15 @@ export async function POST(request: NextRequest) {
     const key = `${getClientIp(request)}:upload_image`;
     const rl = checkRateLimit(key, windowMs, max);
     if (!rl.allowed) {
-      return NextResponse.json(
+      const tooMany = NextResponse.json(
         { success: false, error: 'Muitas requisições. Tente novamente em alguns segundos.' },
-        {
-          status: 429,
-          headers: {
-            'Retry-After': String(Math.ceil(rl.resetInMs / 1000)),
-            'X-RateLimit-Limit': String(max),
-            'X-RateLimit-Remaining': String(rl.remaining),
-            'X-RateLimit-Reset': String(rl.resetInMs),
-          },
-        }
+        { status: 429 }
       );
+      tooMany.headers.set('Retry-After', String(Math.ceil(rl.resetInMs / 1000)));
+      tooMany.headers.set('X-RateLimit-Limit', String(max));
+      tooMany.headers.set('X-RateLimit-Remaining', String(rl.remaining));
+      tooMany.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
+      return tooMany;
     }
 
     // Verificar autenticação
@@ -147,13 +144,7 @@ export async function POST(request: NextRequest) {
       ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
       : `/uploads/images/${fileName}`;
 
-    const headers = new Headers({
-      'X-RateLimit-Limit': String(max),
-      'X-RateLimit-Remaining': String(rl.remaining),
-      'X-RateLimit-Reset': String(rl.resetInMs),
-    });
-
-    return NextResponse.json(
+    const ok = NextResponse.json(
       {
         success: true,
         data: {
@@ -162,9 +153,12 @@ export async function POST(request: NextRequest) {
           size: file.size,
           type: file.type,
         },
-      },
-      { headers }
+      }
     );
+    ok.headers.set('X-RateLimit-Limit', String(max));
+    ok.headers.set('X-RateLimit-Remaining', String(rl.remaining));
+    ok.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
+    return ok;
   } catch (error) {
     console.error('Erro ao fazer upload da imagem:', error);
     return NextResponse.json(

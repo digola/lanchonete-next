@@ -12,11 +12,43 @@ import {
 } from '@/lib/auth';
 import { User } from '@/types';
 import { LoginCredentials } from '@/types';
+import { z } from 'zod';
 
 export async function POST(request: NextRequest) {
   try {
-    const body: LoginCredentials = await request.json();
-    const { email, password } = body;
+    const contentType = request.headers.get('content-type') || '';
+    if (!contentType.toLowerCase().includes('application/json')) {
+      return NextResponse.json(
+        createAuthError('Content-Type inválido: use application/json', 'UNSUPPORTED_MEDIA_TYPE'),
+        { status: 415 }
+      );
+    }
+
+    let bodyRaw: unknown;
+    try {
+      bodyRaw = await request.json();
+    } catch (e) {
+      return NextResponse.json(
+        createAuthError('JSON inválido no corpo da requisição', 'INVALID_JSON'),
+        { status: 400 }
+      );
+    }
+
+    const loginSchema = z.object({
+      email: z.string({ required_error: 'Email é obrigatório' }).email('Email inválido'),
+      password: z.string({ required_error: 'Senha é obrigatória' }).min(1, 'Senha é obrigatória'),
+    });
+
+    const parsed = loginSchema.safeParse(bodyRaw);
+    if (!parsed.success) {
+      const messages = parsed.error.issues.map((i) => i.message);
+      return NextResponse.json(
+        createAuthError(messages.join('; '), 'VALIDATION_ERROR'),
+        { status: 400 }
+      );
+    }
+
+    const { email, password } = parsed.data as LoginCredentials;
 
     // Validações básicas
     if (!email || !password) {
