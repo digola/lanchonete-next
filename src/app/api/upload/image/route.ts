@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 
 // Helpers de env
 function parseAllowedTypes(): string[] {
@@ -39,8 +40,33 @@ function resolveFileExtension(mime: string, originalName?: string): string {
   return ext ? ext : 'bin';
 }
 
+function parseRateLimitConfig() {
+  const max = Number(process.env.RATE_LIMIT_UPLOAD_IMAGE_MAX ?? 20);
+  const windowMs = Number(process.env.RATE_LIMIT_UPLOAD_IMAGE_WINDOW_MS ?? 60_000);
+  return { max, windowMs };
+}
+
 export async function POST(request: NextRequest) {
   try {
+    // Rate limiting (simples, in-memory)
+    const { max, windowMs } = parseRateLimitConfig();
+    const key = `${getClientIp(request)}:upload_image`;
+    const rl = checkRateLimit(key, windowMs, max);
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { success: false, error: 'Muitas requisições. Tente novamente em alguns segundos.' },
+        {
+          status: 429,
+          headers: {
+            'Retry-After': String(Math.ceil(rl.resetInMs / 1000)),
+            'X-RateLimit-Limit': String(max),
+            'X-RateLimit-Remaining': String(rl.remaining),
+            'X-RateLimit-Reset': String(rl.resetInMs),
+          },
+        }
+      );
+    }
+
     // Verificar autenticação
     const token = getTokenFromRequest(request);
     if (!token) {
@@ -121,15 +147,24 @@ export async function POST(request: NextRequest) {
       ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
       : `/uploads/images/${fileName}`;
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        url: imageUrl,
-        fileName: fileName,
-        size: file.size,
-        type: file.type,
-      },
+    const headers = new Headers({
+      'X-RateLimit-Limit': String(max),
+      'X-RateLimit-Remaining': String(rl.remaining),
+      'X-RateLimit-Reset': String(rl.resetInMs),
     });
+
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          url: imageUrl,
+          fileName: fileName,
+          size: file.size,
+          type: file.type,
+        },
+      },
+      { headers }
+    );
   } catch (error) {
     console.error('Erro ao fazer upload da imagem:', error);
     return NextResponse.json(

@@ -46,6 +46,8 @@ services:
       UPLOAD_BASE_URL: "http://localhost:3000/api/files"
       UPLOAD_MAX_SIZE: "10485760"
       UPLOAD_ALLOWED_TYPES: "image/png,image/jpeg,image/webp"
+      RATE_LIMIT_UPLOAD_IMAGE_MAX: "5"
+      RATE_LIMIT_UPLOAD_IMAGE_WINDOW_MS: "60000"
     volumes:
       - ./public/uploads/images:/app/public/uploads/images
     # Gera Prisma Client e sincroniza o schema antes de iniciar

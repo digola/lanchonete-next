@@ -61,6 +61,16 @@ JWT_SECRET="uma-chave-secreta-segura"
 JWT_EXPIRES_IN="7d"
 JWT_REFRESH_EXPIRES_IN="30d"
 NEXTAUTH_URL="http://localhost:3000"
+
+# Uploads
+# Diretório onde os arquivos são salvos (relativo à raiz do projeto ou absoluto)
+UPLOAD_DIR="./public/uploads/images"
+# URL pública base para servir os arquivos (local: /api/files)
+UPLOAD_BASE_URL="http://localhost:3000/api/files"
+# Tamanho máximo do upload (bytes)
+UPLOAD_MAX_SIZE="10485760" # 10MB
+# Tipos permitidos
+UPLOAD_ALLOWED_TYPES="image/png,image/jpeg,image/webp"
 ```
 
 ## 👤 Usuários criados pelo seed (opcional)
@@ -88,6 +98,8 @@ Uploads de imagens são salvos em `public/uploads/images`. Localmente via Compos
 - Use storage externo (Cloudinary/S3) e salve apenas URLs, ou
 - Anexe um Persistent Disk e ajuste o caminho de upload
 
+Para garantir que novos arquivos sejam servidos imediatamente em produção (Next.js `next start`), existe a rota `GET /api/files/:filename`, que faz streaming diretamente do diretório configurado em `UPLOAD_DIR` e define cabeçalhos de cache. Defina `UPLOAD_BASE_URL` para `http://localhost:3000/api/files` (ou a base pública equivalente no seu deploy) para que as respostas do upload já retornem a URL correta.
+
 ## 📜 Scripts úteis
 ```bash
 npm run dev        # Desenvolvimento
@@ -97,6 +109,9 @@ npm run db:migrate # Alias para `prisma migrate dev` (ajuste conforme sua prefer
 npm run db:seed    # Popular banco
 npm run db:studio  # Prisma Studio
 ```
+
+## 🩺 Health Check
+A aplicação expõe `GET /api/health` e `GET /api/health/db` para verificação de prontidão e conectividade com o banco.
 
 ## 🚀 Deploy no Render.com
 Guia completo:
