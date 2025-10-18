@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { unstable_cache } from 'next/cache';
 
 // GET /api/products - Listar produtos
 export async function GET(request: NextRequest) {
@@ -20,8 +21,6 @@ export async function GET(request: NextRequest) {
 
     const where: any = {};
     if (search && search.trim()) {
-      // Remover mode: 'insensitive' para compatibilidade com SQLite.
-      // Buscar por nome ou descrição contendo o termo.
       const term = search.trim();
       where.OR = [
         { name: { contains: term } },
@@ -35,17 +34,31 @@ export async function GET(request: NextRequest) {
       where.isAvailable = isAvailable === 'true';
     }
 
+    const paramsKey = JSON.stringify({ where, orderBy, skip, limit });
+
+    const listCached = unstable_cache(
+      async () => {
+        return prisma.product.findMany({
+          where,
+          include: { category: true },
+          orderBy,
+          skip,
+          take: limit,
+        });
+      },
+      ['products:list', paramsKey],
+      { revalidate: 60 }
+    );
+
+    const countCached = unstable_cache(
+      async () => prisma.product.count({ where }),
+      ['products:count', paramsKey],
+      { revalidate: 60 }
+    );
+
     const [products, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        include: {
-          category: true,
-        },
-        orderBy,
-        skip,
-        take: limit,
-      }),
-      prisma.product.count({ where }),
+      listCached(),
+      countCached(),
     ]);
 
     return NextResponse.json({

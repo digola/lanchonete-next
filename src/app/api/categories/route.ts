@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { unstable_cache } from 'next/cache';
 
 // GET /api/categories - Listar categorias
 export async function GET(request: NextRequest) {
@@ -30,26 +31,43 @@ export async function GET(request: NextRequest) {
       where.isActive = isActive === 'true';
     }
 
-    const categories = await prisma.category.findMany({
-      where,
-      ...(includeProducts && {
-        include: {
-          products: {
-            select: {
-              id: true,
-              name: true,
-              price: true,
-              isAvailable: true,
-            },
-          },
-        },
-      }),
-      orderBy,
-      skip,
-      take: limit,
-    });
+    const paramsKey = JSON.stringify({ where, includeProducts, orderBy, skip, limit });
 
-    const total = await prisma.category.count({ where });
+    const listCached = unstable_cache(
+      async () => {
+        return prisma.category.findMany({
+          where,
+          ...(includeProducts && {
+            include: {
+              products: {
+                select: {
+                  id: true,
+                  name: true,
+                  price: true,
+                  isAvailable: true,
+                },
+              },
+            },
+          }),
+          orderBy,
+          skip,
+          take: limit,
+        });
+      },
+      ['categories:list', paramsKey],
+      { revalidate: 60 }
+    );
+
+    const countCached = unstable_cache(
+      async () => prisma.category.count({ where }),
+      ['categories:count', paramsKey],
+      { revalidate: 60 }
+    );
+
+    const [categories, total] = await Promise.all([
+      listCached(),
+      countCached(),
+    ]);
 
     return NextResponse.json({
       success: true,
