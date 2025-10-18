@@ -3,6 +3,42 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 
+// Helpers de env
+function parseAllowedTypes(): string[] {
+  const raw = process.env.UPLOAD_ALLOWED_TYPES;
+  if (raw && raw.trim().length > 0) {
+    return raw.split(',').map((t) => t.trim());
+  }
+  return ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+}
+
+function parseMaxSize(): number {
+  const raw = process.env.UPLOAD_MAX_SIZE;
+  if (raw && !Number.isNaN(Number(raw))) {
+    return Number(raw);
+  }
+  // default 10MB
+  return 10 * 1024 * 1024;
+}
+
+function resolveUploadDir(): string {
+  const base = process.env.UPLOAD_DIR;
+  if (base && base.trim().length > 0) {
+    return base;
+  }
+  return join(process.cwd(), 'public', 'uploads', 'images');
+}
+
+function resolveFileExtension(mime: string, originalName?: string): string {
+  // map MIME types to standard extensions
+  if (mime === 'image/jpeg' || mime === 'image/jpg') return 'jpg';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  // fallback to original extension if exists
+  const ext = originalName?.split('.').pop();
+  return ext ? ext : 'bin';
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
@@ -41,7 +77,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar tipo de arquivo
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedTypes = parseAllowedTypes();
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { success: false, error: 'Tipo de arquivo não permitido. Use JPG, PNG ou WebP' },
@@ -49,11 +85,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar tamanho (máximo 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validar tamanho (env OU padrão 10MB)
+    const maxSize = parseMaxSize();
     if (file.size > maxSize) {
       return NextResponse.json(
-        { success: false, error: 'Arquivo muito grande. Máximo 5MB' },
+        { success: false, error: `Arquivo muito grande. Máximo ${(maxSize / (1024 * 1024)).toFixed(0)}MB` },
         { status: 400 }
       );
     }
@@ -61,15 +97,15 @@ export async function POST(request: NextRequest) {
     // Gerar nome único para o arquivo
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(2, 15);
-    const extension = file.name.split('.').pop();
+    const extension = resolveFileExtension(file.type, file.name);
     const fileName = `${timestamp}_${randomString}.${extension}`;
 
     // Criar diretório se não existir
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'images');
+    const uploadDir = resolveUploadDir();
     try {
       await mkdir(uploadDir, { recursive: true });
     } catch (error) {
-      // Diretório já existe
+      // Diretório já existe ou não pode ser criado
     }
 
     // Salvar arquivo
@@ -79,8 +115,11 @@ export async function POST(request: NextRequest) {
 
     await writeFile(filePath, buffer);
 
-    // Retornar URL da imagem
-    const imageUrl = `/uploads/images/${fileName}`;
+    // Retornar URL da imagem (suporte a UPLOAD_BASE_URL)
+    const baseUrl = process.env.UPLOAD_BASE_URL;
+    const imageUrl = baseUrl
+      ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
+      : `/uploads/images/${fileName}`;
 
     return NextResponse.json({
       success: true,
@@ -91,7 +130,6 @@ export async function POST(request: NextRequest) {
         type: file.type,
       },
     });
-
   } catch (error) {
     console.error('Erro ao fazer upload da imagem:', error);
     return NextResponse.json(
