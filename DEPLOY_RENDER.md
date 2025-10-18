@@ -17,6 +17,9 @@ IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local,
 
 2) Ajuste o Prisma para Postgres (já padrão neste projeto):
    - `prisma/schema.prisma` já está com `provider = "postgresql"` e `url = env("DATABASE_URL")`.
+   - Também suportamos `directUrl = env("DIRECT_URL")` para migrações. Em produção, a boa prática é:
+     - `DATABASE_URL` aponta para uma URL POOLED (ex.: Prisma Accelerate, pgbouncer/Supabase).
+     - `DIRECT_URL` aponta para o banco primário (sem pool) para operações administrativas/migrações.
    - Gere e versiona migrações a partir do seu ambiente local:
      - Garanta acesso a um Postgres local (pode ser o do Docker Compose) ou remoto.
      - Exporte a variável `DATABASE_URL` no seu ambiente local:
@@ -46,15 +49,20 @@ IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local,
    - Start Command:
      - `bash -c "npx prisma migrate deploy && npm run start"`
    - Auto-Deploy: habilitado (opcional)
+   - Health Check Path: `/api/health` (opcional, recomendado)
 
 3) Variáveis de ambiente:
-   - `DATABASE_URL` com a URL do Postgres do Render (se necessário, acrescente `?sslmode=require`)
+   - `DATABASE_URL` com a URL do Postgres do Render (se necessário, acrescente `?sslmode=require`). Em ambientes com pool, use a URL do pool.
+   - `DIRECT_URL` apontando para a instância primária (sem pool) — usado para migrações.
    - `JWT_SECRET` e `JWT_REFRESH_SECRET`
+   - `UPLOAD_DIR` e `UPLOAD_BASE_URL` (se usar disco/prefixo CDN em produção)
+   - `UPLOAD_MAX_SIZE` e `UPLOAD_ALLOWED_TYPES` (limites e tipos permitidos)
    - Render define `PORT` automaticamente; o Next usará essa porta.
 
 4) Verificação pós-deploy:
    - Acesse a URL pública do serviço
    - Teste `/login`, `/api/categories`, `/api/products`
+   - Verifique saúde em `/api/health`
    - Veja logs em "Logs"
 
 ## 3B. Deploy com Docker (opcional)
@@ -75,6 +83,7 @@ npm install
 cp env.example .env
 # Para Compose, use:
 # DATABASE_URL="postgresql://app_user:app_password@localhost:5432/lanchonete_db?schema=public"
+# (opcional) DIRECT_URL igual ao DATABASE_URL local, quando não há pool
 
 # 3) Subir serviços
 docker compose up --build
@@ -97,9 +106,10 @@ Soluções:
 - Alternativo: anexar um Persistent Disk ao serviço no Render e salvar nesse disco (ex.: `/var/data/uploads/images`). Para isso:
   1) Crie um Disk no Render e anexe ao serviço.
   2) Adicione `UPLOAD_DIR=/var/data/uploads/images` como variável de ambiente.
-  3) Atualize o código para usar `process.env.UPLOAD_DIR` como destino, com fallback para `public/uploads/images`.
+  3) Configure `UPLOAD_BASE_URL` com o prefixo público (ex.: `https://seuservico.onrender.com/uploads/images` ou CDN).
+  4) O código já suporta `process.env.UPLOAD_DIR`, `UPLOAD_BASE_URL`, `UPLOAD_MAX_SIZE` e `UPLOAD_ALLOWED_TYPES`.
 
-Exemplo de ajuste (ilustrativo — atualize seu código em `src/app/api/upload/image/route.ts`):
+Exemplo ilustrativo:
 ```ts
 import { join } from 'path';
 const baseDir = process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads', 'images');
@@ -111,22 +121,31 @@ const baseDir = process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads
 ```
 - Se usar Disk fora da pasta `public`, você pode servir via uma rota Next.js dedicada (`/api/files`), ou criar um symlink durante o build para expor `/uploads`.
 
-## 6. Boas práticas
+## 6. Health Checks
+- Endpoint disponível: `GET /api/health`
+- Retorna `{ status: 'ok', db: 'ok' }` se o banco estiver acessível.
+- Em caso de falha, retorna `{ status: 'degraded', db: 'fail', error: '...' }` com HTTP 503.
+- Configure no Render em "Health Check Path" para `/api/health` (opcional), ajudando nas verificações de liveness/readiness.
+
+## 7. Boas práticas
 - Não use SQLite em produção.
-- Mantenha migrations versionadas e use `migrate deploy`.
+- Mantenha migrations versionadas e use `migrate deploy` em produção.
+- Use pooling de conexões quando possível (Prisma Accelerate, Supabase pgbouncer). Define `DATABASE_URL` (pooled) e `DIRECT_URL` (primária).
 - Controle de segredos via variáveis de ambiente (considere Secret Files do Render).
 - Monitore logs e saúde do serviço.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 - Erro de Prisma Client: rode `npx prisma generate` no build.
 - Falha ao conectar no DB: valide `DATABASE_URL` e regras de acesso na instância.
 - Seed não roda: confirme que `tsx` está instalado ou execute seed via Node/JS.
-- Uploads não aparecem: verifique path base e exposição (static/public vs rota API).
+- Uploads não aparecem: verifique path base e exposição (static/public vs rota API) e variáveis `UPLOAD_*`.
 
-## 8. Check-list de deploy
+## 9. Check-list de deploy
 - [ ] Migrar Prisma para Postgres e versionar migrations
 - [ ] Criar Postgres no Render e setar `DATABASE_URL`
+- [ ] (opcional) Definir `DIRECT_URL` quando usar pooling
 - [ ] Configurar Build/Start commands
 - [ ] Adicionar `JWT_SECRET` e `JWT_REFRESH_SECRET`
+- [ ] Definir estratégia para uploads (storage externo ou Disk) e `UPLOAD_*`
 - [ ] Validar rotas e logs pós-deploy
-- [ ] Definir estratégia para uploads (storage externo ou Disk)
+- [ ] Configurar Health Check Path `/api/health` (opcional)
