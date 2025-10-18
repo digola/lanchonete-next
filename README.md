@@ -1,285 +1,109 @@
-# 🍔 Lanchonete SBM - Sistema de Gestão
+# 🍔 Lanchonete Next — Ambiente Local e Deploy no Render
 
-[![GitHub stars](https://img.shields.io/github/stars/digola/lanchonete_sbm?style=social)](https://github.com/digola/lanchonete_sbm)
-[![GitHub forks](https://img.shields.io/github/forks/digola/lanchonete_sbm?style=social)](https://github.com/digola/lanchonete_sbm)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Next.js](https://img.shields.io/badge/Next.js-15.5.2-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6.3-blue)](https://www.typescriptlang.org/)
+Sistema de gestão para lanchonetes e restaurantes desenvolvido em Next.js 15, TypeScript, Prisma e Tailwind CSS. O repositório está configurado para desenvolvimento local usando SQLite. Para deploy em produção, recomendamos o Render.com com PostgreSQL.
 
-Sistema completo de gestão para lanchonetes e restaurantes desenvolvido com Next.js 15, TypeScript, Prisma e Tailwind CSS. Sistema moderno, responsivo e totalmente funcional para gerenciamento de pedidos, produtos, usuários e mesas.
+## 🚀 Principais funcionalidades
+- Usuários com roles: CLIENTE, FUNCIONARIO, ADMINISTRADOR
+- Gestão de categorias e produtos
+- Pedidos com itens, status e histórico
+- Controle de mesas (livre/ocupada/reservada/manutenção)
+- Autenticação via JWT
+- Interface responsiva (Tailwind CSS)
 
-## 🚀 Funcionalidades
+## 🛠️ Stack
+- Frontend/Backend: Next.js (App Router)
+- ORM: Prisma
+- Banco local: SQLite (prisma/dev.db)
+- Estado: Zustand
+- Ícones: Lucide + Heroicons
 
-- **Sistema de Usuários**: 3 roles (Cliente, Funcionário, Administrador)
-- **Gestão de Produtos**: CRUD completo com categorias e opções
-- **Sistema de Pedidos**: Status em tempo real e histórico
-- **Controle de Mesas**: Gestão de ocupação e atribuição
-- **Autenticação JWT**: Sistema seguro com refresh tokens
-- **Interface Responsiva**: Design moderno e mobile-first
-- **Relatórios**: Dashboard com métricas e análises
+## 📋 Requisitos
+- Node.js 18+
+- npm
 
-## 🛠️ Tecnologias
-
-- **Frontend**: Next.js 15, TypeScript, Tailwind CSS
-- **Backend**: Next.js API Routes, Prisma ORM
-- **Banco de Dados**: PostgreSQL
-- **Autenticação**: JWT com bcrypt
-- **Estado**: Zustand
-- **Ícones**: Lucide React + Heroicons
-
-## 📋 Pré-requisitos
-
-- Node.js 18+ 
-- PostgreSQL 12+
-- npm ou yarn
-
-## 🚀 Instalação
-
-### 1. Clone o repositório
-```bash
-git clone <repository-url>
-cd lanchonete-next
-```
-
-### 2. Instale as dependências
+## ⚙️ Ambiente Local (SQLite)
+1) Instalar dependências
 ```bash
 npm install
-# ou
-yarn install
 ```
 
-### 3. Configure o banco de dados
+2) Preparar banco de dados (SQLite)
 ```bash
-# Crie um banco PostgreSQL
-createdb lanchonete_db
-
-# Configure as variáveis de ambiente
-cp env.example .env.local
-```
-
-### 4. Configure o arquivo `.env.local`
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/lanchonete_db?schema=public"
-JWT_SECRET="your-super-secret-jwt-key-here"
-NEXTAUTH_SECRET="your-nextauth-secret"
-NEXTAUTH_URL="http://localhost:3000"
-```
-
-### 5. Execute as migrações e seed
-```bash
-# Gerar cliente Prisma
-npm run db:generate
-
-# Executar migrações
+# Sincroniza o schema com o banco local
 npm run db:push
 
-# Popular banco com dados iniciais
+# Popula dados iniciais (usuários, categorias, produtos, mesas)
 npm run db:seed
 ```
 
-### 6. Inicie o servidor de desenvolvimento
+3) Rodar em desenvolvimento
 ```bash
 npm run dev
-# ou
-yarn dev
 ```
+Acesse: http://localhost:3000/
 
-Acesse [http://localhost:3000](http://localhost:3000) no seu navegador.
+## 🔐 Variáveis de ambiente
+Crie um arquivo `.env` (ou `.env.local`) se desejar customizar segredos:
+```env
+# Opcional — se não definir, um fallback será usado
+JWT_SECRET="uma-chave-secreta-segura"
+# Expirações opcionais
+JWT_EXPIRES_IN="7d"
+JWT_REFRESH_EXPIRES_IN="30d"
+```
+Observação: Para o ambiente local, o Prisma usa automaticamente `file:./dev.db` (SQLite).
 
-## 👤 Usuários Padrão
+## 👤 Usuários criados pelo seed
+- admin@lanchonete.com (senha: 123456) — ADMINISTRADOR
+- funcionario@lanchonete.com (senha: 123456) — FUNCIONARIO
+- cliente@lanchonete.com (senha: 123456) — CLIENTE
 
-Após executar o seed, você terá os seguintes usuários:
-
-| Email | Senha | Role |
-|-------|-------|------|
-| admin@lanchonete.com | 123456 | Administrador |
-| gerente@lanchonete.com | 123456 | Manager (Expedição) |
-| staff@lanchonete.com | 123456 | Funcionário |
-| customer@lanchonete.com | 123456 | Cliente |
-
-## 📁 Estrutura do Projeto
-
+## 📁 Estrutura (resumo)
 ```
 src/
-├── app/                    # App Router do Next.js
-│   ├── api/               # Rotas de API
-│   ├── admin/             # Páginas administrativas
-│   ├── staff/             # Páginas de funcionários
-│   ├── customer/          # Páginas de clientes
-│   ├── layout.tsx         # Layout principal
-│   ├── page.tsx           # Página inicial (cardápio)
-│   └── globals.css        # Estilos globais
-├── components/            # Componentes reutilizáveis
-├── hooks/                 # Hooks customizados
-├── lib/                   # Utilitários e configurações
-├── stores/                # Estado global (Zustand)
-└── types/                 # Definições de tipos
+├─ app/            # Rotas/pages e APIs
+├─ components/     # Componentes
+├─ hooks/          # Hooks
+├─ lib/            # Prisma, auth, utils
+├─ stores/         # Zustand
+└─ types/          # Tipos
+prisma/
+├─ schema.prisma   # Schema SQLite
+└─ seed.ts         # Seed inicial
 ```
 
-## 🔐 Sistema de Permissões
+## 🗂️ Uploads
+Uploads de imagens são salvos em `public/uploads/images`. Em produção no Render, considere:
+- Usar storage externo (Cloudinary/S3) e salvar apenas URLs
+- Ou anexar um Persistent Disk no Render (veja guia) e ajustar o caminho de upload
 
-### Cliente
-- Visualizar cardápio
-- Fazer pedidos
-- Acompanhar pedidos
-- Gerenciar perfil
-
-### Funcionário (Staff)
-- Visualizar pedidos
-- Atualizar status dos pedidos
-- Gerenciar mesas
-- Visualizar cardápio
-
-### Manager (Expedição)
-- Gerenciar fluxo de pedidos
-- Controlar expedição
-- Visualizar relatórios
-- Gerenciar mesas
-- Atualizar status de pedidos
-
-### Administrador
-- Acesso total ao sistema
-- Gerenciar usuários, produtos, categorias
-- Visualizar relatórios
-- Configurar sistema
-
-## 🎨 Design System
-
-O sistema utiliza um design system personalizado com:
-
-- **Cores**: Laranja (#f97316) e Vermelho (#ef4444) como principais
-- **Fontes**: Inter (textos) e Poppins (títulos)
-- **Componentes**: Botões, inputs, cards padronizados
-- **Animações**: Transições suaves e feedback visual
-
-## 📱 Responsividade
-
-- **Mobile**: 320px+
-- **Tablet**: 768px+
-- **Desktop**: 1024px+
-- **Large**: 1280px+
-
-## 🚀 Scripts Disponíveis
-
+## 📜 Scripts úteis
 ```bash
-npm run dev          # Servidor de desenvolvimento
-npm run build        # Build para produção
-npm run start        # Servidor de produção
-npm run lint         # Verificar código
-npm run lint:fix     # Corrigir problemas de lint
-npm run type-check   # Verificar tipos TypeScript
-npm run db:generate  # Gerar cliente Prisma
-npm run db:push      # Sincronizar schema
-npm run db:migrate   # Executar migrações
-npm run db:seed      # Popular banco
-npm run db:studio    # Interface do Prisma
-npm run format       # Formatar código
+npm run dev        # Desenvolvimento
+npm run build      # Build
+npm run start      # Produção local
+npm run db:push    # Sincronizar schema (SQLite)
+npm run db:seed    # Popular banco
+npm run db:studio  # Prisma Studio
 ```
 
-## 🗄️ Banco de Dados
+## 🚀 Deploy no Render.com (recomendado)
+Para produção, recomendamos migrar para PostgreSQL e fazer deploy no Render. Siga o guia completo:
+- Veja: DEPLOY_RENDER.md
 
-### Entidades Principais
-
-- **Users**: Usuários do sistema
-- **Categories**: Categorias de produtos
-- **Products**: Produtos do cardápio
-- **Orders**: Pedidos dos clientes
-- **OrderItems**: Itens dos pedidos
-- **Tables**: Mesas do restaurante
-- **SystemSettings**: Configurações do sistema
-
-### Enums
-
-- **UserRole**: CLIENTE, FUNCIONARIO, ADMINISTRADOR
-- **OrderStatus**: PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
-- **TableStatus**: LIVRE, OCUPADA, RESERVADA, MANUTENCAO
-- **DeliveryType**: RETIRADA, DELIVERY
-- **PaymentMethod**: DINHEIRO, CARTAO, PIX
-
-## 🔧 Configurações
-
-### Variáveis de Ambiente
-
-```env
-# Obrigatórias
-DATABASE_URL="postgresql://..."
-JWT_SECRET="your-secret-key"
-
-# Opcionais
-NEXTAUTH_SECRET=""
-NEXTAUTH_URL="http://localhost:3000"
-UPLOAD_MAX_SIZE="10485760"
-UPLOAD_ALLOWED_TYPES="image/jpeg,image/png,image/webp"
-```
-
-### Configurações do Sistema
-
-O sistema possui configurações internas gerenciáveis via interface:
-
-- Nome do restaurante
-- Endereço e telefone
-- Taxa de entrega
-- Valor mínimo do pedido
-- Tempo médio de entrega
-
-## 📊 Relatórios
-
-O sistema gera relatórios de:
-
-- Vendas por período
-- Produtos mais vendidos
-- Performance por funcionário
-- Horários de maior movimento
-- Receita por categoria
-
-## 🚀 Deploy
-
-### Vercel (Recomendado)
-
-1. Conecte seu repositório à Vercel
-2. Configure as variáveis de ambiente
-3. Configure o banco PostgreSQL (Vercel Postgres)
-4. Deploy automático
-
-### Outras Plataformas
-
-- **Railway**: Suporte nativo ao PostgreSQL
-- **Heroku**: Com addon PostgreSQL
-- **DigitalOcean**: App Platform
-- **AWS**: Amplify + RDS
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature (`git checkout -b feature/AmazingFeature`)
-3. Commit suas mudanças (`git commit -m 'Add some AmazingFeature'`)
-4. Push para a branch (`git push origin feature/AmazingFeature`)
-5. Abra um Pull Request
+Resumo do fluxo:
+- Criar um PostgreSQL gerenciado no Render
+- Atualizar `prisma/schema.prisma` para `provider = "postgresql"` e usar `DATABASE_URL`
+- Versionar migrations com `npx prisma migrate dev`
+- Configurar Web Service no Render:
+  - Build Command: `npm install && npx prisma generate && npm run build`
+  - Start Command: `bash -c "npx prisma migrate deploy && npm run start"`
+  - Variáveis: `DATABASE_URL`, `JWT_SECRET` (e `JWT_REFRESH_SECRET`)
+- Validar rotas e logs pós-deploy
 
 ## 📝 Licença
+MIT. Veja o arquivo LICENSE.
 
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para detalhes.
-
-## 🆘 Suporte
-
-Para suporte, entre em contato:
-
-- **Email**: suporte@lanchonete.com
-- **Issues**: [GitHub Issues](https://github.com/username/lanchonete-next/issues)
-- **Documentação**: [Wiki do projeto](https://github.com/username/lanchonete-next/wiki)
-
-## 🎯 Roadmap
-
-- [ ] Sistema de notificações push
-- [ ] Integração com sistemas de pagamento
-- [ ] App mobile (React Native)
-- [ ] PWA (Progressive Web App)
-- [ ] Integração com delivery (iFood, Uber Eats)
-- [ ] Sistema de cupons e promoções
-- [ ] Relatórios avançados
-- [ ] Multi-idioma
-- [ ] Modo escuro
-
----
-
-**Desenvolvido com ❤️ para lanchonetes e restaurantes**
+## Observações
+- Este repositório está focado em ambiente local (SQLite). Para produção, use PostgreSQL e siga o guia do Render.
+- Se preferir Docker no Render, o repositório inclui um `Dockerfile` compatível; ajuste apenas as variáveis e garanta `DATABASE_URL`.
