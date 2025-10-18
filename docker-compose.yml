@@ -41,6 +41,11 @@ services:
       JWT_REFRESH_EXPIRES_IN: "30d"
       # Render costuma exigir TLS; em local não é necessário
       DATABASE_URL: "postgresql://app_user:app_password@db:5432/lanchonete_db?schema=public"
+      DIRECT_URL: "postgresql://app_user:app_password@db:5432/lanchonete_db"
+      UPLOAD_DIR: "public/uploads/images"
+      UPLOAD_BASE_URL: "http://localhost:3000/uploads/images"
+      UPLOAD_MAX_SIZE: "10485760"
+      UPLOAD_ALLOWED_TYPES: "image/png,image/jpeg,image/webp"
     volumes:
       - ./public/uploads/images:/app/public/uploads/images
     # Gera Prisma Client e sincroniza o schema antes de iniciar
