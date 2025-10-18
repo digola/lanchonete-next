@@ -1,0 +1,33 @@
+version: "3.9"
+
+# Docker Compose para TESTE LOCAL usando SQLite (prisma/dev.db)
+# Objetivo: executar o container gerado pelo Dockerfile em modo produção,
+# mas sincronizando o schema via `prisma db push` e persistindo uploads localmente.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lanchonete-app
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      APP_URL: "http://localhost:3000"
+      NEXTAUTH_URL: "http://localhost:3000"
+      # JWT
+      JWT_SECRET: "local-dev-secret"
+      JWT_EXPIRES_IN: "7d"
+      JWT_REFRESH_EXPIRES_IN: "30d"
+      # Uploads
+      UPLOAD_MAX_SIZE: "10485760" # 10MB
+      UPLOAD_ALLOWED_TYPES: "image/jpeg,image/png,image/webp"
+    volumes:
+      # Persistir banco SQLite local (arquivo prisma/dev.db dentro do container)
+      - ./prisma/dev.db:/app/prisma/dev.db
+      # Persistir uploads no host
+      - ./public/uploads/images:/app/public/uploads/images
+    # Em teste local com SQLite, use db push (não requer migrations)
+    command: sh -c "npx prisma db push && npm run start"
+    restart: unless-stopped
