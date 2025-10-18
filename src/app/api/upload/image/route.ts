@@ -4,6 +4,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
+import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
 // Helpers de env
 function parseAllowedTypes(): string[] {
@@ -48,15 +49,23 @@ function parseRateLimitConfig() {
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const log = createLogger('api.upload.image', requestId);
+  const json = (payload: any, status: number) => {
+    const res = NextResponse.json(payload, { status });
+    return withRequestIdHeader(res, requestId);
+  };
   try {
     // Rate limiting (simples, in-memory)
     const { max, windowMs } = parseRateLimitConfig();
-    const key = `${getClientIp(request)}:upload_image`;
+    const clientIp = getClientIp(request);
+    const key = `${clientIp}:upload_image`;
     const rl = checkRateLimit(key, windowMs, max);
     if (!rl.allowed) {
-      const tooMany = NextResponse.json(
+      log.warn('Rate limit exceeded', { clientIp, remaining: rl.remaining, resetInMs: rl.resetInMs, max });
+      const tooMany = json(
         { success: false, error: 'Muitas requisições. Tente novamente em alguns segundos.' },
-        { status: 429 }
+        429
       );
       tooMany.headers.set('Retry-After', String(Math.ceil(rl.resetInMs / 1000)));
       tooMany.headers.set('X-RateLimit-Limit', String(max));
@@ -68,25 +77,28 @@ export async function POST(request: NextRequest) {
     // Verificar autenticação
     const token = getTokenFromRequest(request);
     if (!token) {
-      return NextResponse.json(
+      log.warn('Missing auth token');
+      return json(
         { success: false, error: 'Token de autenticação não fornecido' },
-        { status: 401 }
+        401
       );
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-      return NextResponse.json(
+      log.warn('Invalid or expired token');
+      return json(
         { success: false, error: 'Token inválido ou expirado' },
-        { status: 401 }
+        401
       );
     }
 
     // Verificar permissão (apenas admin e funcionário podem fazer upload)
     if (!hasPermission(decoded.role, 'settings:write')) {
-      return NextResponse.json(
+      log.warn('Permission denied for upload', { role: decoded.role });
+      return json(
         { success: false, error: 'Sem permissão para fazer upload de imagens' },
-        { status: 403 }
+        403
       );
     }
 
@@ -94,27 +106,30 @@ export async function POST(request: NextRequest) {
     const file = formData.get('image') as File;
 
     if (!file) {
-      return NextResponse.json(
+      log.warn('No file provided');
+      return json(
         { success: false, error: 'Nenhuma imagem foi enviada' },
-        { status: 400 }
+        400
       );
     }
 
     // Validar tipo de arquivo
     const allowedTypes = parseAllowedTypes();
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
+      log.warn('Unsupported file type', { type: file.type });
+      return json(
         { success: false, error: 'Tipo de arquivo não permitido. Use JPG, PNG ou WebP' },
-        { status: 400 }
+        400
       );
     }
 
     // Validar tamanho (env OU padrão 10MB)
     const maxSize = parseMaxSize();
     if (file.size > maxSize) {
-      return NextResponse.json(
+      log.warn('File too large', { size: file.size, maxSize });
+      return json(
         { success: false, error: `Arquivo muito grande. Máximo ${(maxSize / (1024 * 1024)).toFixed(0)}MB` },
-        { status: 400 }
+        400
       );
     }
 
@@ -145,7 +160,8 @@ export async function POST(request: NextRequest) {
       ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
       : `/uploads/images/${fileName}`;
 
-    const ok = NextResponse.json(
+    log.info('Upload success', { fileName, size: file.size, type: file.type });
+    const ok = json(
       {
         success: true,
         data: {
@@ -154,17 +170,19 @@ export async function POST(request: NextRequest) {
           size: file.size,
           type: file.type,
         },
-      }
+      },
+      200
     );
     ok.headers.set('X-RateLimit-Limit', String(max));
     ok.headers.set('X-RateLimit-Remaining', String(rl.remaining));
     ok.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
     return ok;
   } catch (error) {
-    console.error('Erro ao fazer upload da imagem:', error);
-    return NextResponse.json(
+    log.error('Unhandled error during upload', { error: error instanceof Error ? error.message : String(error) });
+    const res = NextResponse.json(
       { success: false, error: 'Erro interno do servidor' },
       { status: 500 }
     );
+    return withRequestIdHeader(res, requestId);
   }
 }

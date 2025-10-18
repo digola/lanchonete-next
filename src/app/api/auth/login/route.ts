@@ -13,14 +13,23 @@ import {
 import { User } from '@/types';
 import { LoginCredentials } from '@/types';
 import { z } from 'zod';
+import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
 export async function POST(request: NextRequest) {
   try {
+    const requestId = getOrCreateRequestId(request);
+    const log = createLogger('api.auth.login', requestId);
+    const json = (payload: any, status: number) => {
+      const res = NextResponse.json(payload, { status });
+      return withRequestIdHeader(res, requestId);
+    };
+
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.toLowerCase().includes('application/json')) {
-      return NextResponse.json(
+      log.warn('Unsupported media type', { contentType });
+      return json(
         createAuthError('Content-Type inválido: use application/json', 'UNSUPPORTED_MEDIA_TYPE'),
-        { status: 415 }
+        415
       );
     }
 
@@ -28,9 +37,10 @@ export async function POST(request: NextRequest) {
     try {
       bodyRaw = await request.json();
     } catch (e) {
-      return NextResponse.json(
+      log.warn('Invalid JSON body');
+      return json(
         createAuthError('JSON inválido no corpo da requisição', 'INVALID_JSON'),
-        { status: 400 }
+        400
       );
     }
 
@@ -42,26 +52,28 @@ export async function POST(request: NextRequest) {
     const parsed = loginSchema.safeParse(bodyRaw);
     if (!parsed.success) {
       const messages = parsed.error.issues.map((i) => i.message);
-      return NextResponse.json(
+      log.warn('Validation error', { messages });
+      return json(
         createAuthError(messages.join('; '), 'VALIDATION_ERROR'),
-        { status: 400 }
+        400
       );
     }
 
     const { email, password } = parsed.data as LoginCredentials;
+    log.info('Login attempt', { email });
 
     // Validações básicas
     if (!email || !password) {
-      return NextResponse.json(
+      return json(
         createAuthError('Email e senha são obrigatórios'),
-        { status: 400 }
+        400
       );
     }
 
     if (!isValidEmail(email)) {
-      return NextResponse.json(
+      return json(
         createAuthError('Email inválido'),
-        { status: 400 }
+        400
       );
     }
 
@@ -71,17 +83,19 @@ export async function POST(request: NextRequest) {
     });
 
     if (!user) {
-      return NextResponse.json(
+      log.warn('Invalid credentials (user not found)', { email });
+      return json(
         createAuthError('Credenciais inválidas'),
-        { status: 401 }
+        401
       );
     }
 
     // Verificar se o usuário está ativo
     if (!user.isActive) {
-      return NextResponse.json(
+      log.warn('Inactive user login attempt', { userId: user.id });
+      return json(
         createAuthError('Usuário desativado. Entre em contato com o administrador'),
-        { status: 403 }
+        403
       );
     }
 
@@ -89,9 +103,10 @@ export async function POST(request: NextRequest) {
     const isPasswordValid = await verifyPassword(password, user.password);
     
     if (!isPasswordValid) {
-      return NextResponse.json(
+      log.warn('Invalid credentials (wrong password)', { userId: user.id });
+      return json(
         createAuthError('Credenciais inválidas'),
-        { status: 401 }
+        401
       );
     }
 
@@ -99,9 +114,9 @@ export async function POST(request: NextRequest) {
     const tokens = generateTokenPair(user as User);
 
     // Criar resposta
-    const response = NextResponse.json(
+    const response = json(
       createAuthSuccess(user as User, tokens),
-      { status: 200 }
+      200
     );
 
     // Definir cookies
@@ -135,14 +150,18 @@ export async function POST(request: NextRequest) {
     //   // Não falhar o login por causa do log
     // }
 
+    log.info('Login success', { userId: (user as User).id });
     return response;
 
   } catch (error) {
-    console.error('Erro no login:', error);
-    return NextResponse.json(
+    const requestId = getOrCreateRequestId(request);
+    const log = createLogger('api.auth.login', requestId);
+    log.error('Unhandled error', { error: error instanceof Error ? error.message : String(error) });
+    const res = NextResponse.json(
       createAuthError('Erro interno do servidor'),
       { status: 500 }
     );
+    return withRequestIdHeader(res, requestId);
   }
 }
 

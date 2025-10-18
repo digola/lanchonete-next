@@ -3,9 +3,16 @@ import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
+import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
 // GET /api/categories - Listar categorias
 export async function GET(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const log = createLogger('api.categories.get', requestId);
+  const json = (payload: any, status = 200) => {
+    const res = NextResponse.json(payload, { status });
+    return withRequestIdHeader(res, requestId);
+  };
   try {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
@@ -16,6 +23,8 @@ export async function GET(request: NextRequest) {
     const page = parseInt(searchParams.get('page') || '1');
     const sortBy = searchParams.get('sortBy') || 'name';
     const sortOrder = searchParams.get('sortOrder') || 'asc';
+
+    log.debug('List params', { search, categoryId, isActive, includeProducts, limit, page, sortBy, sortOrder });
 
     const skip = (page - 1) * limit;
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
@@ -69,7 +78,8 @@ export async function GET(request: NextRequest) {
       countCached(),
     ]);
 
-    return NextResponse.json({
+    log.info('List fetched', { count: categories.length, total });
+    return json({
       success: true,
       data: categories,
       pagination: {
@@ -80,39 +90,49 @@ export async function GET(request: NextRequest) {
       },
     });
   } catch (error) {
-    console.error('Erro ao buscar categorias:', error);
-    return NextResponse.json(
+    const msg = error instanceof Error ? error.message : String(error);
+    log.error('Error fetching categories', { error: msg });
+    return json(
       { success: false, error: 'Erro interno do servidor' },
-      { status: 500 }
+      500
     );
   }
 }
 
 // POST /api/categories - Criar categoria
 export async function POST(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const log = createLogger('api.categories.post', requestId);
+  const json = (payload: any, status = 200) => {
+    const res = NextResponse.json(payload, { status });
+    return withRequestIdHeader(res, requestId);
+  };
   try {
     // Verificar autenticação
     const token = getTokenFromRequest(request);
     if (!token) {
-      return NextResponse.json(
+      log.warn('Missing auth token');
+      return json(
         { success: false, error: 'Token de acesso necessário' },
-        { status: 401 }
+        401
       );
     }
 
     const decoded = verifyToken(token);
     if (!decoded) {
-      return NextResponse.json(
+      log.warn('Invalid token');
+      return json(
         { success: false, error: 'Token inválido' },
-        { status: 401 }
+        401
       );
     }
 
     // Verificar permissão
     if (!hasPermission(decoded.role, 'categories:write')) {
-      return NextResponse.json(
+      log.warn('Permission denied', { role: decoded.role });
+      return json(
         { success: false, error: 'Permissão insuficiente' },
-        { status: 403 }
+        403
       );
     }
 
@@ -121,9 +141,9 @@ export async function POST(request: NextRequest) {
 
     // Validações
     if (!name || !name.trim()) {
-      return NextResponse.json(
+      return json(
         { success: false, error: 'Nome é obrigatório' },
-        { status: 400 }
+        400
       );
     }
 
@@ -133,17 +153,17 @@ export async function POST(request: NextRequest) {
     });
 
     if (existingCategory) {
-      return NextResponse.json(
+      return json(
         { success: false, error: 'Já existe uma categoria com este nome' },
-        { status: 400 }
+        400
       );
     }
 
     // Validar cor hexadecimal se fornecida
     if (color && !/^#[0-9A-F]{6}$/i.test(color)) {
-      return NextResponse.json(
+      return json(
         { success: false, error: 'Cor deve ser um valor hexadecimal válido (#RRGGBB)' },
-        { status: 400 }
+        400
       );
     }
 
@@ -167,32 +187,17 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Log da atividade (comentado para SQLite - modelo activityLog não existe)
-    // await prisma.activityLog.create({
-    //   data: {
-    //     userId: decoded.userId,
-    //     action: 'CREATE_CATEGORY',
-    //     entityType: 'Category',
-    //     entityId: category.id,
-    //     details: JSON.stringify({
-    //       name: category.name,
-    //       description: category.description,
-    //       color: category.color,
-    //     }),
-    //     ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-    //     userAgent: request.headers.get('user-agent'),
-    //   },
-    // });
-
-    return NextResponse.json({
+    log.info('Category created', { categoryId: category.id });
+    return json({
       success: true,
       data: category,
     });
   } catch (error) {
-    console.error('Erro ao criar categoria:', error);
-    return NextResponse.json(
+    const msg = error instanceof Error ? error.message : String(error);
+    log.error('Error creating category', { error: msg });
+    return json(
       { success: false, error: 'Erro interno do servidor' },
-      { status: 500 }
+      500
     );
   }
 }
