@@ -4,6 +4,13 @@ Este guia explica como fazer deploy do projeto Next.js no Render.com. Oferecemos
 
 IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local, use o Docker Compose incluído (PostgreSQL + app). Para produção no Render, use PostgreSQL gerenciado.
 
+## Branch para Deploy
+**IMPORTANTE**: Use o branch `render-deploy` para deploy no Render. Este branch contém:
+- ✅ Migrations do PostgreSQL versionadas
+- ✅ Configuração otimizada para produção
+- ✅ Arquivo `render.yaml` para deploy automático
+- ✅ Documentação específica do Render
+
 ## 1. Preparação
 - Tenha o código em um repositório Git (GitHub/GitLab/Bitbucket).
 - Verifique Node 18+ localmente e que `npm run build` funciona.
@@ -35,19 +42,36 @@ IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local,
      - Abra Shell do serviço → `npm run db:seed`
 
 ## 3A. Deploy como Serviço Web Node (recomendado)
+
+### Opção 1: Deploy Automático com render.yaml
+1) No Render: New → Blueprint → Connect repo
+2) Selecione o branch `render-deploy`
+3) O arquivo `render.yaml` configurará automaticamente:
+   - Serviço Web Node.js
+   - Banco PostgreSQL
+   - Disco para uploads
+   - Variáveis de ambiente básicas
+
+4) Configure manualmente apenas:
+   - `DATABASE_URL`: URL do PostgreSQL criado
+   - `DIRECT_URL`: URL direta do PostgreSQL (sem pool)
+
+### Opção 2: Deploy Manual
 1) No Render: New → Web Service → Connect repo
 2) Configure:
    - Name: lanchonete-next
    - Environment: Node
    - Region: escolha próxima aos usuários
-   - Branch: main (ou branch de produção)
+   - Branch: **render-deploy** (importante!)
    - Root Directory: (deixe em branco se repo raiz)
    - Build Command:
-     - `npm install`
-     - `npx prisma generate`
-     - `npm run build`
+     ```bash
+     npm install && npx prisma generate && npm run build
+     ```
    - Start Command:
-     - `bash -c "npx prisma migrate deploy && npm run start"`
+     ```bash
+     bash -c "npx prisma migrate deploy && npm run start"
+     ```
    - Auto-Deploy: habilitado (opcional)
    - Health Check Path: `/api/health` (opcional, recomendado)
 

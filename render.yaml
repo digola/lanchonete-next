@@ -1,0 +1,56 @@
+# Render Blueprint para Deploy Automático
+# Este arquivo configura o deploy automático no Render.com
+
+services:
+  # Serviço Web Principal
+  - type: web
+    name: lanchonete-next
+    env: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install && npx prisma generate && npm run build
+    startCommand: bash -c "npx prisma migrate deploy && npm run start"
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false # Será configurado manualmente no dashboard
+      - key: DIRECT_URL
+        sync: false # Será configurado manualmente no dashboard
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: "30d"
+      - key: UPLOAD_MAX_SIZE
+        value: "10485760"
+      - key: UPLOAD_ALLOWED_TYPES
+        value: "image/jpeg,image/png,image/webp"
+      - key: UPLOAD_DIR
+        value: "/var/data/uploads/images"
+      - key: UPLOAD_BASE_URL
+        value: "https://lanchonete-next.onrender.com/uploads/images"
+      - key: APP_NAME
+        value: "Sistema Lanchonete"
+
+  # Banco de Dados PostgreSQL
+  - type: pserv
+    name: lanchonete-postgres
+    env: postgresql
+    region: oregon
+    plan: starter
+    disk:
+      name: lanchonete-data
+      mountPath: /var/lib/postgresql/data
+      sizeGB: 1
+
+# Configurações de Disco para Uploads
+disks:
+  - name: lanchonete-uploads
+    mountPath: /var/data/uploads
+    sizeGB: 1
