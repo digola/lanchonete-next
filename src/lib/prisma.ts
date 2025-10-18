@@ -4,9 +4,8 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Detectar ambiente Vercel/produção
-const isVercel = !!process.env.VERCEL;
-const isProdLike = process.env.NODE_ENV === 'production' || isVercel;
+// Detectar ambiente de produção (cloud)
+const isProdLike = process.env.NODE_ENV === 'production';
 
 // Aliases/fallbacks para variáveis de ambiente de banco (compat com Supabase/Prisma)
 const DB_ALIASES = [
@@ -26,21 +25,21 @@ function resolveDatabaseUrl(): string | undefined {
   return undefined;
 }
 
-// Configurar DATABASE_URL padrão somente em desenvolvimento local
+// Configuração estrita: exigir DATABASE_URL (PostgreSQL) em todos os ambientes
 if (!process.env.DATABASE_URL) {
   const resolved = resolveDatabaseUrl();
   if (resolved && !process.env.DATABASE_URL) {
     process.env.DATABASE_URL = resolved;
   }
+}
+if (!process.env.DATABASE_URL) {
+  const errorMsg = 'DATABASE_URL não definida. Configure no .env local (PostgreSQL) ou nas variáveis do serviço (ex.: Render).';
   if (isProdLike) {
-    // Em produção (inclui Vercel), não usar SQLite.
-    // Isso evita 500 causados por tentativa de usar arquivo SQLite em filesystem read-only.
-    if (!process.env.DATABASE_URL) {
-      console.error('❌ DATABASE_URL não definida em produção. Configure a variável no Vercel (Project Settings → Environment Variables).');
-    }
+    console.error(`❌ ${errorMsg}`);
+    throw new Error(errorMsg);
   } else {
-    console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
-    process.env.DATABASE_URL = 'file:./dev.db';
+    console.warn(`⚠️ ${errorMsg}`);
+    throw new Error(errorMsg);
   }
 }
 
@@ -50,9 +49,9 @@ let prismaClient: PrismaClient | undefined = globalForPrisma.prisma;
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     if (!prismaClient) {
-      // Bloquear inicialização sem DATABASE_URL em ambientes de produção/Vercel
+      // Bloquear inicialização sem DATABASE_URL em ambientes de produção/cloud
       if (isProdLike && !process.env.DATABASE_URL) {
-        throw new Error('DATABASE_URL não definida no ambiente de produção. Configure-a no Vercel para habilitar o banco de dados.');
+        throw new Error('DATABASE_URL não definida no ambiente de produção. Configure-a no serviço (ex.: Render) para habilitar o banco de dados.');
       }
       prismaClient = new PrismaClient();
       if (process.env.NODE_ENV !== 'production') {

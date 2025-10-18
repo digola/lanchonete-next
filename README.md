@@ -1,6 +1,6 @@
-# 🍔 Lanchonete Next — Ambiente Local e Deploy no Render
+# 🍔 Lanchonete Next — Ambiente Local (PostgreSQL) e Deploy no Render
 
-Sistema de gestão para lanchonetes e restaurantes desenvolvido em Next.js 15, TypeScript, Prisma e Tailwind CSS. O repositório está configurado para desenvolvimento local usando SQLite. Para deploy em produção, recomendamos o Render.com com PostgreSQL.
+Sistema de gestão para lanchonetes e restaurantes desenvolvido em Next.js 15, TypeScript, Prisma e Tailwind CSS. O projeto opera exclusivamente com PostgreSQL, tanto localmente quanto em produção (Render.com).
 
 ## 🚀 Principais funcionalidades
 - Usuários com roles: CLIENTE, FUNCIONARIO, ADMINISTRADOR
@@ -13,47 +13,57 @@ Sistema de gestão para lanchonetes e restaurantes desenvolvido em Next.js 15, T
 ## 🛠️ Stack
 - Frontend/Backend: Next.js (App Router)
 - ORM: Prisma
-- Banco local: SQLite (prisma/dev.db)
+- Banco: PostgreSQL
 - Estado: Zustand
 - Ícones: Lucide + Heroicons
 
 ## 📋 Requisitos
 - Node.js 18+
 - npm
+- Docker e Docker Compose (recomendado para ambiente local)
 
-## ⚙️ Ambiente Local (SQLite)
+## ⚙️ Ambiente Local (PostgreSQL via Docker Compose)
 1) Instalar dependências
 ```bash
 npm install
 ```
 
-2) Preparar banco de dados (SQLite)
+2) Copiar variáveis de ambiente
 ```bash
-# Sincroniza o schema com o banco local
-npm run db:push
-
-# Popula dados iniciais (usuários, categorias, produtos, mesas)
-npm run db:seed
+cp env.example .env
+```
+Ajuste `DATABASE_URL` conforme seu ambiente local. Para o Compose padrão deste repositório, use:
+```
+DATABASE_URL="postgresql://app_user:app_password@localhost:5432/lanchonete_db?schema=public"
 ```
 
-3) Rodar em desenvolvimento
+3) Subir serviços (Postgres + App)
 ```bash
-npm run dev
+docker compose up --build
 ```
 Acesse: http://localhost:3000/
 
+4) Criar/atualizar schema e gerar client (em ambiente local com migrations)
+```bash
+# Crie migrations e aplique no banco local
+npx prisma migrate dev --name init
+
+# (Opcional) Popular com dados iniciais
+npm run db:seed
+```
+
 ## 🔐 Variáveis de ambiente
-Crie um arquivo `.env` (ou `.env.local`) se desejar customizar segredos:
+Defina em `.env` (ou no painel do Render, para produção):
 ```env
-# Opcional — se não definir, um fallback será usado
+DATABASE_URL="postgresql://user:pass@host:5432/dbname?schema=public" # Em Render, se necessário: ?sslmode=require
+DIRECT_URL="postgresql://user:pass@host:5432/dbname?schema=public"
 JWT_SECRET="uma-chave-secreta-segura"
-# Expirações opcionais
 JWT_EXPIRES_IN="7d"
 JWT_REFRESH_EXPIRES_IN="30d"
+NEXTAUTH_URL="http://localhost:3000"
 ```
-Observação: Para o ambiente local, o Prisma usa automaticamente `file:./dev.db` (SQLite).
 
-## 👤 Usuários criados pelo seed
+## 👤 Usuários criados pelo seed (opcional)
 - admin@lanchonete.com (senha: 123456) — ADMINISTRADOR
 - funcionario@lanchonete.com (senha: 123456) — FUNCIONARIO
 - cliente@lanchonete.com (senha: 123456) — CLIENTE
@@ -68,42 +78,38 @@ src/
 ├─ stores/         # Zustand
 └─ types/          # Tipos
 prisma/
-├─ schema.prisma   # Schema SQLite
+├─ schema.prisma   # Schema principal (PostgreSQL)
+├─ schema.postgres.prisma # Exemplo de schema para Postgres (referência)
 └─ seed.ts         # Seed inicial
 ```
 
 ## 🗂️ Uploads
-Uploads de imagens são salvos em `public/uploads/images`. Em produção no Render, considere:
-- Usar storage externo (Cloudinary/S3) e salvar apenas URLs
-- Ou anexar um Persistent Disk no Render (veja guia) e ajustar o caminho de upload
+Uploads de imagens são salvos em `public/uploads/images`. Localmente via Compose, os uploads são persistidos via volume. Em produção no Render:
+- Use storage externo (Cloudinary/S3) e salve apenas URLs, ou
+- Anexe um Persistent Disk e ajuste o caminho de upload
 
 ## 📜 Scripts úteis
 ```bash
 npm run dev        # Desenvolvimento
 npm run build      # Build
 npm run start      # Produção local
-npm run db:push    # Sincronizar schema (SQLite)
+npm run db:migrate # Alias para `prisma migrate dev` (ajuste conforme sua preferência)
 npm run db:seed    # Popular banco
 npm run db:studio  # Prisma Studio
 ```
 
-## 🚀 Deploy no Render.com (recomendado)
-Para produção, recomendamos migrar para PostgreSQL e fazer deploy no Render. Siga o guia completo:
+## 🚀 Deploy no Render.com
+Guia completo:
 - Veja: DEPLOY_RENDER.md
 
-Resumo do fluxo:
-- Criar um PostgreSQL gerenciado no Render
-- Atualizar `prisma/schema.prisma` para `provider = "postgresql"` e usar `DATABASE_URL`
-- Versionar migrations com `npx prisma migrate dev`
-- Configurar Web Service no Render:
-  - Build Command: `npm install && npx prisma generate && npm run build`
-  - Start Command: `bash -c "npx prisma migrate deploy && npm run start"`
+Resumo:
+- Crie um PostgreSQL gerenciado no Render
+- Use `schema.prisma` com `provider = "postgresql"` e `DATABASE_URL`
+- Versione migrations com `npx prisma migrate dev`
+- Configure Web Service no Render:
+  - Build: `npm install && npx prisma generate && npm run build`
+  - Start: `bash -c "npx prisma migrate deploy && npm run start"`
   - Variáveis: `DATABASE_URL`, `JWT_SECRET` (e `JWT_REFRESH_SECRET`)
-- Validar rotas e logs pós-deploy
 
 ## 📝 Licença
 MIT. Veja o arquivo LICENSE.
-
-## Observações
-- Este repositório está focado em ambiente local (SQLite). Para produção, use PostgreSQL e siga o guia do Render.
-- Se preferir Docker no Render, o repositório inclui um `Dockerfile` compatível; ajuste apenas as variáveis e garanta `DATABASE_URL`.
