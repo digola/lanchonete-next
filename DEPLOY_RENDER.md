@@ -48,7 +48,7 @@ IMPORTANTE: O projeto está configurado para desenvolvimento local com SQLite. P
    - Auto-Deploy: habilitado (opcional)
 
 3) Variáveis de ambiente:
-   - Adicione `DATABASE_URL` com a URL do Postgres do Render
+   - Adicione `DATABASE_URL` com a URL do Postgres do Render (se necessário, acrescente `?sslmode=require`)
    - Adicione `JWT_SECRET` e `JWT_REFRESH_SECRET`
    - Render define `PORT` automaticamente; o Next usará essa porta.
 

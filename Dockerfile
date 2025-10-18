@@ -1,6 +1,6 @@
-# Dockerfile PRODUÇÃO — Next.js + Prisma (Cloud Run + Cloud SQL)
-# Este Dockerfile prepara a aplicação para produção em Cloud Run.
-# Requer migrations versionadas e configuração de DATABASE_URL (PostgreSQL via Cloud SQL).
+# Dockerfile PRODUÇÃO — Next.js + Prisma (Compatível com Render Docker Service)
+# Este Dockerfile prepara a aplicação para produção em ambientes de container.
+# Requer migrations versionadas e configuração de DATABASE_URL (ex.: PostgreSQL no Render).
 
 # 1) Dependências
 FROM node:20-bullseye-slim AS deps
@@ -18,7 +18,7 @@ RUN npx prisma generate
 # Compilar Next
 RUN npm run build
 
-# 3) Runner (PRODUÇÃO com Cloud SQL)
+# 3) Runner (Produção em container)
 FROM node:20-bullseye-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
@@ -30,6 +30,6 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/prisma ./prisma
-# Em PRODUÇÃO: aplicar migrations versionadas
+# Em produção: aplicar migrations versionadas
 # OBS: As migrations devem existir em prisma/migrations (geradas com `prisma migrate dev`)
 CMD ["sh", "-c", "npx prisma migrate deploy && npm run start"]
