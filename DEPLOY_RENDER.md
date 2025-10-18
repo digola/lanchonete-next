@@ -2,7 +2,7 @@
 
 Este guia explica como fazer deploy do projeto Next.js no Render.com. Oferecemos duas abordagens: (A) Serviço Web Node (recomendado) e (B) Serviço Web com Docker. Também cobrimos banco de dados PostgreSQL gerenciado no Render e considerações sobre uploads.
 
-IMPORTANTE: O projeto está configurado para desenvolvimento local com SQLite. Para produção no Render, recomenda-se usar o PostgreSQL gerenciado.
+IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local, use o Docker Compose incluído (PostgreSQL + app). Para produção no Render, use PostgreSQL gerenciado.
 
 ## 1. Preparação
 - Tenha o código em um repositório Git (GitHub/GitLab/Bitbucket).
@@ -15,20 +15,20 @@ IMPORTANTE: O projeto está configurado para desenvolvimento local com SQLite. P
    - Escolha nome/region/plan.
    - Copie a DATABASE_URL (connection string) fornecida.
 
-2) Ajuste o Prisma para Postgres:
-   - Edite `prisma/schema.prisma`:
-     - Troque `provider = "sqlite"` para `provider = "postgresql"`.
-     - Troque a `url` para `env("DATABASE_URL")`.
-   - Gere e versiona migrações:
-     - No seu ambiente local (com Postgres acessível):
-       - `export DATABASE_URL="postgresql://<user>:<pass>@localhost:5432/<db>"` (ou use a URL do Render via proxy)
-       - `npx prisma migrate dev`
+2) Ajuste o Prisma para Postgres (já padrão neste projeto):
+   - `prisma/schema.prisma` já está com `provider = "postgresql"` e `url = env("DATABASE_URL")`.
+   - Gere e versiona migrações a partir do seu ambiente local:
+     - Garanta acesso a um Postgres local (pode ser o do Docker Compose) ou remoto.
+     - Exporte a variável `DATABASE_URL` no seu ambiente local:
+       - `export DATABASE_URL="postgresql://<user>:<pass>@localhost:5432/<db>?schema=public"`
+     - Rode:
+       - `npx prisma migrate dev --name init`
      - Confirme as tabelas no Postgres.
-   - Comite `prisma/schema.prisma` e `prisma/migrations/` no repositório.
+   - Comite `prisma/schema.prisma` e o diretório `prisma/migrations/` no repositório.
 
 3) Seed (opcional):
    - Evite rodar seed automaticamente em produção.
-   - Rode manualmente após o deploy via shell do Render:
+   - Rode manualmente após o deploy via Shell do Render:
      - Abra Shell do serviço → `npm run db:seed`
 
 ## 3A. Deploy como Serviço Web Node (recomendado)
@@ -48,8 +48,8 @@ IMPORTANTE: O projeto está configurado para desenvolvimento local com SQLite. P
    - Auto-Deploy: habilitado (opcional)
 
 3) Variáveis de ambiente:
-   - Adicione `DATABASE_URL` com a URL do Postgres do Render (se necessário, acrescente `?sslmode=require`)
-   - Adicione `JWT_SECRET` e `JWT_REFRESH_SECRET`
+   - `DATABASE_URL` com a URL do Postgres do Render (se necessário, acrescente `?sslmode=require`)
+   - `JWT_SECRET` e `JWT_REFRESH_SECRET`
    - Render define `PORT` automaticamente; o Next usará essa porta.
 
 4) Verificação pós-deploy:
@@ -60,11 +60,34 @@ IMPORTANTE: O projeto está configurado para desenvolvimento local com SQLite. P
 ## 3B. Deploy com Docker (opcional)
 - Caso prefira Docker, crie o serviço como "Docker" e use o `Dockerfile` do repositório.
 - Ajustes:
-  - O Dockerfile atual usa `npx prisma migrate deploy && npm run start` no startup.
+  - O Dockerfile atual executa `npx prisma migrate deploy && npm run start` no startup.
   - Garanta que `DATABASE_URL` esteja definido.
   - Porta exposta: 3000 (Render usará a variável `PORT`).
 
-## 4. Uploads de Imagens
+## 4. Ambiente Local (Docker Compose com PostgreSQL)
+Use o Compose padrão do projeto para subir Postgres + app localmente:
+
+```bash
+# 1) Instalar dependências
+npm install
+
+# 2) Copiar .env e ajustar DATABASE_URL
+cp env.example .env
+# Para Compose, use:
+# DATABASE_URL="postgresql://app_user:app_password@localhost:5432/lanchonete_db?schema=public"
+
+# 3) Subir serviços
+docker compose up --build
+# App: http://localhost:3000
+```
+
+O serviço `app` executa `npx prisma generate && npx prisma db push` na inicialização para sincronizar o schema com o Postgres local sem criar migrations. Para versionar migrations corretamente, rode no host:
+
+```bash
+npx prisma migrate dev --name init
+```
+
+## 5. Uploads de Imagens
 Por padrão, as imagens são salvas em `public/uploads/images` e servidas como arquivos estáticos.
 
 Problema em produção: em Render, o filesystem do container é refeito a cada deploy. Os arquivos enviados em produção podem ser perdidos em um novo deploy.
@@ -88,19 +111,19 @@ const baseDir = process.env.UPLOAD_DIR || join(process.cwd(), 'public', 'uploads
 ```
 - Se usar Disk fora da pasta `public`, você pode servir via uma rota Next.js dedicada (`/api/files`), ou criar um symlink durante o build para expor `/uploads`.
 
-## 5. Boas práticas
-- Não use SQLite em produção (múltiplas instâncias, perda de dados).
+## 6. Boas práticas
+- Não use SQLite em produção.
 - Mantenha migrations versionadas e use `migrate deploy`.
 - Controle de segredos via variáveis de ambiente (considere Secret Files do Render).
 - Monitore logs e saúde do serviço.
 
-## 6. Troubleshooting
+## 7. Troubleshooting
 - Erro de Prisma Client: rode `npx prisma generate` no build.
 - Falha ao conectar no DB: valide `DATABASE_URL` e regras de acesso na instância.
 - Seed não roda: confirme que `tsx` está instalado ou execute seed via Node/JS.
 - Uploads não aparecem: verifique path base e exposição (static/public vs rota API).
 
-## 7. Check-list de deploy
+## 8. Check-list de deploy
 - [ ] Migrar Prisma para Postgres e versionar migrations
 - [ ] Criar Postgres no Render e setar `DATABASE_URL`
 - [ ] Configurar Build/Start commands
