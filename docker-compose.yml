@@ -1,9 +1,8 @@
 version: "3.9"
 
 # Docker Compose para TESTE LOCAL com PostgreSQL
-# Este arquivo usa o schema de exemplo prisma/schema.postgres.prisma
-# e gera o Prisma Client para Postgres em tempo de execução, 
-# sincronizando o banco com `prisma db push`.
+# Usa o schema principal prisma/schema.prisma
+# Gera o Prisma Client e sincroniza o banco com `prisma db push`.
 
 services:
   db:
@@ -44,8 +43,8 @@ services:
       DATABASE_URL: "postgresql://app_user:app_password@db:5432/lanchonete_db?schema=public"
     volumes:
       - ./public/uploads/images:/app/public/uploads/images
-    # Gera Prisma Client para Postgres e sincroniza o schema de exemplo antes de iniciar
-    command: sh -c "npx prisma generate --schema prisma/schema.postgres.prisma && npx prisma db push --schema prisma/schema.postgres.prisma && npm run start"
+    # Gera Prisma Client e sincroniza o schema antes de iniciar
+    command: sh -c "npx prisma generate && npx prisma db push && npm run start"
     restart: unless-stopped
 
 volumes:
