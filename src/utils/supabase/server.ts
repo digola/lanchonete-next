@@ -22,7 +22,7 @@ export const createClient = async () => {
             // The `setAll` method was called from a Server Component.
             // This can be ignored if you have middleware refreshing
             // user sessions.
-            console.log("vai se fuder)
+            console.log("vai se fuder")
           }
         },
       },
