@@ -37,9 +37,10 @@ export async function GET(request: NextRequest) {
     if (categoryId) {
       where.id = categoryId;
     }
-    if (isActive !== null) {
+   /* if (isActive !== null) {
       where.isActive = isActive === 'true';
     }
+    */
 
     const paramsKey = JSON.stringify({ where, includeProducts, orderBy, skip, limit });
 
