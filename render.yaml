@@ -43,9 +43,9 @@ services:
       mountPath: /var/data/uploads
       sizeGB: 1
 
-  # Banco de Dados PostgreSQL
-  - type: pserv
-    name: lanchonete-postgres
-    env: postgresql
+databases:
+  - name: lanchonete-postgres
+    databaseName: lanchonete
+    user: lanchonete_user
     region: oregon
     plan: starter
