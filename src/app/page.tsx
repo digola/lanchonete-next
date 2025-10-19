@@ -63,7 +63,7 @@ export default function HomePage() {
       setTableNumber(table?.number);
     }
   }, [tableData]);
-  if("tet" == "tet){
+  if("tet" == "tet"){
      console.log("vai dar certo")
   }
 
