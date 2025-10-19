@@ -37,11 +37,13 @@ Ajuste `DATABASE_URL` conforme seu ambiente local. Para o Compose padrão deste 
 DATABASE_URL="postgresql://app_user:app_password@localhost:5432/lanchonete_db?schema=public"
 ```
 
-3) Subir serviços (Postgres + App)
+3) Subir serviços (Postgres + App + pgAdmin)
 ```bash
 docker compose up --build
 ```
-Acesse: http://localhost:3000/
+Acesse: 
+- **App**: http://localhost:3000/
+- **pgAdmin**: http://localhost:8080/ (admin@lanchonete.com / admin123)
 
 4) Criar/atualizar schema e gerar client (em ambiente local com migrations)
 ```bash
@@ -112,6 +114,22 @@ npm run db:studio  # Prisma Studio
 
 ## 🩺 Health Check
 A aplicação expõe `GET /api/health` e `GET /api/health/db` para verificação de prontidão e conectividade com o banco.
+
+## 🐘 Administração do Banco (pgAdmin)
+Interface web para administrar o PostgreSQL incluída no Docker Compose.
+
+**Acesso**: http://localhost:8080/
+- **Email**: admin@lanchonete.com  
+- **Senha**: admin123
+
+**Configuração do Servidor PostgreSQL no pgAdmin**:
+- **Host**: db
+- **Porta**: 5432
+- **Banco**: lanchonete_db
+- **Usuário**: app_user
+- **Senha**: app_password
+
+📖 **Documentação completa**: [PGADMIN_SETUP.md](./PGADMIN_SETUP.md)
 
 ## 🚀 Deploy no Render.com
 Guia completo:

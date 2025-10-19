@@ -22,6 +22,22 @@ services:
       timeout: 5s
       retries: 20
 
+  # pgAdmin - Interface web para administração do PostgreSQL
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: lanchonete-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@lanchonete.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "8080:80"
+    depends_on:
+      - db
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    restart: unless-stopped
+
   app:
     build:
       context: .
@@ -56,3 +72,4 @@ services:
 
 volumes:
   pg_data:
+  pgadmin_data:
