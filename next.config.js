@@ -1,19 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Desativar Strict Mode em desenvolvimento para evitar efeitos duplicados
-  // e reduzir requisições automáticas duplicadas
-  reactStrictMode: false,
-  // Otimizações experimentais
-  // Desabilitar temporariamente otimização de imports para evitar erros de
-  // clientReferenceManifest em desenvolvimento com Next 15
-  // Referência: problemas conhecidos ao otimizar pacotes de ícones
+  // Configurações para produção no Vercel
+  reactStrictMode: true,
+  
+  // Configurações experimentais otimizadas para Vercel
   experimental: {
-    // Mantemos optimizePackageImports desabilitado manualmente aqui devido a erros
-    // observados em desenvolvimento com Next 15.5 (clientReferenceManifest).
-    // Nota: Algumas bibliotecas como lucide-react já são otimizadas por padrão
-    // pelo Next.js, conforme a documentação oficial.
-    // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/optimizePackageImports
-    // optimizePackageImports: ['lucide-react', '@heroicons/react'],
+    // Otimizar imports de pacotes para melhor performance
+    optimizePackageImports: ['lucide-react', '@heroicons/react'],
   },
 
   // Configuração específica do Turbopack (Next.js) para suportar loaders
@@ -30,14 +23,14 @@ const nextConfig = {
   
   // Configurações de TypeScript para deploy
   typescript: {
-    // Ignorar erros de tipo durante o build para deploy rápido
-    ignoreBuildErrors: true,
+    // Manter verificação de tipos em produção
+    ignoreBuildErrors: false,
   },
   
   // Configurações de ESLint para deploy
   eslint: {
-    // Ignorar erros de ESLint durante o build para deploy rápido
-    ignoreDuringBuilds: true,
+    // Manter verificação de ESLint em produção
+    ignoreDuringBuilds: false,
   },
   
   // Configuração de imagens
