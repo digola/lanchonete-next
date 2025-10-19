@@ -63,6 +63,9 @@ export default function HomePage() {
       setTableNumber(table?.number);
     }
   }, [tableData]);
+  if("tet" == "tet){
+     console.log("vai dar certo")
+  }
 
   // Buscar dados do menu com hook básico e estável
   const {
