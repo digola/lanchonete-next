@@ -5,11 +5,12 @@ Este guia explica como fazer deploy do projeto Next.js no Render.com. Oferecemos
 IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local, use o Docker Compose incluído (PostgreSQL + app). Para produção no Render, use PostgreSQL gerenciado.
 
 ## Branch para Deploy
-**IMPORTANTE**: Use o branch `render-deploy` para deploy no Render. Este branch contém:
+**IMPORTANTE**: Use o branch `develop` (principal) para deploy no Render. Este branch contém:
 - ✅ Migrations do PostgreSQL versionadas
 - ✅ Configuração otimizada para produção
 - ✅ Arquivo `render.yaml` para deploy automático
 - ✅ Documentação específica do Render
+- ✅ Todas as funcionalidades mais recentes
 
 ## 1. Preparação
 - Tenha o código em um repositório Git (GitHub/GitLab/Bitbucket).
@@ -45,7 +46,7 @@ IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local,
 
 ### Opção 1: Deploy Automático com render.yaml
 1) No Render: New → Blueprint → Connect repo
-2) Selecione o branch `render-deploy`
+2) Selecione o branch `develop` (principal)
 3) O arquivo `render.yaml` configurará automaticamente:
    - Serviço Web Node.js
    - Banco PostgreSQL
@@ -62,7 +63,7 @@ IMPORTANTE: O projeto é Postgres-only (sem SQLite). Para desenvolvimento local,
    - Name: lanchonete-next
    - Environment: Node
    - Region: escolha próxima aos usuários
-   - Branch: **render-deploy** (importante!)
+   - Branch: **develop** (principal - importante!)
    - Root Directory: (deixe em branco se repo raiz)
    - Build Command:
      ```bash
