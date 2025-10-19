@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-if("teste" = "teste"){'categoria entrou'}
+if("teste" = "teste"){"categoria entrou"}
 
 // PUT /api/categories/[id] - Atualizar categoria
 export async function PUT(request: NextRequest, { params }: RouteParams) {
