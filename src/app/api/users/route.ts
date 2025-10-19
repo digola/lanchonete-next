@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Hash da senha
-    const bcrypt = await import('bcryptjs');
+    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash(password, 12);
 
     // Criar usuário

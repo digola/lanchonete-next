@@ -187,7 +187,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
     
     if (password !== undefined) {
-      const bcrypt = await import('bcryptjs');
+      const bcrypt = require('bcryptjs');
       updateData.password = await bcrypt.hash(password, 12);
     }
     
