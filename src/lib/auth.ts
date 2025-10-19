@@ -1,126 +1,54 @@
-import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { NextRequest } from 'next/server';
-import { User, UserRole } from '@/types';
-
-// Configurações JWT
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
-
-// Helper para garantir que o secret seja uma string
-const getJWTSecret = (): string => {
-  if (typeof JWT_SECRET !== 'string') {
-    throw new Error('JWT_SECRET must be a string');
-  }
-  return JWT_SECRET;
-};
+import { UserRole } from '@/types';
+import * as jose from 'jose';
 
 // Interfaces para tokens
-export interface JWTPayload {
+export interface JWTPayload extends jose.JWTPayload {
   userId: string;
   email: string;
   role: UserRole;
-  iat?: number;
-  exp?: number;
 }
 
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-}
-
-// Funções de hash de senha
-export const hashPassword = async (password: string): Promise<string> => {
-  const saltRounds = 12;
-  return bcrypt.hash(password, saltRounds);
-};
-
-export const verifyPassword = async (password: string, hashedPassword: string): Promise<boolean> => {
-  return bcrypt.compare(password, hashedPassword);
-};
-
-// Funções JWT
-export const generateAccessToken = (user: User): string => {
-  const payload: JWTPayload = {
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-  };
-
-  // @ts-ignore - JWT types are complex, but this works correctly
-  return jwt.sign(payload, getJWTSecret(), {
-    expiresIn: JWT_EXPIRES_IN,
-    issuer: 'lanchonete-system',
-    audience: 'lanchonete-client',
-  });
-};
-
-export const generateRefreshToken = (user: User): string => {
-  const payload: JWTPayload = {
-    userId: user.id,
-    email: user.email,
-    role: user.role,
-  };
-
-  // @ts-ignore - JWT types are complex, but this works correctly
-  return jwt.sign(payload, getJWTSecret(), {
-    expiresIn: JWT_REFRESH_EXPIRES_IN,
-    issuer: 'lanchonete-system',
-    audience: 'lanchonete-refresh',
-  });
-};
-
-export const generateTokenPair = (user: User): TokenPair => {
-  return {
-    accessToken: generateAccessToken(user),
-    refreshToken: generateRefreshToken(user),
-  };
-};
-
-export const verifyToken = (token: string): JWTPayload | null => {
-  try {
-    // Validar se o token existe e não está vazio
-    if (!token || token.trim() === '') {
-      return null;
-    }
-
-    // Verificar se o token tem o formato correto (Bearer token)
-    const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+// Função para gerar JWT usando jose
+export async function generateJWT(payload: Omit<JWTPayload, 'iat' | 'exp'>): Promise<string> {
+  const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+  
+  const jwt = await new jose.SignJWT(payload)
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(secret);
     
-    if (!cleanToken || cleanToken.trim() === '') {
-      return null;
-    }
+  return jwt;
+}
 
-    // Verificar se o token tem o formato JWT básico (3 partes separadas por pontos)
-    const tokenParts = cleanToken.split('.');
-    if (tokenParts.length !== 3) {
-      console.error('❌ Token malformado - formato JWT inválido');
-      return null;
-    }
-
-    // Verificar se cada parte do JWT não está vazia
-    if (tokenParts.some(part => !part || part.trim() === '')) {
-      console.error('❌ Token malformado - partes vazias');
-      return null;
-    }
-
-    const decoded = jwt.verify(cleanToken, getJWTSecret()) as JWTPayload;
-    return decoded;
+// Função para verificar JWT usando jose
+export async function verifyJWT(token: string): Promise<JWTPayload | null> {
+  try {
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+    const { payload } = await jose.jwtVerify(token, secret);
+    return payload as JWTPayload;
   } catch (error) {
-    // Log mais específico do erro
-    if (error instanceof jwt.JsonWebTokenError) {
-      console.error('❌ Token JWT inválido:', error.message);
-    } else if (error instanceof jwt.TokenExpiredError) {
-      console.error('❌ Token expirado');
-    } else if (error instanceof jwt.NotBeforeError) {
-      console.error('❌ Token não ativo ainda');
-    } else {
-      console.error('❌ Erro na verificação do token:', error);
-    }
+    console.error('JWT verification failed:', error);
     return null;
   }
-};
+}
+
+// Função para extrair token do request
+export function extractTokenFromRequest(request: NextRequest): string | null {
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7);
+  }
+  
+  // Tentar pegar do cookie
+  const tokenCookie = request.cookies.get('token');
+  if (tokenCookie) {
+    return tokenCookie.value;
+  }
+  
+  return null;
+}
 
 // Versão compatível com Edge Runtime para middleware
 export const verifyTokenEdge = (token: string): JWTPayload | null => {
@@ -151,29 +79,6 @@ export const verifyTokenEdge = (token: string): JWTPayload | null => {
 
     return payload as JWTPayload;
   } catch (error) {
-    return null;
-  }
-};
-
-export const refreshAccessToken = (refreshToken: string): string | null => {
-  try {
-    const decoded = jwt.verify(refreshToken, getJWTSecret()) as JWTPayload;
-    
-    // Criar novo access token com os dados do refresh token
-    const newPayload: JWTPayload = {
-      userId: decoded.userId,
-      email: decoded.email,
-      role: decoded.role,
-    };
-
-    // @ts-ignore - JWT types are complex, but this works correctly
-    return jwt.sign(newPayload, getJWTSecret(), {
-      expiresIn: JWT_EXPIRES_IN,
-      issuer: 'lanchonete-system',
-      audience: 'lanchonete-client',
-    });
-  } catch (error) {
-    console.error('Refresh token verification failed:', error);
     return null;
   }
 };
@@ -450,7 +355,7 @@ export const createAuthError = (message: string, code: string = 'AUTH_ERROR') =>
 };
 
 // Função para criar resposta de sucesso com dados do usuário
-export const createAuthSuccess = (user: User, tokens?: TokenPair) => {
+export const createAuthSuccess = (user: any, tokens?: any) => {
   return {
     success: true,
     data: {

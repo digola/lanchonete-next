@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
-import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
+;
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
@@ -84,7 +85,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       log.warn('Invalid or expired token');
       return json(

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
+;
 
 interface RouteParams {
   params: {
@@ -63,7 +64,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Token inválido ou expirado' },
@@ -188,7 +189,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Token inválido ou expirado' },

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth-server';
+;
 
 // GET - Listar movimentações de estoque
 export async function GET(request: NextRequest) {

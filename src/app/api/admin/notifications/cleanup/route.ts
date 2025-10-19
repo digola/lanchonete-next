@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
+;
 import { NotificationService } from '@/lib/notificationService';
 
 // POST /api/admin/notifications/cleanup - Limpar notificações expiradas
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Token inválido ou expirado' },
@@ -60,7 +61,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json(
         { success: false, error: 'Token inválido ou expirado' },

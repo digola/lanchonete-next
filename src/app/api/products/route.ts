@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
+;
 import { unstable_cache } from 'next/cache';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 import type { Prisma } from '@prisma/client';
@@ -111,7 +112,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       log.warn('Invalid token');
       return json(

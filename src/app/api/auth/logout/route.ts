@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth-server';
+;
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     
     if (token) {
       // Verificar token para obter informações do usuário
-      const decoded = verifyToken(token);
+      const decoded = await verifyToken(token);
       
       if (decoded) {
         // Log da atividade de logout (comentado para SQLite - modelo activityLog não existe)

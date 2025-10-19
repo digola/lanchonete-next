@@ -1,14 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { 
-  refreshAccessToken, 
-  verifyToken, 
-  createAuthError,
-  createAuthSuccess,
-  COOKIE_CONFIG,
-  REFRESH_COOKIE_CONFIG
-} from '@/lib/auth';
+import { refreshAccessToken, verifyToken } from '@/lib/auth-server';
+import { createAuthError, createAuthSuccess, COOKIE_CONFIG, REFRESH_COOKIE_CONFIG } from '@/lib/auth';;
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,7 +17,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar se o refresh token é válido
-    const decoded = verifyToken(refreshToken);
+    const decoded = await verifyToken(refreshToken);
     
     if (!decoded) {
       return NextResponse.json(
@@ -61,7 +55,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Gerar novo access token
-    const newAccessToken = refreshAccessToken(refreshToken);
+    const newAccessToken = await refreshAccessToken(refreshToken);
     
     if (!newAccessToken) {
       return NextResponse.json(

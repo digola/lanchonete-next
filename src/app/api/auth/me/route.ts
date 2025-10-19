@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken, createAuthError, createAuthSuccess } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth-server';
+import { createAuthError, createAuthSuccess } from '@/lib/auth';;
 import { User } from '@/types';
 
 export async function GET(request: NextRequest) {
@@ -17,7 +18,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar e decodificar token
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     
     if (!decoded) {
       return NextResponse.json(
@@ -80,7 +81,7 @@ export async function PUT(request: NextRequest) {
     }
 
     // Verificar e decodificar token
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     
     if (!decoded) {
       return NextResponse.json(
@@ -182,7 +183,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar e decodificar token
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     
     if (!decoded) {
       return NextResponse.json(
@@ -215,7 +216,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Verificar senha
-    const { verifyPassword } = await import('@/lib/auth');
+    const { verifyPassword } = await import('@/lib/auth-server'); 
     const isPasswordValid = await verifyPassword(password, user.password);
     
     if (!isPasswordValid) {

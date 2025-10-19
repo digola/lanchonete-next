@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth-server';
+;
 import { UserRole } from '@/types';
 
 export async function POST(
@@ -17,7 +18,7 @@ export async function POST(
       return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }

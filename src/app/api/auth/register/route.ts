@@ -1,17 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-export const runtime = 'nodejs';
-import { 
-  hashPassword, 
-  generateTokenPair, 
-  isValidEmail,
-  isValidPassword,
-  isValidName,
+import { PrismaClient } from '@prisma/client';
+import { hashPassword, generateTokenPair } from '@/lib/auth-server';
+import { UserRole } from '@/types';
+import { isValidEmail, isValidPassword, isValidName } from '@/lib/auth-server';
+import {
   createAuthError,
   createAuthSuccess,
   COOKIE_CONFIG,
   REFRESH_COOKIE_CONFIG
 } from '@/lib/auth';
+
+const prisma = new PrismaClient();
+export const runtime = 'nodejs';
 import { User } from '@/types';
 import { RegisterData } from '@/types';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Gerar tokens
-    const tokens = generateTokenPair(user as User);
+    const tokens = await generateTokenPair(user as User);
 
     // Criar resposta
     const response = json(

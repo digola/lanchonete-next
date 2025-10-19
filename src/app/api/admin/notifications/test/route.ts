@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTokenFromRequest } from '@/lib/auth';
+import { getTokenFromRequest } from '@/lib/auth-server';
+;
 import { NotificationService } from '@/lib/notificationService';
 import { NotificationType, NotificationPriority } from '@/types';
 
