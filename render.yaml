@@ -37,6 +37,11 @@ services:
         value: "https://lanchonete-next.onrender.com/uploads/images"
       - key: APP_NAME
         value: "Sistema Lanchonete"
+    # Disco para uploads anexado ao serviço web
+    disk:
+      name: lanchonete-uploads
+      mountPath: /var/data/uploads
+      sizeGB: 1
 
   # Banco de Dados PostgreSQL
   - type: pserv
@@ -44,13 +49,3 @@ services:
     env: postgresql
     region: oregon
     plan: starter
-    disk:
-      name: lanchonete-data
-      mountPath: /var/lib/postgresql/data
-      sizeGB: 1
-
-# Configurações de Disco para Uploads
-disks:
-  - name: lanchonete-uploads
-    mountPath: /var/data/uploads
-    sizeGB: 1
