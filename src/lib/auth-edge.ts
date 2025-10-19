@@ -30,15 +30,27 @@ export const verifyTokenEdge = (token: string): JWTPayload | null => {
       return null;
     }
 
-    const payload = JSON.parse(atob(parts[1]!));
+    // Decodificar base64url de forma segura
+    let base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    while (base64.length % 4) {
+      base64 += '=';
+    }
+
+    const payload = JSON.parse(atob(base64));
     
     // Verificar se o token não expirou
     if (payload.exp && payload.exp < Date.now() / 1000) {
       return null;
     }
 
+    // Validar campos obrigatórios
+    if (!payload.userId || !payload.email || !payload.role) {
+      return null;
+    }
+
     return payload as JWTPayload;
   } catch (error) {
+    console.error('Erro ao verificar token no Edge Runtime:', error);
     return null;
   }
 };

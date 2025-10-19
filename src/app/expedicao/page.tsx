@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -104,7 +104,8 @@ export default function ExpedicaoPage() {
     pagination: any 
   }>('/api/orders?includeItems=true&includeUser=true&includeTable=true');
 
-  const orders = ordersResponse?.data || [];
+  // Memoizar orders para evitar re-renders desnecessários
+  const orders = useMemo(() => ordersResponse?.data || [], [ordersResponse?.data]);
   
   // Debug: verificar dados dos pedidos
   useEffect(() => {

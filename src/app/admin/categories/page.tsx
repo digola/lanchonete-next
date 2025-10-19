@@ -72,7 +72,7 @@ export default function AdminCategoriesPage() {
   // Executar busca quando parâmetros mudarem
   useEffect(() => {
     refetchCategories();
-  }, [searchTerm, statusFilter, sortBy, sortOrder]); // Removido refetchCategories das dependências
+  }, [searchTerm, statusFilter, sortBy, sortOrder, refetchCategories]);
 
   const categories = categoriesResponse?.data || [];
   const categoriesWithProducts = categoriesWithProductsResponse?.data || [];

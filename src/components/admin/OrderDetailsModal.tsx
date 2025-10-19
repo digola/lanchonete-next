@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -55,7 +55,7 @@ export function OrderDetailsModal({
   const [loadingLogs, setLoadingLogs] = useState(false);
 
   // Buscar logs do pedido quando o modal abrir
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     if (!order) return;
     
     setLoadingLogs(true);
@@ -76,13 +76,13 @@ export function OrderDetailsModal({
     } finally {
       setLoadingLogs(false);
     }
-  };
+  }, [order]);
 
   useEffect(() => {
     if (isOpen && order) {
       fetchLogs();
     }
-  }, [isOpen, order]);
+  }, [isOpen, order, fetchLogs]);
 
   if (!isOpen || !order) return null;
 

@@ -1,5 +1,5 @@
-// Schema PostgreSQL para desenvolvimento e produção
-// Este arquivo substitui o schema SQLite anterior e usa Postgres como padrão
+// Schema PostgreSQL para Supabase
+// Configuração para produção com banco na nuvem
 
 generator client {
   provider = "prisma-client-js"
@@ -8,7 +8,6 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 // Modelo User

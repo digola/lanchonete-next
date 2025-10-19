@@ -86,7 +86,7 @@ export default function AdminOrdersPage() {
   // Atualizar URL quando filtros mudarem
   useEffect(() => {
     refetchOrders();
-  }, [searchTerm, statusFilter, dateFilter, sortBy, sortOrder]);
+  }, [searchTerm, statusFilter, dateFilter, sortBy, sortOrder, refetchOrders]);
 
   // Retorna o ícone visual correspondente ao status do pedido
   const getStatusIcon = (status: OrderStatus) => {

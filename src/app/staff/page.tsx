@@ -31,7 +31,7 @@ export default function StaffPage() {
     pagination: any 
   }>('/api/tables?includeAssignedUser=true');
 
-  const tables = tablesResponse?.data || [];
+  const tables = useMemo(() => tablesResponse?.data || [], [tablesResponse?.data]);
 
   // Auto-refresh otimizado - apenas quando necessário
   useEffect(() => {

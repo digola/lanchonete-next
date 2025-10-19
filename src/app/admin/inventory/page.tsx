@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -153,7 +153,7 @@ export default function InventoryPage() {
   const [showMovementsModal, setShowMovementsModal] = useState(false);
 
   // Buscar produtos do estoque
-  const fetchProducts = async () => {
+  const fetchProducts = useCallback(async () => {
     try {
       setRefreshing(true);
       const params = new URLSearchParams({
@@ -185,10 +185,10 @@ export default function InventoryPage() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [sortBy, sortOrder, selectedCategory, showOnlyTracked, showOnlyAlerts]);
 
   // Buscar alertas de estoque
-  const fetchAlerts = async () => {
+  const fetchAlerts = useCallback(async () => {
     try {
       const response = await fetch('/api/admin/inventory/alerts', {
         headers: {
@@ -206,7 +206,7 @@ export default function InventoryPage() {
     } catch (error) {
       console.error('Erro ao buscar alertas:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!isLoading && user && (
@@ -221,7 +221,7 @@ export default function InventoryPage() {
       fetchProducts();
       fetchAlerts();
     }
-  }, [isLoading, user, sortBy, sortOrder, selectedCategory, showOnlyTracked, showOnlyAlerts]);
+  }, [isLoading, user, sortBy, sortOrder, selectedCategory, showOnlyTracked, showOnlyAlerts, fetchProducts, fetchAlerts]);
 
   // Filtrar produtos localmente
   const filteredProducts = products.filter(product => {

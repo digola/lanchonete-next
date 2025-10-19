@@ -1,9 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Configurações para produção no Vercel
+  // Configurações para produção
   reactStrictMode: true,
   
-  // Configurações experimentais otimizadas para Vercel
+  // Configurações experimentais otimizadas para produção
   experimental: {
     // Otimizar imports de pacotes para melhor performance
     optimizePackageImports: ['lucide-react', '@heroicons/react'],

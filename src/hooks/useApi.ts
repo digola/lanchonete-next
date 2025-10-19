@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useApiAuth } from './useApiAuth';
 
 interface ApiState<T = any> {
@@ -22,7 +22,10 @@ export const useApi = <T = any>(
   // Janela curta para deduplicar auto-fetch em desenvolvimento (React Strict Mode)
   // Evita que o useEffect dispare duas vezes em dev, causando requisições duplicadas
   const AUTO_FETCH_DEDUPE_WINDOW_MS = 1500;
-  const lastAutoFetchTsMap: Map<string, number> = (globalThis as any).__lastAutoFetchTsMap__ || new Map();
+  const lastAutoFetchTsMap: Map<string, number> = useMemo(() => 
+    (globalThis as any).__lastAutoFetchTsMap__ || new Map(), 
+    []
+  );
   (globalThis as any).__lastAutoFetchTsMap__ = lastAutoFetchTsMap;
   const [state, setState] = useState<ApiState<T>>({
     data: null,
@@ -126,7 +129,7 @@ export const useApi = <T = any>(
 
       execute();
     }
-  }, [immediate, url, execute, token]);
+  }, [immediate, url, execute, token, lastAutoFetchTsMap]);
 
   return {
     ...state,
