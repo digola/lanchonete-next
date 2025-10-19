@@ -9,6 +9,12 @@ const nextConfig = {
     optimizePackageImports: ['lucide-react', '@heroicons/react'],
   },
 
+  // Otimizações para reduzir tamanho da função serverless
+  output: 'standalone',
+  
+  // Configuração de tracing para incluir apenas arquivos necessários
+  outputFileTracing: true,
+  
   // Configuração específica do Turbopack (Next.js) para suportar loaders
   // recomendados oficialmente, como @svgr/webpack para SVGs.
   // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack
@@ -68,24 +74,35 @@ const nextConfig = {
       use: ['@svgr/webpack'],
     });
 
-    // Otimizações de produção (apenas em build/start)
-    // Evita sobrecarga no HMR durante desenvolvimento
-    if (!isServer && !dev) {
+    // Otimizações para reduzir tamanho do bundle
+    if (!dev) {
+      // Excluir dependências desnecessárias do bundle
+      config.externals = config.externals || [];
+      if (isServer) {
+        config.externals.push({
+          'pino-pretty': 'pino-pretty',
+          'tsx': 'tsx'
+        });
+      }
+      
+      // Configurações de otimização
       config.optimization = {
         ...config.optimization,
         splitChunks: {
           chunks: 'all',
+          maxSize: 244000, // ~240KB para evitar exceder limite
           cacheGroups: {
             default: false,
             vendors: false,
-            // Vendor chunk
+            // Vendor chunk menor
             vendor: {
               name: 'vendor',
               chunks: 'all',
               test: /node_modules/,
               priority: 20,
+              maxSize: 200000, // ~200KB
             },
-            // Common chunk
+            // Common chunk menor
             common: {
               name: 'common',
               minChunks: 2,
@@ -93,6 +110,7 @@ const nextConfig = {
               priority: 10,
               reuseExistingChunk: true,
               enforce: true,
+              maxSize: 100000, // ~100KB
             },
           },
         },

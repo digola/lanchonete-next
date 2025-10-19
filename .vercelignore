@@ -1,0 +1,49 @@
+# Arquivos e pastas a serem ignorados no deploy Vercel
+# para reduzir o tamanho da função serverless
+
+# Documentação
+*.md
+!README.md
+
+# Arquivos de desenvolvimento
+.env.example
+.env.pgladmin
+.prettierrc
+.eslintrc.json
+
+# Diretórios de desenvolvimento
+temp/
+samples/
+scripts/
+.github/
+
+# Arquivos Docker
+Dockerfile
+docker-compose.yml
+render.yaml
+
+# Arquivos de configuração desnecessários
+PGADMIN_SETUP.md
+fix-async-verify.js
+update-auth-imports.js
+
+# Arquivos de teste
+test-*.js
+*test*.js
+
+# Prisma migrations (apenas schema é necessário)
+prisma/migrations/
+
+# Build artifacts
+.next/
+out/
+dist/
+build/
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+.turbo/
