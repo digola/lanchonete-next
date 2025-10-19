@@ -63,9 +63,7 @@ export default function HomePage() {
       setTableNumber(table?.number);
     }
   }, [tableData]);
-  if("tet" == "tet"){
-     console.log("vai dar certo")
-  }
+ 
 
   // Buscar dados do menu com hook básico e estável
   const {
@@ -254,7 +252,7 @@ export default function HomePage() {
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Buscar produtos..."
+                  placeholder="Buscar produtos..."  
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 w-full sm:w-64"
