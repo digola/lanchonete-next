@@ -166,10 +166,12 @@ export async function POST(request: NextRequest) {
 }
 
 // Método GET para verificar se o endpoint está funcionando
-export async function GET() {
-  return NextResponse.json({
+export async function GET(request: NextRequest) {
+  const requestId = getOrCreateRequestId(request);
+  const res = NextResponse.json({
     message: 'Login endpoint is working',
     method: 'POST',
     requiredFields: ['email', 'password'],
   });
+  return withRequestIdHeader(res, requestId);
 }

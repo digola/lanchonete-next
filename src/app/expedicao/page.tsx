@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
-import { useApiAuthBackup as useApiAuth } from '@/hooks/useApiAuthBackup';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrdersCheck';
 import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';

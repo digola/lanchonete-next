@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
+import type { Prisma } from '@prisma/client';
 
 // GET /api/categories - Listar categorias
 export async function GET(request: NextRequest) {
@@ -27,9 +28,9 @@ export async function GET(request: NextRequest) {
     log.debug('List params', { search, categoryId, isActive, includeProducts, limit, page, sortBy, sortOrder });
 
     const skip = (page - 1) * limit;
-    const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
+    const orderBy: Prisma.CategoryOrderByWithRelationInput = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
-    const where: any = {};
+    const where: Prisma.CategoryWhereInput = {};
     if (search) {
       where.name = { contains: search, mode: 'insensitive' };
     }

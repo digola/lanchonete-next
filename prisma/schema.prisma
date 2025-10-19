@@ -26,6 +26,8 @@ model User {
   orders Order[]
   tables Table[]
   orderReviews OrderReview[]
+  notifications Notification[]
+  stockMovements StockMovement[]
 
   @@map("users")
 }
@@ -58,15 +60,24 @@ model Product {
   allergens       String?
   isAvailable     Boolean   @default(true)
   imageUrl        String?
+  // Controle de estoque
+  trackStock      Boolean   @default(false)
+  stockQuantity   Int?
+  minStockLevel   Int?
+  maxStockLevel   Int?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
   // Relacionamentos
-  category Category @relation(fields: [categoryId], references: [id])
-  orderItems OrderItem[]
+  category       Category       @relation(fields: [categoryId], references: [id])
+  orderItems     OrderItem[]
+  stockMovements StockMovement[]
 
   @@map("products")
   @@index([categoryId])
+  @@index([trackStock])
+  @@index([stockQuantity])
+  @@index([minStockLevel])
 }
 
 // Modelo Order
@@ -82,6 +93,9 @@ model Order {
   tableId         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  isActive        Boolean  @default(true)
+  isPaid          Boolean  @default(false)
+  isReceived      Boolean  @default(false)
 
   // Relacionamentos
   user User @relation(fields: [userId], references: [id])
@@ -94,6 +108,9 @@ model Order {
   @@index([tableId])
   @@index([status])
   @@index([createdAt])
+  @@index([isActive])
+  @@index([isPaid])
+  @@index([isReceived])
 }
 
 // Modelo OrderItem
@@ -152,4 +169,68 @@ model Table {
 
   @@map("tables")
   @@index([assignedTo])
+}
+
+// Modelo Notification
+model Notification {
+  id         String   @id @default(cuid())
+  userId     String?
+  title      String
+  message    String
+  type       String   // 'order' | 'stock' | 'system' | 'payment' | 'user' | 'table' | 'general'
+  priority   String   // 'low' | 'normal' | 'high' | 'urgent'
+  data       String?
+  isRead     Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  // Relacionamentos
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+  @@index([userId])
+  @@index([type])
+  @@index([priority])
+  @@index([isActive])
+  @@index([isRead])
+  @@index([expiresAt])
+}
+
+// Modelo SystemSettings (configurações do sistema)
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  category    String   @default("GENERAL")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+  @@index([category])
+}
+
+// Modelo StockMovement (movimentações de estoque)
+model StockMovement {
+  id        String   @id @default(cuid())
+  productId String
+  type      String   // ENTRADA | SAIDA | AJUSTE
+  quantity  Int
+  reason    String
+  reference String?
+  userId    String?
+  notes     String?
+  createdAt DateTime @default(now())
+
+  // Relacionamentos
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("stock_movements")
+  @@index([productId])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
 }

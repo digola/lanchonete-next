@@ -20,19 +20,24 @@ export async function GET(request: NextRequest) {
 
     const whereClause = category ? { category } : {};
 
-    const settings = await prisma.settings.findMany({
+    const settings = await prisma.systemSettings.findMany({
       where: whereClause,
       orderBy: { category: 'asc' },
     });
 
     // Agrupar configurações por categoria
-    const groupedSettings = settings.reduce((acc, setting) => {
-      if (!acc[setting.category]) {
-        acc[setting.category] = {};
+    const groupedSettings = settings.reduce<Record<string, Record<string, any>>>((acc, setting) => {
+      const cat = setting.category || 'GENERAL';
+      if (!acc[cat]) {
+        acc[cat] = {};
       }
-      acc[setting.category]![setting.key] = setting;
+      try {
+        acc[cat][setting.key] = JSON.parse(setting.value);
+      } catch {
+        acc[cat][setting.key] = setting.value;
+      }
       return acc;
-    }, {} as Record<string, Record<string, any>>);
+    }, {});
 
     return NextResponse.json({
       success: true,
@@ -60,39 +65,40 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { key, value, category, description } = body;
+    const { key, value, category, description } = body as { key: string; value: any; category?: string; description?: string };
 
-    if (!key || !category) {
+    if (!key) {
       return NextResponse.json(
-        { error: 'Chave e categoria são obrigatórios' },
+        { error: 'Chave é obrigatória' },
         { status: 400 }
       );
     }
 
     // Verificar se a configuração já existe
-    const existingSetting = await prisma.settings.findUnique({
+    const existingSetting = await prisma.systemSettings.findUnique({
       where: { key },
     });
 
     let setting;
     if (existingSetting) {
       // Atualizar configuração existente
-      setting = await prisma.settings.update({
+      setting = await prisma.systemSettings.update({
         where: { key },
         data: {
           value: JSON.stringify(value),
-          description,
+          description: description ?? null,
           updatedAt: new Date(),
+          ...(category ? { category } : {}),
         },
       });
     } else {
       // Criar nova configuração
-      setting = await prisma.settings.create({
+      setting = await prisma.systemSettings.create({
         data: {
           key,
           value: JSON.stringify(value),
-          category,
-          description,
+          category: category ?? 'GENERAL',
+          description: description ?? null,
         },
       });
     }
@@ -131,7 +137,7 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     console.log('📦 Body recebido:', JSON.stringify(body, null, 2));
     
-    const { settings } = body; // Array de configurações
+    const { settings } = body as { settings: Array<{ key: string; value: any; category?: string; description?: string }> }; // Array de configurações
 
     if (!Array.isArray(settings)) {
       console.log('❌ Settings não é um array:', typeof settings);
@@ -142,36 +148,37 @@ export async function PUT(request: NextRequest) {
     }
 
     console.log(`📝 Processando ${settings.length} configurações...`);
-    const results = [];
+    const results: Array<Awaited<ReturnType<typeof prisma.systemSettings.create>>> = [];
 
     for (const setting of settings) {
       console.log('⚙️ Processando configuração:', setting.key);
       const { key, value, category, description } = setting;
 
       try {
-        const existingSetting = await prisma.settings.findUnique({
+        const existingSetting = await prisma.systemSettings.findUnique({
           where: { key },
         });
 
         let result;
         if (existingSetting) {
           console.log(`🔄 Atualizando configuração existente: ${key}`);
-          result = await prisma.settings.update({
+          result = await prisma.systemSettings.update({
             where: { key },
             data: {
               value: JSON.stringify(value),
-              description,
+              description: description ?? null,
               updatedAt: new Date(),
+              ...(category ? { category } : {}),
             },
           });
         } else {
           console.log(`➕ Criando nova configuração: ${key}`);
-          result = await prisma.settings.create({
+          result = await prisma.systemSettings.create({
             data: {
               key,
               value: JSON.stringify(value),
-              category,
-              description,
+              category: category ?? 'GENERAL',
+              description: description ?? null,
             },
           });
         }

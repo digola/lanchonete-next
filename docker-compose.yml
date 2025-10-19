@@ -51,7 +51,7 @@ services:
     volumes:
       - ./public/uploads/images:/app/public/uploads/images
     # Gera Prisma Client e sincroniza o schema antes de iniciar
-    command: sh -c "npx prisma generate && npx prisma db push && npm run start"
+    command: sh -c "npx prisma generate && npx prisma db push --accept-data-loss && npm run start"
     restart: unless-stopped
 
 volumes:

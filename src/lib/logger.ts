@@ -38,16 +38,24 @@ export const getOrCreateRequestId = (req?: NextRequest): string => {
 };
 
 export const createLogger = (context: string, requestId?: string) => {
-  const base = { context, requestId };
+  const base = requestId ? { context, requestId } : { context };
+  const log = (level: LogLevel, message: string, meta?: Record<string, any>) => {
+    const common = { level, ts: new Date().toISOString(), message, ...base };
+    if (meta !== undefined) {
+      emit({ ...common, meta } as LogEntry);
+    } else {
+      emit(common as LogEntry);
+    }
+  };
   return {
-    info: (message: string, meta?: Record<string, any>) => emit({ level: 'info', ts: new Date().toISOString(), message, meta, ...base }),
-    warn: (message: string, meta?: Record<string, any>) => emit({ level: 'warn', ts: new Date().toISOString(), message, meta, ...base }),
-    error: (message: string, meta?: Record<string, any>) => emit({ level: 'error', ts: new Date().toISOString(), message, meta, ...base }),
-    debug: (message: string, meta?: Record<string, any>) => emit({ level: 'debug', ts: new Date().toISOString(), message, meta, ...base }),
+    info: (message: string, meta?: Record<string, any>) => log('info', message, meta),
+    warn: (message: string, meta?: Record<string, any>) => log('warn', message, meta),
+    error: (message: string, meta?: Record<string, any>) => log('error', message, meta),
+    debug: (message: string, meta?: Record<string, any>) => log('debug', message, meta),
   };
 };
 
-export const withRequestIdHeader = (response: Response, requestId: string) => {
+export const withRequestIdHeader = <T extends Response>(response: T, requestId: string): T => {
   try {
     response.headers.set('X-Request-Id', requestId);
   } catch {

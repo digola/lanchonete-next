@@ -214,17 +214,18 @@ export class NotificationService {
         })
       ]);
 
+      const byTypeCounts: Record<string, number> = Object.fromEntries(
+        byType.map((item: { type: string; _count: { type: number } }) => [item.type, item._count.type])
+      );
+      const byPriorityCounts: Record<string, number> = Object.fromEntries(
+        byPriority.map((item: { priority: string; _count: { priority: number } }) => [item.priority, item._count.priority])
+      );
+
       return {
         total,
         unread,
-        byType: byType.reduce((acc, item) => {
-          acc[item.type] = item._count.type;
-          return acc;
-        }, {} as Record<string, number>),
-        byPriority: byPriority.reduce((acc, item) => {
-          acc[item.priority] = item._count.priority;
-          return acc;
-        }, {} as Record<string, number>)
+        byType: byTypeCounts,
+        byPriority: byPriorityCounts
       };
     } catch (error) {
       console.error('Erro ao obter estatísticas de notificações:', error);

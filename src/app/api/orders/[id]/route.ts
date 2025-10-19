@@ -229,10 +229,8 @@ export async function PUT(
 
       // Criar logs se houver mudanças
       if (logsToCreate.length > 0) {
-        await tx.orderLog.createMany({
-          data: logsToCreate,
-        });
-        console.log('📝 Logs de alteração criados:', logsToCreate.length);
+        // Persistência de logs desativada (modelo OrderLog não existe no schema atual)
+        console.log('📝 Logs de alteração gerados (não persistidos):', logsToCreate.length);
       }
 
       // Atualizar pedido

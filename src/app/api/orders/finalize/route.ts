@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     const { 
       tableId,
       items, 
-      deliveryType = 'PICKUP', 
+      deliveryType = 'RETIRADA', 
       deliveryAddress, 
       paymentMethod = 'DINHEIRO',
       notes,
@@ -181,7 +181,7 @@ export async function POST(request: NextRequest) {
       validatedItems: validatedItems
     });
 
-    let order;
+    let order: Awaited<ReturnType<typeof prisma.order.create>>;
     try {
       // Usar transação para garantir consistência
       order = await prisma.$transaction(async (tx) => {
@@ -196,7 +196,6 @@ export async function POST(request: NextRequest) {
             paymentMethod,
             notes: notes?.trim() || null,
             tableId,
-            finalizedBy: decoded.userId, // Funcionário que finalizou o pedido
             items: {
               create: validatedItems,
             },
@@ -226,13 +225,6 @@ export async function POST(request: NextRequest) {
                 number: true,
               },
             },
-            finalizedByUser: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-              },
-            },
           },
         });
 
@@ -259,9 +251,9 @@ export async function POST(request: NextRequest) {
 
     console.log('✅ Pedido finalizado com sucesso:', {
       orderId: order.id,
-      tableNumber: order.table?.number,
+      tableNumber: (order as any).table?.number,
       total: order.total,
-      itemsCount: order.items.length,
+      itemsCount: (order as any).items.length,
       finalizedBy: decoded.userId
     });
 

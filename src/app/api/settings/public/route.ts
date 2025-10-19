@@ -6,7 +6,7 @@ export async function GET() {
   try {
     // Buscar apenas configurações gerais (públicas)
     // Ajustado para o modelo Prisma correto: SystemSettings
-    const settings = await prisma.systemSettings.findMany({
+    const settings: { key: string; value: string }[] = await prisma.systemSettings.findMany({
       where: {
         category: 'GENERAL',
       },
@@ -17,14 +17,14 @@ export async function GET() {
     });
 
     // Converter para objeto mais fácil de usar
-    const generalSettings = settings.reduce((acc, setting) => {
+    const generalSettings = settings.reduce<Record<string, any>>((acc, setting: { key: string; value: string }) => {
       try {
         acc[setting.key] = JSON.parse(setting.value);
       } catch {
         acc[setting.key] = setting.value;
       }
       return acc;
-    }, {} as Record<string, any>);
+    }, {});
 
     // Definir valores padrão
     const publicSettings = {

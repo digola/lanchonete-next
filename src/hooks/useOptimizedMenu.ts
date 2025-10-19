@@ -15,12 +15,23 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
   const {
     data: categoriesData,
     loading: categoriesLoading,
-    execute: refetchCategories,
-  } = useApiCache<{ data: Category[] }>('/api/categories', {
-    cacheTime: 5 * 60 * 1000, // 5 minutos
-    immediate: true,
-    dedupe: true,
-  });
+    fetchData: refetchCategories,
+  } = useApiCache<{ data: Category[] }>(
+    '/api/categories',
+    async () => {
+      const response = await fetch('/api/categories', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('auth-token') && { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    { ttl: 5 * 60 * 1000 }
+  );
 
   // Construir URL de produtos apenas quando necessário
   const productsUrl = useMemo(() => {
@@ -37,13 +48,24 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
   const {
     data: productsData,
     loading: productsLoading,
-    execute: refetchProducts,
-    invalidateCache: invalidateProductsCache,
-  } = useApiCache<{ data: Product[]; pagination: any }>(productsUrl, {
-    cacheTime: 2 * 60 * 1000, // 2 minutos
-    immediate: true,
-    dedupe: true,
-  });
+    fetchData: refetchProducts,
+    invalidate: invalidateProductsCache,
+  } = useApiCache<{ data: Product[]; pagination: any }>(
+    productsUrl,
+    async () => {
+      const response = await fetch(productsUrl, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(localStorage.getItem('auth-token') && { 'Authorization': `Bearer ${localStorage.getItem('auth-token')}` }),
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      return response.json();
+    },
+    { ttl: 2 * 60 * 1000 }
+  );
 
   const categories = useMemo(() => categoriesData?.data || [], [categoriesData]);
   const products = useMemo(() => productsData?.data || [], [productsData]);

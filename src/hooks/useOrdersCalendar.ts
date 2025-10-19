@@ -100,7 +100,7 @@ export function useOrdersCalendar(initialDate?: Date, enabled: boolean = true): 
     ordersByDate,
     selectedDateOrders,
     isLoading: loading,
-    error: error?.message || null,
+    error: error ?? null,
     refetch,
     selectDate,
     selectedDate,

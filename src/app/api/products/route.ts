@@ -4,6 +4,7 @@ export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 import { unstable_cache } from 'next/cache';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
+import type { Prisma } from '@prisma/client';
 
 // GET /api/products - Listar produtos
 export async function GET(request: NextRequest) {
@@ -26,9 +27,9 @@ export async function GET(request: NextRequest) {
     log.debug('List params', { search, categoryId, isAvailable, limit, page, sortBy, sortOrder });
 
     const skip = (page - 1) * limit;
-    const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
+    const orderBy: Prisma.ProductOrderByWithRelationInput = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
-    const where: any = {};
+    const where: Prisma.ProductWhereInput = {};
     if (search && search.trim()) {
       const term = search.trim();
       where.OR = [
@@ -154,7 +155,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (!price || price <= 0) {
+    if (!description || !description.trim()) {
+      return json(
+        { success: false, error: 'Descrição é obrigatória' },
+        400
+      );
+    }
+
+    const priceNumber = Number(price);
+    if (!Number.isFinite(priceNumber) || priceNumber <= 0) {
       return json(
         { success: false, error: 'Preço deve ser maior que zero' },
         400
@@ -193,23 +202,25 @@ export async function POST(request: NextRequest) {
     }
 
     // Criar produto
+    const data: Prisma.ProductCreateInput = {
+      name: name.trim(),
+      description: description.trim(),
+      price: priceNumber,
+      categoryId,
+      isAvailable,
+      preparationTime: Number(preparationTime),
+      // Apenas incluir campos opcionais quando definidos
+      ...(imageUrl !== undefined && imageUrl !== null && imageUrl.trim() !== '' ? { imageUrl: imageUrl.trim() } : {}),
+      ...(allergens !== undefined && allergens !== null && allergens.trim() !== '' ? { allergens: allergens.trim() } : {}),
+      // Campos de estoque (garantir valores válidos)
+      stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
+      minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
+      maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
+      trackStock,
+    } as unknown as Prisma.ProductCreateInput;
+
     const product = await prisma.product.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim(),
-        price: Number(price),
-        imageUrl: imageUrl?.trim(),
-        categoryId,
-        isAvailable,
-        preparationTime: Number(preparationTime),
-        allergens: allergens?.trim(),
-        
-        // Campos de estoque (garantir valores válidos)
-        stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
-        minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
-        maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
-        trackStock,
-      },
+      data,
       include: {
         category: true,
       },
@@ -222,9 +233,10 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
+    const isDev = process.env.NODE_ENV !== 'production';
     log.error('Error creating product', { error: msg });
     return json(
-      { success: false, error: 'Erro interno do servidor' },
+      { success: false, error: 'Erro interno do servidor', ...(isDev ? { errorDetail: msg } : {}) },
       500
     );
   }

@@ -14,15 +14,15 @@ export type RateLimitResult = {
 
 export function getClientIp(req: NextRequest): string {
   const h = req.headers;
-  const forwarded = h.get('x-forwarded-for');
-  if (forwarded && forwarded.length > 0) {
-    // Take the first IP in the list
-    return forwarded.split(',')[0].trim();
+  const list = h.get('x-forwarded-for');
+  if (typeof list === 'string' && list.length > 0) {
+    const first = list.split(',')[0];
+    return typeof first === 'string' ? first.trim() : 'unknown';
   }
   return (
-    h.get('x-real-ip') ||
-    h.get('cf-connecting-ip') ||
-    h.get('x-client-ip') ||
+    h.get('x-real-ip') ??
+    h.get('cf-connecting-ip') ??
+    h.get('x-client-ip') ??
     'unknown'
   );
 }
