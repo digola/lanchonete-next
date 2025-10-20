@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
       where: { 
         id: decoded.userId,
         isActive: true,
-        role: 'ADMIN'
+        role: 'ADMINISTRADOR'
       }
     });
 
-    if (!user) {
+    if (!user || user.role !== 'ADMINISTRADOR') {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 

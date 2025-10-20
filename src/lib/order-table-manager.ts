@@ -175,7 +175,7 @@ export class OrderTableManager {
           return { success: false, error: `Produto ${product.name} não está disponível` };
         }
 
-        const itemTotal = product.price * item.quantity;
+        const itemTotal = Number(product.price) * item.quantity;
         total += itemTotal;
 
         validatedItems.push({
@@ -339,7 +339,7 @@ export class OrderTableManager {
         });
 
         // 2. Atualizar total do pedido
-        const newTotal = activeOrder.total + totalToAdd;
+        const newTotal = Number(activeOrder.total) + totalToAdd;
         const updatedOrder = await tx.order.update({
           where: { id: activeOrder.id },
           data: {
@@ -613,7 +613,14 @@ export class OrderTableManager {
         }
       });
 
-      const activeOrders = activeOrder ? [activeOrder] : [];
+      const activeOrders = activeOrder ? [{
+        id: activeOrder.id,
+        status: activeOrder.status,
+        isActive: activeOrder.isActive,
+        isReceived: activeOrder.isReceived,
+        total: Number(activeOrder.total),
+        createdAt: activeOrder.createdAt
+      }] : [];
       const shouldBeOccupied = activeOrder !== null;
       const statusMatches = (shouldBeOccupied && table.status === 'OCUPADA') || 
                            (!shouldBeOccupied && table.status === 'LIVRE');
@@ -712,7 +719,14 @@ export class OrderTableManager {
         }
       });
 
-      const activeOrders = activeOrder ? [activeOrder] : [];
+      const activeOrders = activeOrder ? [{
+        id: activeOrder.id,
+        status: activeOrder.status,
+        isActive: activeOrder.isActive,
+        isReceived: activeOrder.isReceived,
+        total: Number(activeOrder.total),
+        createdAt: activeOrder.createdAt
+      }] : [];
 
       const tableState: TableState = {
         tableId: table.id,

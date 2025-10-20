@@ -93,13 +93,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       categoryId, 
       isAvailable, 
       preparationTime, 
-      allergens,
-      
-      // Campos de estoque
-      stockQuantity,
-      minStockLevel,
-      maxStockLevel,
-      trackStock
+      allergens
     } = body;
 
     // Validações
@@ -143,57 +137,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(isAvailable !== undefined && { isAvailable }),
         ...(preparationTime !== undefined && { preparationTime: Number(preparationTime) }),
         ...(allergens !== undefined && { allergens: allergens?.trim() }),
-        
-        // Campos de estoque
-        ...(stockQuantity !== undefined && { stockQuantity: Number(stockQuantity) }),
-        ...(minStockLevel !== undefined && { minStockLevel: Number(minStockLevel) }),
-        ...(maxStockLevel !== undefined && { maxStockLevel: Number(maxStockLevel) }),
-        ...(trackStock !== undefined && { trackStock }),
       },
       include: {
         category: true,
       },
     });
 
-    // Verificar estoque baixo e criar notificação se necessário
-    if (updatedProduct.trackStock && 
-        stockQuantity !== undefined && 
-        minStockLevel !== undefined &&
-        Number(stockQuantity) <= Number(minStockLevel)) {
-      try {
-        const { NotificationService } = await import('@/lib/notificationService');
-        await NotificationService.notifyLowStock(
-          updatedProduct.id,
-          updatedProduct.name,
-          Number(stockQuantity),
-          Number(minStockLevel)
-        );
-      } catch (error) {
-        console.error('Erro ao criar notificação de estoque baixo:', error);
-        // Não falha a atualização do produto se a notificação falhar
-      }
-    }
 
-    // Verificar se estoque zerou e marcar como indisponível
-    if (updatedProduct.trackStock && 
-        stockQuantity !== undefined && 
-        Number(stockQuantity) <= 0 &&
-        updatedProduct.isAvailable) {
-      try {
-        await prisma.product.update({
-          where: { id },
-          data: { isAvailable: false }
-        });
-        
-        const { NotificationService } = await import('@/lib/notificationService');
-        await NotificationService.notifyOutOfStock(
-          updatedProduct.id,
-          updatedProduct.name
-        );
-      } catch (error) {
-        console.error('Erro ao marcar produto como indisponível:', error);
-      }
-    }
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
     // await prisma.activityLog.create({

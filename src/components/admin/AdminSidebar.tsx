@@ -33,11 +33,7 @@ const navigation = [
     href: '/admin/products',
     icon: Package,
   },
-  {
-    name: 'Estoque',
-    href: '/admin/inventory',
-    icon: Database,
-  },
+
   {
     name: 'Categorias',
     href: '/admin/categories',

@@ -303,98 +303,12 @@ export async function PUT(
 
       // Atualizar estoque quando pedido for confirmado
       if (status === 'CONFIRMADO' && existingOrder.status !== 'CONFIRMADO') {
-        console.log('📦 Pedido confirmado - atualizando estoque...');
-        
-        for (const item of existingOrder.items) {
-          // Buscar produto com informações de estoque
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
-            select: { 
-              id: true, 
-              name: true, 
-              trackStock: true, 
-              stockQuantity: true 
-            }
-          });
-
-          if (product && product.trackStock) {
-            const currentStock = product.stockQuantity || 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
-
-            console.log(`📦 Atualizando estoque do produto ${product.name}:`, {
-              currentStock,
-              quantity: item.quantity,
-              newStock
-            });
-
-            // Atualizar estoque do produto
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stockQuantity: newStock }
-            });
-
-            // Criar movimentação de estoque
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId,
-                type: 'SAIDA',
-                quantity: item.quantity,
-                reason: 'VENDA',
-                reference: orderId,
-                userId: decoded.userId,
-                notes: `Venda do pedido ${orderId.slice(-8)}`
-              }
-            });
-          }
-        }
+        console.log('📦 Pedido confirmado - sem lógica de estoque (removida)');
       }
 
       // Restaurar estoque quando pedido for cancelado
       if (status === 'CANCELADO' && existingOrder.status === 'CONFIRMADO') {
-        console.log('❌ Pedido cancelado - restaurando estoque...');
-        
-        for (const item of existingOrder.items) {
-          // Buscar produto com informações de estoque
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
-            select: { 
-              id: true, 
-              name: true, 
-              trackStock: true, 
-              stockQuantity: true 
-            }
-          });
-
-          if (product && product.trackStock) {
-            const currentStock = product.stockQuantity || 0;
-            const newStock = currentStock + item.quantity;
-
-            console.log(`📦 Restaurando estoque do produto ${product.name}:`, {
-              currentStock,
-              quantity: item.quantity,
-              newStock
-            });
-
-            // Atualizar estoque do produto
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stockQuantity: newStock }
-            });
-
-            // Criar movimentação de estoque
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId,
-                type: 'ENTRADA',
-                quantity: item.quantity,
-                reason: 'CANCELAMENTO',
-                reference: orderId,
-                userId: decoded.userId,
-                notes: `Cancelamento do pedido ${orderId.slice(-8)}`
-              }
-            });
-          }
-        }
+        console.log('❌ Pedido cancelado - sem lógica de estoque (removida)');
       }
 
       return order;
