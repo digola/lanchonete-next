@@ -37,5 +37,10 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
+  },
+   "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node"
+    }
   }
 }
