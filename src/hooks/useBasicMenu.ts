@@ -166,7 +166,7 @@ export const useBasicMenu = (filters?: {
         const data = await fetchCategories();
         setCategoriesData(data);
       } catch (error) {
-        console.error('Erro ao carregar categorias:', error);
+        console.error('Erro ao carregar categorias :', error, data);
       } finally {
         setCategoriesLoading(false);
       }
