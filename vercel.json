@@ -11,8 +11,7 @@
       "destination": "/api/uploads/$1"
     }
   ],
-  
-  "headers": [
+    "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
@@ -31,8 +30,7 @@
       ]
     }
   ],
- 
-  "env": {
+   "env": {
     "NODE_ENV": "production"
   },
   "build": {
@@ -40,8 +38,6 @@
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
-  
-   
 }
 
 
