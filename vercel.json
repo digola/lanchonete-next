@@ -11,11 +11,7 @@
       "destination": "/api/uploads/$1"
     }
   ],
-   "functions": {
-    "api/**": {
-          "excludeFiles": "{.next,*.cache,node_modules,public,app}/**"
-    }
-  },
+  
   "headers": [
     {
       "source": "/api/(.*)",
@@ -35,6 +31,11 @@
       ]
     }
   ],
+  "functions": {
+    "api/**": {
+          "excludeFiles": "{.next,*.cache,node_modules,public,app}/**"
+    }
+  },
   "env": {
     "NODE_ENV": "production"
   },
