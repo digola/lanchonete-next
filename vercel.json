@@ -13,7 +13,7 @@
   ],
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/api/uploads/(.*)",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -30,12 +30,6 @@
       ]
     }
   ],
-  "functions": {
-    "api/(.*)": {
-      "memory": 512,
-      "maxDuration": 5
-    }
-  },
   "env": {
     "NODE_ENV": "production"
   },
