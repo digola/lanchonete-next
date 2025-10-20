@@ -37,14 +37,14 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
-  }
-  {
+  },
   
-  "functions": {
+    "functions": {
     "api/**": {
           "excludeFiles": "{.next,*.cache,node_modules,public,app}/**"
     }
   }
 }
-  
-}
+
+
+
