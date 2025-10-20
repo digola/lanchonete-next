@@ -30,12 +30,7 @@
       ]
     }
   ],
-   "functions": {
-    "api/.*": {
-          "excludeFiles": "{.next,*.cache,node_modules}/**"
-    }
-  },
-  "env": {
+   "env": {
     "NODE_ENV": "production"
   },
   "build": {
