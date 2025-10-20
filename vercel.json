@@ -9,6 +9,12 @@
     {
       "source": "/uploads/(.*)",
       "destination": "/api/uploads/$1"
+    },
+  "functions": {
+    "/api/(.*)": {
+    "memory": 1024,
+    "maxDuration": 10
+    }
     }
   ],
   "headers": [
@@ -37,11 +43,5 @@
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
-  },
-  "functions": {
-    "/api/(.*)": {
-    "memory": 1024,
-    "maxDuration": 10
-    }
-    }
+  }
 }
