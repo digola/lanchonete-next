@@ -31,7 +31,7 @@
     }
   ],
    "functions": {
-    "api/**": {
+    "api/.*": {
           "excludeFiles": "{.next,*.cache,node_modules}/**"
     }
   },
