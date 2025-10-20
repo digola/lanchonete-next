@@ -9,12 +9,6 @@
     {
       "source": "/uploads/(.*)",
       "destination": "/api/uploads/$1"
-    },
-  "functions": {
-    "/api/(.*)": {
-    "memory": 1024,
-    "maxDuration": 10
-    }
     }
   ],
   "headers": [
@@ -36,7 +30,13 @@
       ]
     }
   ],
-   "env": {
+  "functions": {
+    "api/(.*)": {
+      "memory": 512,
+      "maxDuration": 5
+    }
+  },
+  "env": {
     "NODE_ENV": "production"
   },
   "build": {
