@@ -38,9 +38,11 @@
       "NEXT_TELEMETRY_DISABLED": "1"
     }
   },
-   "functions": {
-    "api/index.js": {
-      "runtime": "@vercel/node"
-    }
-  }
+  "functions": {
+            "api/**": {
+              "memory": 1024,
+              "maxDuration": 10,
+              "runtime": "nodejs18.x"
+            }
+          }
 }
