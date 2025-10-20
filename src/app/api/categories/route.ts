@@ -77,5 +77,9 @@ export async function PUT(request: NextRequest, context: RouteParams) {
     }
 
     // 🔒 Autorização: verifica se o usuário tem permissão para editar categorias
-    if (!hasPermission(decoded.role, 'categories:write')) {
-      return NextResponse.json({ success: false
+   if (!hasPermission(decoded.role, 'categories:write')) {
+  return NextResponse.json(
+    { success: false, error: 'Sem permissão para editar categorias' },
+    { status: 403 }
+  );
+}
