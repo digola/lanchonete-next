@@ -11,7 +11,7 @@
       "destination": "/api/uploads/$1"
     }
   ],
-    "headers": [
+  "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
@@ -30,15 +30,17 @@
       ]
     }
   ],
-   "env": {
+   "functions": {
+    "api/**": {
+          "excludeFiles": "{.next,*.cache,node_modules,public,app}/**"
+    }
+  },
+  "env": {
     "NODE_ENV": "production"
   },
   "build": {
     "env": {
       "NEXT_TELEMETRY_DISABLED": "1"
     }
-  },
+  }
 }
-
-
-
