@@ -1,182 +1,34 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
-import { unstable_cache } from 'next/cache';
-import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 
-// GET /api/categories - Listar categorias
-export async function GET(request: NextRequest) {
-  const requestId = getOrCreateRequestId(request);
-  const log = createLogger('api.categories.get', requestId);
-  const json = (payload: any, status = 200) => {
-    const res = NextResponse.json(payload, { status });
-    return withRequestIdHeader(res, requestId);
+export const runtime = 'nodejs';
+
+interface RouteParams {
+  params: {
+    id: string;
   };
-  try {
-    const { searchParams } = new URL(request.url);
-    const search = searchParams.get('search');
-    const categoryId = searchParams.get('categoryId');
-    const isActive = searchParams.get('isActive');
-    const includeProducts = searchParams.get('includeProducts') === 'true';
-    const limit = parseInt(searchParams.get('limit') || '20');
-    const page = parseInt(searchParams.get('page') || '1');
-    const sortBy = searchParams.get('sortBy') || 'name';
-    const sortOrder = searchParams.get('sortOrder') || 'asc';
+}
 
-    log.debug('List params', { search, categoryId, isActive, includeProducts, limit, page, sortBy, sortOrder });
-
-    const skip = (page - 1) * limit;
-    const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
-
-    const where: any = {};
-    if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
-    }
-    if (categoryId) {
-      where.id = categoryId;
-    }
-   /* if (isActive !== null) {
-      where.isActive = isActive === 'true';
-    }
-    */
-
-    const paramsKey = JSON.stringify({ where, includeProducts, orderBy, skip, limit });
-
-    const listCached = unstable_cache(
-      async () => {
-        return prisma.category.findMany({
-          where,
-          ...(includeProducts && {
-            include: {
-              products: {
-                select: {
-                  id: true,
-                  name: true,
-                  price: true,
-                  isAvailable: true,
-                },
-              },
-            },
-          }),
-          orderBy,
-          skip,
-          take: limit,
-        });
-      },
-      ['categories:list', paramsKey],
-      { revalidate: 60 }
-    );
-
-    const countCached = unstable_cache(
-      async () => prisma.category.count({ where }),
-      ['categories:count', paramsKey],
-      { revalidate: 60 }
-    );
-
-    const [categories, total] = await Promise.all([
-      listCached(),
-      countCached(),
-    ]);
-
-    log.info('List fetched', { count: categories.length, total });
-    return json({
-      success: true,
-      data: categories,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / limit),
-      },
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    log.error('Error fetching categories', { error: msg });
-    return json(
-      { success: false, error: 'Erro interno do servidor' },
-      500
-    );
+// Função utilitária para validar o ID da categoria
+function validateId(id: string) {
+  if (!id || typeof id !== 'string' || id.trim() === '') {
+    throw new Error('ID da categoria é inválido ou ausente');
   }
 }
 
-// POST /api/categories - Criar categoria
-export async function POST(request: NextRequest) {
-  const requestId = getOrCreateRequestId(request);
-  const log = createLogger('api.categories.post', requestId);
-  const json = (payload: any, status = 200) => {
-    const res = NextResponse.json(payload, { status });
-    return withRequestIdHeader(res, requestId);
-  };
+// 📘 GET /api/categories/[id]
+// Busca uma categoria específica pelo ID, incluindo os produtos relacionados
+export async function GET(request: NextRequest, context: RouteParams) {
+  const { id } = context.params;
+  console.log('[GET] /api/categories/[id] - ID recebido:', id);
+
   try {
-    // Verificar autenticação
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      log.warn('Missing auth token');
-      return json(
-        { success: false, error: 'Token de acesso necessário' },
-        401
-      );
-    }
+    validateId(id); // Valida o ID recebido
 
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      log.warn('Invalid token');
-      return json(
-        { success: false, error: 'Token inválido' },
-        401
-      );
-    }
-
-    // Verificar permissão
-    if (!hasPermission(decoded.role, 'categories:write')) {
-      log.warn('Permission denied', { role: decoded.role });
-      return json(
-        { success: false, error: 'Permissão insuficiente' },
-        403
-      );
-    }
-
-    const body = await request.json();
-    const { name, description, color, isActive = true } = body;
-
-    // Validações
-    if (!name || !name.trim()) {
-      return json(
-        { success: false, error: 'Nome é obrigatório' },
-        400
-      );
-    }
-
-    // Verificar se já existe categoria com o mesmo nome
-    const existingCategory = await prisma.category.findUnique({
-      where: { name: name.trim() },
-    });
-
-    if (existingCategory) {
-      return json(
-        { success: false, error: 'Já existe uma categoria com este nome' },
-        400
-      );
-    }
-
-    // Validar cor hexadecimal se fornecida
-    if (color && !/^#[0-9A-F]{6}$/i.test(color)) {
-      return json(
-        { success: false, error: 'Cor deve ser um valor hexadecimal válido (#RRGGBB)' },
-        400
-      );
-    }
-
-    // Criar categoria
-    const category = await prisma.category.create({
-      data: {
-        name: name.trim(),
-        description: description?.trim(),
-        color: color?.trim(),
-        isActive,
-      },
+    // Busca a categoria no banco de dados
+    const category = await prisma.category.findUnique({
+      where: { id },
       include: {
         products: {
           select: {
@@ -184,22 +36,46 @@ export async function POST(request: NextRequest) {
             name: true,
             price: true,
             isAvailable: true,
+            imageUrl: true,
           },
         },
       },
     });
 
-    log.info('Category created', { categoryId: category.id });
-    return json({
-      success: true,
-      data: category,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : String(error);
-    log.error('Error creating category', { error: msg });
-    return json(
-      { success: false, error: 'Erro interno do servidor' },
-      500
-    );
+    // Retorna erro 404 se a categoria não for encontrada
+    if (!category) {
+      console.warn('Categoria não encontrada:', id);
+      return NextResponse.json({ success: false, error: 'Categoria não encontrada' }, { status: 404 });
+    }
+
+    // Retorna a categoria encontrada
+    return NextResponse.json({ success: true, data: category });
+  } catch (error: any) {
+    console.error('Erro no GET:', error.message || error);
+    return NextResponse.json({ success: false, error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
+
+// ✏️ PUT /api/categories/[id]
+// Atualiza os dados de uma categoria existente
+export async function PUT(request: NextRequest, context: RouteParams) {
+  const { id } = context.params;
+  console.log('[PUT] /api/categories/[id] - ID recebido:', id);
+
+  try {
+    validateId(id); // Valida o ID recebido
+
+    // 🔐 Autenticação: extrai e verifica o token
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json({ success: false, error: 'Token não fornecido' }, { status: 401 });
+    }
+
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json({ success: false, error: 'Token inválido ou expirado' }, { status: 401 });
+    }
+
+    // 🔒 Autorização: verifica se o usuário tem permissão para editar categorias
+    if (!hasPermission(decoded.role, 'categories:write')) {
+      return NextResponse.json({ success: false
