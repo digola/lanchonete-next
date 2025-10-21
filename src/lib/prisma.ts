@@ -35,6 +35,8 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
+console.log('DATABASE_URL being used:', process.env.DATABASE_URL);
+
 if (!process.env.DATABASE_URL) {
   const errorMsg = '❌ DATABASE_URL não definida. Configure no .env ou nas variáveis do Vercel.';
   console.error(errorMsg);

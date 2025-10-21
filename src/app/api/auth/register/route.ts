@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { hashPassword, generateTokenPair } from '@/lib/auth-server';
-import { UserRole } from '@/types';
-import { isValidEmail, isValidPassword, isValidName } from '@/lib/auth-server';
+import { prisma } from '@/lib/prisma';
+import { hashPassword, generateTokenPair, isValidEmail, isValidPassword, isValidName } from '@/lib/auth-server';
+import { UserRole, User } from '@/types';
 import {
   createAuthError,
   createAuthSuccess,
@@ -10,9 +9,7 @@ import {
   REFRESH_COOKIE_CONFIG
 } from '@/lib/auth';
 
-const prisma = new PrismaClient();
 export const runtime = 'nodejs';
-import { User } from '@/types';
 import { RegisterData } from '@/types';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 

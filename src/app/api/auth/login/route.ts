@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
-import { verifyPassword, generateTokenPair } from '@/lib/auth-server';
-import { isValidEmail } from '@/lib/auth-server';
+import { prisma } from '@/lib/prisma';
+import { verifyPassword, generateTokenPair, isValidEmail } from '@/lib/auth-server';
 import {
   createAuthError,
   createAuthSuccess,
   COOKIE_CONFIG,
   REFRESH_COOKIE_CONFIG
 } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+export const runtime = 'nodejs';
 import { User } from '@/types';
 import { LoginCredentials } from '@/types';
 import { z } from 'zod';

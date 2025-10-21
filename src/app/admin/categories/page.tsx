@@ -111,7 +111,14 @@ export default function AdminCategoriesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao criar categoria');
+        let message = 'Erro ao criar categoria';
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {}
+        if (response.status === 401) message = 'Não autenticado. Faça login novamente.';
+        if (response.status === 403) message = 'Sem permissão para criar categorias.';
+        throw new Error(message);
       }
 
       setShowCreateModal(false);
@@ -138,7 +145,14 @@ export default function AdminCategoriesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao atualizar categoria');
+        let message = 'Erro ao atualizar categoria';
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {}
+        if (response.status === 401) message = 'Não autenticado. Faça login novamente.';
+        if (response.status === 403) message = 'Sem permissão para atualizar categorias.';
+        throw new Error(message);
       }
 
       setShowEditModal(false);
@@ -164,15 +178,22 @@ export default function AdminCategoriesPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao deletar categoria');
+        let message = 'Erro ao deletar categoria';
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {}
+        if (response.status === 401) message = 'Não autenticado. Faça login novamente.';
+        if (response.status === 403) message = 'Sem permissão para deletar categorias.';
+        throw new Error(message);
       }
 
       setShowDeleteConfirm(false);
       setSelectedCategory(null);
       refetchCategories();
       toast.success('Categoria deletada com sucesso!');
-    } catch (err) {
-      toast.error('Erro ao deletar categoria');
+    } catch (err: any) {
+      toast.error(err?.message || 'Erro ao deletar categoria');
     } finally {
       setIsLoading(false);
     }
@@ -199,6 +220,7 @@ export default function AdminCategoriesPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           ...category,
@@ -208,11 +230,19 @@ export default function AdminCategoriesPage() {
       
       if (response.ok) {
         refetchCategories();
+        toast.success('Status da categoria atualizado');
       } else {
-        alert('Erro ao alterar status da categoria');
+        let message = 'Erro ao alterar status da categoria';
+        try {
+          const payload = await response.json();
+          if (payload?.error) message = payload.error;
+        } catch {}
+        if (response.status === 401) message = 'Não autenticado. Faça login novamente.';
+        if (response.status === 403) message = 'Sem permissão para alterar status.';
+        toast.error(message);
       }
-    } catch (error) {
-      alert('Erro ao alterar status da categoria');
+    } catch (error: any) {
+      toast.error(error?.message || 'Erro ao alterar status da categoria');
     }
   };
 

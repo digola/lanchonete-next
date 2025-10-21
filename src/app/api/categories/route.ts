@@ -4,71 +4,96 @@ import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-serv
 
 export const runtime = 'nodejs';
 
-interface RouteParams {
-  params: {
-    id: string;
-  };
-}
-
-// Função utilitária para validar o ID da categoria
-function validateId(id: string) {
-  if (!id || typeof id !== 'string' || id.trim() === '') {
-    throw new Error('ID da categoria é inválido ou ausente');
-  }
-}
-
-// 📘 GET /api/categories/[id]
-// Busca uma categoria específica pelo ID, incluindo os produtos relacionados
-export async function GET(request: NextRequest, context: RouteParams) {
-  const { id } = context.params;
-  console.log('[GET] /api/categories/[id] - ID recebido:', id);
-
+// GET /api/categories
+// Lista categorias com paginação, ordenação e filtros via query params
+// Aceita aliases usados no admin: search, sortOrder e includeProducts
+export async function GET(request: NextRequest) {
   try {
-    validateId(id); // Valida o ID recebido
+    const { searchParams } = request.nextUrl;
 
-    // Busca a categoria no banco de dados
-    const category = await prisma.category.findUnique({
-      where: { id },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            isAvailable: true,
-            imageUrl: true,
-          },
+    const pageParam = searchParams.get('page') ?? '1';
+    const limitParam = searchParams.get('limit') ?? '20';
+    const sortBy = searchParams.get('sortBy') ?? 'name'; // name | createdAt | updatedAt
+    const orderParam = (searchParams.get('order') ?? searchParams.get('sortOrder') ?? 'asc').toLowerCase(); // asc | desc
+    const isActiveParam = searchParams.get('isActive'); // 'true' | 'false' | null
+    const q = (searchParams.get('q') ?? searchParams.get('search') ?? '').trim();
+    const includeProducts = (searchParams.get('includeProducts') ?? 'false').toLowerCase() === 'true';
+
+    const page = Math.max(1, parseInt(pageParam, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(limitParam, 10) || 20));
+    const skip = (page - 1) * limit;
+
+    // Valida sort/ordem
+    const validSortFields = new Set(['name', 'createdAt', 'updatedAt']);
+    const sortField = validSortFields.has(sortBy) ? sortBy : 'name';
+    const sortOrder = orderParam === 'desc' ? 'desc' : 'asc';
+
+    // Monta filtro
+    const where: any = {};
+
+    if (typeof isActiveParam === 'string') {
+      if (isActiveParam === 'true') where.isActive = true;
+      else if (isActiveParam === 'false') where.isActive = false;
+    }
+
+    if (q) {
+      where.name = { contains: q, mode: 'insensitive' };
+    }
+
+    // Busca total para paginação
+    const total = await prisma.category.count({ where });
+
+    // Busca categorias
+    const categories = await prisma.category.findMany({
+      where,
+      orderBy: { [sortField]: sortOrder },
+      skip,
+      take: limit,
+      include: includeProducts
+        ? {
+            products: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                isAvailable: true,
+                imageUrl: true,
+              },
+            },
+          }
+        : undefined,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: categories,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        sortBy: sortField,
+        sortOrder,
+        filters: {
+          isActive: typeof where.isActive === 'boolean' ? where.isActive : null,
+          search: q || null,
         },
       },
     });
-
-    // Retorna erro 404 se a categoria não for encontrada
-    if (!category) {
-      console.warn('Categoria não encontrada:', id);
-      return NextResponse.json({ success: false, error: 'Categoria não encontrada' }, { status: 404 });
-    }
-
-    // Retorna a categoria encontrada
-    return NextResponse.json({ success: true, data: category });
   } catch (error: any) {
-    console.error('Erro no GET:', error.message || error);
+    console.error('[GET /api/categories] Erro:', error?.message || error);
     return NextResponse.json({ success: false, error: 'Erro interno do servidor' }, { status: 500 });
   }
 }
 
-// ✏️ PUT /api/categories/[id]
-// Atualiza os dados de uma categoria existente
-export async function PUT(request: NextRequest, context: RouteParams) {
-  const { id } = context.params;
-  console.log('[PUT] /api/categories/[id] - ID recebido:', id);
-
+// POST /api/categories
+// Cria uma nova categoria (requer autenticação e permissão manage_categories)
+export async function POST(request: NextRequest) {
   try {
-    validateId(id); // Valida o ID recebido
-
-    // 🔐 Autenticação: extrai e verifica o token
+    // Autenticação
     const token = getTokenFromRequest(request);
     if (!token) {
-      return NextResponse.json({ success: false, error: 'Token não fornecido' }, { status: 401 });
+      return NextResponse.json({ success: false, error: 'Token de autenticação não fornecido' }, { status: 401 });
     }
 
     const decoded = await verifyToken(token);
@@ -76,114 +101,53 @@ export async function PUT(request: NextRequest, context: RouteParams) {
       return NextResponse.json({ success: false, error: 'Token inválido ou expirado' }, { status: 401 });
     }
 
-    // 🔒 Autorização: verifica se o usuário tem permissão para editar categorias
-    if (!hasPermission(decoded.role, 'categories:write')) {
-      return NextResponse.json({ success: false, error: 'Sem permissão para editar categorias' }, { status: 403 });
+    // Autorização
+    if (!hasPermission(decoded.role, 'manage_categories')) {
+      return NextResponse.json({ success: false, error: 'Sem permissão para criar categorias' }, { status: 403 });
     }
 
-    // Verifica se a categoria existe
-    const existingCategory = await prisma.category.findUnique({ where: { id } });
-    if (!existingCategory) {
-      return NextResponse.json({ success: false, error: 'Categoria não encontrada' }, { status: 404 });
-    }
-
-    // Extrai os dados do corpo da requisição
+    // Corpo
     const body = await request.json();
-    const { name, description, color, isActive } = body;
+    const { name, description, imageUrl, color, isActive } = body as {
+      name?: string;
+      description?: string;
+      imageUrl?: string;
+      color?: string;
+      isActive?: boolean;
+    };
 
-    // Validações dos campos recebidos
-    if (name !== undefined && !name.trim()) {
+    // Validações
+    if (!name || !name.trim()) {
       return NextResponse.json({ success: false, error: 'Nome é obrigatório' }, { status: 400 });
     }
-
-    // Verifica duplicidade de nome (exceto se for o mesmo da categoria atual)
-    if (name && name.trim() !== existingCategory.name) {
-      const duplicate = await prisma.category.findUnique({ where: { name: name.trim() } });
-      if (duplicate) {
-        return NextResponse.json({ success: false, error: 'Já existe uma categoria com este nome' }, { status: 400 });
-      }
+    if (name.trim().length > 50) {
+      return NextResponse.json({ success: false, error: 'Nome deve ter no máximo 50 caracteres' }, { status: 400 });
     }
 
-    // Valida formato da cor hexadecimal
     if (color && !/^#[0-9A-F]{6}$/i.test(color)) {
       return NextResponse.json({ success: false, error: 'Cor inválida. Use hexadecimal (ex: #FF5733)' }, { status: 400 });
     }
 
-    // Atualiza a categoria no banco de dados
-    const updated = await prisma.category.update({
-      where: { id },
+    // Verifica duplicidade por nome
+    const existingByName = await prisma.category.findUnique({ where: { name: name.trim() } });
+    if (existingByName) {
+      return NextResponse.json({ success: false, error: 'Já existe uma categoria com este nome' }, { status: 400 });
+    }
+
+    // Cria categoria
+    const created = await prisma.category.create({
       data: {
-        ...(name !== undefined && { name: name.trim() }),
-        ...(description !== undefined && { description: description?.trim() || null }),
-        ...(color !== undefined && { color: color.trim() }),
-        ...(isActive !== undefined && { isActive }),
-      },
-      include: {
-        products: {
-          select: {
-            id: true,
-            name: true,
-            price: true,
-            isAvailable: true,
-          },
-        },
+        name: name.trim(),
+        description: description?.trim() || null,
+        imageUrl: imageUrl?.trim() || null,
+        color: (color ?? '#3B82F6').trim(),
+        isActive: isActive ?? true,
       },
     });
 
-    // Retorna a categoria atualizada
-    return NextResponse.json({ success: true, data: updated });
+    return NextResponse.json({ success: true, data: created }, { status: 201 });
   } catch (error: any) {
-    console.error('Erro no PUT:', error.message || error);
-    return NextResponse.json({ success: false, error: 'Erro interno do servidor' }, { status: 500 });
-  }
-}
-
-// 🗑️ DELETE /api/categories/[id]
-// Remove uma categoria do banco de dados, se não houver produtos vinculados
-export async function DELETE(request: NextRequest, context: RouteParams) {
-  const { id } = context.params;
-  console.log('[DELETE] /api/categories/[id] - ID recebido:', id);
-
-  try {
-    validateId(id); // Valida o ID recebido
-
-    // 🔐 Autenticação
-    const token = getTokenFromRequest(request);
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Token não fornecido' }, { status: 401 });
-    }
-
-    const decoded = await verifyToken(token);
-    if (!decoded) {
-      return NextResponse.json({ success: false, error: 'Token inválido ou expirado' }, { status: 401 });
-    }
-
-    // 🔒 Autorização
-    if (!hasPermission(decoded.role, 'categories:delete')) {
-      return NextResponse.json({ success: false, error: 'Sem permissão para deletar categorias' }, { status: 403 });
-    }
-
-    // Verifica se a categoria existe
-    const existing = await prisma.category.findUnique({ where: { id } });
-    if (!existing) {
-      return NextResponse.json({ success: false, error: 'Categoria não encontrada' }, { status: 404 });
-    }
-
-    // Verifica se há produtos vinculados à categoria
-    const productsCount = await prisma.product.count({ where: { categoryId: id } });
-    if (productsCount > 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Não é possível deletar categoria com produtos. Remova-os ou desative a categoria.',
-      }, { status: 400 });
-    }
-
-    // Deleta a categoria
-    await prisma.category.delete({ where: { id } });
-
-    return NextResponse.json({ success: true, message: 'Categoria deletada com sucesso' });
-  } catch (error: any) {
-    console.error('Erro no DELETE:', error.message || error);
+    console.error('[POST /api/categories] Erro:', error?.message || error);
     return NextResponse.json({ success: false, error: 'Erro interno do servidor' }, { status: 500 });
   }
 }

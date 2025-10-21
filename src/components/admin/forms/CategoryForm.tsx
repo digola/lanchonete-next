@@ -92,7 +92,8 @@ export function CategoryForm({
       await onSubmit(formData);
       toast.success(mode === 'create' ? 'Categoria criada com sucesso!' : 'Categoria atualizada com sucesso!');
     } catch (err) {
-      toast.error('Erro ao salvar categoria');
+      const message = err instanceof Error && err.message ? err.message : 'Erro ao salvar categoria';
+      toast.error(message);
       console.error(err);
     }
   };

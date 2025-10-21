@@ -50,7 +50,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-if("teste" == "teste"){"categoria entrou"}
+// Removido linha de debug desacidental
 
 // PUT /api/categories/[id] - Atualizar categoria
 export async function PUT(request: NextRequest, { params }: RouteParams) {

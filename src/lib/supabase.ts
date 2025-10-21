@@ -1,18 +1,43 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Configurações do Supabase
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+// Normalização básica para evitar valores com crases/aspas e espaços
+const normalize = (v?: string) => (v ?? '').trim().replace(/^['"`]+|['"`]+$/g, '')
 
-// Cliente do Supabase (só cria se as variáveis estiverem configuradas)
+// Configurações do Supabase (client-side)
+const supabaseUrl = normalize(process.env.NEXT_PUBLIC_SUPABASE_URL)
+const supabaseAnonKey = normalize(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_CLIENT_API_KEY)
+
+// Configurações do Supabase (server-side, apenas uso administrativo)
+const supabaseServiceKey = normalize(
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+  process.env.SUPABASE_SERVICE_KEY ||
+  process.env.SERVICE_KEY
+)
+
+// Detecta ambiente server
+const isServer = typeof window === 'undefined'
+
+// Cliente do Supabase (ANON) — use em componentes/client
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null
 
+// Cliente do Supabase (SERVICE) — use APENAS em rotas/server
+export const supabaseService = (isServer && supabaseUrl && supabaseServiceKey)
+  ? createClient(supabaseUrl, supabaseServiceKey)
+  : null
+
+// Exporte as constantes para uso em outros pontos do app
+export const SUPABASE_URL = supabaseUrl
+export const SUPABASE_ANON_KEY = supabaseAnonKey
+export const SUPABASE_KEY = supabaseAnonKey // alias solicitado
+export const SUPABASE_CLIENT_API_KEY = supabaseAnonKey // alias solicitado
+export const SUPABASE_SERVICE_KEY = supabaseServiceKey // alias solicitado
+export const SUPABASE_REST_URL = supabaseUrl ? `${supabaseUrl}/rest/v1` : ''
+
 // Função para testar conectividade com Supabase
 export async function testSupabaseConnection() {
   try {
-    // Verifica se as variáveis de ambiente estão configuradas
     if (!supabaseUrl || !supabaseAnonKey || !supabase) {
       return {
         success: false,
@@ -25,24 +50,30 @@ export async function testSupabaseConnection() {
       }
     }
 
-    // Testa conectividade usando uma consulta simples na tabela de usuários ("users")
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1)
+    // Testa conectividade em tabelas conhecidas do projeto
+    const tablesToProbe = ['categories', 'products', 'tables']
+    const errors: Record<string, any> = {}
 
-    if (error) {
-      return {
-        success: false,
-        error: 'Erro ao conectar com Supabase',
-        details: error
+    for (const t of tablesToProbe) {
+      const { data, error } = await supabase
+        .from(t)
+        .select('id')
+        .limit(1)
+
+      if (!error) {
+        return {
+          success: true,
+          message: `Conectado com sucesso ao Supabase (tabela ${t})`,
+          data: { table: t, recordsFound: data?.length || 0 }
+        }
       }
+      errors[t] = error?.message || error
     }
 
     return {
-      success: true,
-      message: 'Conectado com sucesso ao Supabase',
-      data: { connectionTest: 'OK', recordsFound: data?.length || 0 }
+      success: false,
+      error: 'Erro ao conectar com Supabase nas tabelas de teste',
+      details: errors
     }
 
   } catch (error) {
@@ -95,17 +126,25 @@ export async function getSupabaseProjectInfo() {
       }
     }
 
-    // Tenta fazer uma consulta simples para verificar se a API está funcionando
-    const { data, error } = await supabase
-      .from('users')
-      .select('id')
-      .limit(1)
-    
+    const tablesToProbe = ['categories', 'products', 'tables']
+    const results: Record<string, { ok: boolean; count?: number; error?: any }> = {}
+
+    for (const t of tablesToProbe) {
+      const { data, error } = await supabase
+        .from(t)
+        .select('id')
+        .limit(1)
+      results[t] = error
+        ? { ok: false, error: error?.message || error }
+        : { ok: true, count: data?.length || 0 }
+    }
+
+    const anyOk = Object.values(results).some(r => r.ok)
     return {
-      success: !error,
-      message: error ? error.message : 'API REST funcionando',
+      success: anyOk,
+      message: anyOk ? 'API REST funcionando para ao menos uma tabela' : 'Falha na API REST para tabelas consultadas',
       url: supabaseUrl,
-      hasData: !!data && data.length > 0,
+      probe: results,
       timestamp: new Date().toISOString()
     }
   } catch (error) {
@@ -116,4 +155,25 @@ export async function getSupabaseProjectInfo() {
       timestamp: new Date().toISOString()
     }
   }
+}
+
+// Retorna array de categorias diretamente do Supabase
+export async function getSupabaseCategories(options: { useService?: boolean } = {}) {
+  const { useService = false } = options
+  const client = (useService && supabaseService) ? supabaseService : supabase
+
+  if (!client) {
+    throw new Error('Cliente Supabase não configurado (verifique variáveis de ambiente)')
+  }
+
+  const { data, error } = await client
+    .from('categories')
+    .select('*')
+    .order('id', { ascending: true })
+
+  if (error) {
+    throw new Error(error.message || 'Erro ao buscar categorias no Supabase')
+  }
+
+  return data ?? []
 }
