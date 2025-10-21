@@ -3,7 +3,7 @@ export const runtime = 'nodejs';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
-;
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
 import { createClient } from '@supabase/supabase-js';
@@ -50,7 +50,7 @@ function parseRateLimitConfig() {
   return { max, windowMs };
 }
 
-function getSupabaseAdminClient() {
+function getSupabaseAdminClient(): SupabaseClient<any, any, any, any, any> | null {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !serviceKey) {
@@ -58,14 +58,14 @@ function getSupabaseAdminClient() {
   }
   return createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false },
-  });
+  }) as unknown as SupabaseClient<any, any, any, any, any>;
 }
 
 function getBucketName(): string {
   return process.env.SUPABASE_BUCKET_IMAGES || 'images';
 }
 
-async function ensureBucketExists(supabase: ReturnType<typeof createClient>, bucket: string) {
+async function ensureBucketExists(supabase: SupabaseClient<any, any, any, any, any>, bucket: string) {
   try {
     const { data: buckets, error } = await supabase.storage.listBuckets();
     if (error) {
