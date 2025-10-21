@@ -6,14 +6,8 @@ generator client {
 }
 
 datasource db {
-<<<<<<< Updated upstream
   provider = "postgresql"
   url      = env("DATABASE_URL")
-=======
-  provider = "sqlite"
-  // Usar caminho local para evitar depender de env em geração de cliente
-  url      = "file:./dev.db"
->>>>>>> Stashed changes
 }
 
 // Modelo User
@@ -28,10 +22,10 @@ model User {
   updatedAt DateTime @updatedAt
 
   // Relacionamentos
-  orders Order[]
-  tables Table[]
-  orderReviews OrderReview[]
-  notifications Notification[]
+  orders         Order[]
+  tables         Table[]
+  orderReviews   OrderReview[]
+  notifications  Notification[]
   stockMovements StockMovement[]
 
   @@map("users")
@@ -75,14 +69,9 @@ model Product {
   updatedAt       DateTime  @updatedAt
 
   // Relacionamentos
-<<<<<<< Updated upstream
   category       Category       @relation(fields: [categoryId], references: [id])
   orderItems     OrderItem[]
   stockMovements StockMovement[]
-=======
-  category Category @relation(fields: [categoryId], references: [id])
-  orderItems OrderItem[]
->>>>>>> Stashed changes
 
   @@map("products")
   @@index([categoryId])
@@ -96,11 +85,7 @@ model Order {
   id              String   @id @default(cuid())
   userId          String
   status          String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
-<<<<<<< Updated upstream
   total           Float    // Considere Decimal em produção
-=======
-  total           Float    // Usando Float em vez de Decimal para SQLite
->>>>>>> Stashed changes
   deliveryType    String   @default("RETIRADA") // RETIRADA, DELIVERY
   deliveryAddress String?
   paymentMethod   String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
@@ -108,21 +93,17 @@ model Order {
   tableId         String?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-<<<<<<< Updated upstream
   isActive        Boolean  @default(true)
   isPaid          Boolean  @default(false)
   isReceived      Boolean  @default(false)
-=======
->>>>>>> Stashed changes
 
   // Relacionamentos
-  user User @relation(fields: [userId], references: [id])
-  table Table? @relation(fields: [tableId], references: [id])
-  items OrderItem[]
+  user   User  @relation(fields: [userId], references: [id])
+  table  Table? @relation(fields: [tableId], references: [id])
+  items  OrderItem[]
   reviews OrderReview[]
 
   @@map("orders")
-<<<<<<< Updated upstream
   @@index([userId])
   @@index([tableId])
   @@index([status])
@@ -130,8 +111,6 @@ model Order {
   @@index([isActive])
   @@index([isPaid])
   @@index([isReceived])
-=======
->>>>>>> Stashed changes
 }
 
 // Modelo OrderItem
@@ -149,11 +128,8 @@ model OrderItem {
   product Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
-<<<<<<< Updated upstream
   @@index([orderId])
   @@index([productId])
-=======
->>>>>>> Stashed changes
 }
 
 // Modelo OrderReview (avaliações de pedidos)
@@ -194,7 +170,6 @@ model Table {
   @@map("tables")
   @@index([assignedTo])
 }
-<<<<<<< Updated upstream
 
 // Modelo Notification
 model Notification {
@@ -259,5 +234,3 @@ model StockMovement {
   @@index([type])
   @@index([createdAt])
 }
-=======
->>>>>>> Stashed changes
