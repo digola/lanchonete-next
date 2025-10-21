@@ -170,6 +170,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'view_tables',
       'update_table_status',
       'view_inventory',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
     [UserRole.MANAGER]: [
       'view_menu',
@@ -187,6 +189,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'view_reports',
       'manage_inventory',
       'view_analytics',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
     [UserRole.ADMIN]: [
       'view_menu',
@@ -209,6 +213,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'manage_settings',
       'view_system_logs',
       'manage_system',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
     [UserRole.ADMINISTRADOR]: [
       'view_menu',
@@ -231,6 +237,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'manage_settings',
       'view_system_logs',
       'manage_system',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
     [UserRole.ADMINISTRADOR_LOWER]: [
       'view_menu',
@@ -253,6 +261,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'manage_settings',
       'view_system_logs',
       'manage_system',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
     [UserRole.ADMINISTRADOR_TITLE]: [
       'view_menu',
@@ -275,6 +285,8 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
       'manage_settings',
       'view_system_logs',
       'manage_system',
+      // Permissão específica para upload de imagens
+      'upload_images',
     ],
   };
 

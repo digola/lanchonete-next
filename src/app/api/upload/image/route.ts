@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Verificar permissão (apenas admin e funcionário podem fazer upload)
-    if (!hasPermission(decoded.role, 'settings:write')) {
+    if (!hasPermission(decoded.role, 'upload_images')) {
       log.warn('Permission denied for upload', { role: decoded.role });
       return json(
         { success: false, error: 'Sem permissão para fazer upload de imagens' },
