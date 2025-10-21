@@ -13,6 +13,8 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const testType = searchParams.get('type') || 'all'
 
+    const baseUrl = `${new URL(request.url).protocol}//${new URL(request.url).host}`
+
     const results: any = {
       timestamp: new Date().toISOString(),
       environment: getVercelEnvironmentInfo(),
@@ -25,7 +27,7 @@ export async function GET(request: NextRequest) {
     if (testType === 'all' || testType === 'connectivity') {
       console.log('🔍 Testando conectividade com Vercel...')
       try {
-        results.tests.connectivity = await testVercelConnectivity()
+        results.tests.connectivity = await testVercelConnectivity(baseUrl)
         console.log('✅ Teste de conectividade concluído:', results.tests.connectivity.success)
       } catch (error) {
         console.error('❌ Erro no teste de conectividade:', error)

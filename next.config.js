@@ -12,9 +12,6 @@ const nextConfig = {
   // Otimizações para reduzir tamanho da função serverless
   output: 'standalone',
   
-  // Configuração de tracing para incluir apenas arquivos necessários
-  outputFileTracing: true,
-  
   // Configuração específica do Turbopack (Next.js) para suportar loaders
   // recomendados oficialmente, como @svgr/webpack para SVGs.
   // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack

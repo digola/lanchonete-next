@@ -47,14 +47,35 @@ export function getVercelEnvironmentInfo(): VercelEnvironmentInfo {
   }
 }
 
+function resolveBaseUrl(providedBase?: string): string {
+  if (providedBase && providedBase.trim().length > 0) {
+    return providedBase.replace(/\/$/, '')
+  }
+  const envBase = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL
+  if (envBase && envBase.trim().length > 0) {
+    return envBase.replace(/\/$/, '')
+  }
+  const env = getVercelEnvironmentInfo()
+  if (env.deploymentUrl) {
+    const dep = env.deploymentUrl
+    // VERCEL_URL geralmente vem sem protocolo
+    return dep.startsWith('http') ? dep.replace(/\/$/, '') : `https://${dep}`
+  }
+  // Fallback para desenvolvimento
+  const port = process.env.PORT || '3000'
+  return `http://localhost:${port}`
+}
+
 // Função para testar conectividade e performance do Vercel
-export async function testVercelConnectivity(): Promise<VercelConnectivityTest> {
+export async function testVercelConnectivity(baseUrl?: string): Promise<VercelConnectivityTest> {
   const startTime = Date.now()
   const environment = getVercelEnvironmentInfo()
 
   try {
+    const base = resolveBaseUrl(baseUrl)
+    const healthUrl = new URL('/api/test/vercel/health', base)
     // Testa conectividade básica
-    const response = await fetch('/api/test/vercel/health', {
+    const response = await fetch(healthUrl.toString(), {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',

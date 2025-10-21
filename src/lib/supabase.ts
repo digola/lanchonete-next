@@ -25,9 +25,9 @@ export async function testSupabaseConnection() {
       }
     }
 
-    // Testa conectividade usando uma consulta simples na tabela de usuários
+    // Testa conectividade usando uma consulta simples na tabela de usuários ("users")
     const { data, error } = await supabase
-      .from('User')
+      .from('users')
       .select('id')
       .limit(1)
 
@@ -97,7 +97,7 @@ export async function getSupabaseProjectInfo() {
 
     // Tenta fazer uma consulta simples para verificar se a API está funcionando
     const { data, error } = await supabase
-      .from('User')
+      .from('users')
       .select('id')
       .limit(1)
     

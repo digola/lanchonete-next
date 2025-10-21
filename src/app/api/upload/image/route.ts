@@ -6,6 +6,7 @@ import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-serv
 ;
 import { checkRateLimit, getClientIp } from '@/lib/rateLimiter';
 import { createLogger, getOrCreateRequestId, withRequestIdHeader } from '@/lib/logger';
+import { createClient } from '@supabase/supabase-js';
 
 // Helpers de env
 function parseAllowedTypes(): string[] {
@@ -47,6 +48,40 @@ function parseRateLimitConfig() {
   const max = Number(process.env.RATE_LIMIT_UPLOAD_IMAGE_MAX ?? 20);
   const windowMs = Number(process.env.RATE_LIMIT_UPLOAD_IMAGE_WINDOW_MS ?? 60_000);
   return { max, windowMs };
+}
+
+function getSupabaseAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !serviceKey) {
+    return null;
+  }
+  return createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
+
+function getBucketName(): string {
+  return process.env.SUPABASE_BUCKET_IMAGES || 'images';
+}
+
+async function ensureBucketExists(supabase: ReturnType<typeof createClient>, bucket: string) {
+  try {
+    const { data: buckets, error } = await supabase.storage.listBuckets();
+    if (error) {
+      return false;
+    }
+    const exists = (buckets || []).some((b) => b.name === bucket);
+    if (!exists) {
+      const { error: createErr } = await supabase.storage.createBucket(bucket, { public: true });
+      if (createErr) {
+        return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function POST(request: NextRequest) {
@@ -140,6 +175,51 @@ export async function POST(request: NextRequest) {
     const extension = resolveFileExtension(file.type, file.name);
     const fileName = `${timestamp}_${randomString}.${extension}`;
 
+    // Salvar arquivo em armazenamento persistente (Supabase Storage) se disponível
+    const supabase = getSupabaseAdminClient();
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    if (supabase) {
+      const bucket = getBucketName();
+      const objectPath = fileName;
+      const okBucket = await ensureBucketExists(supabase, bucket);
+      if (!okBucket) {
+        log.warn('Bucket check/create failed; falling back to filesystem', { bucket });
+      } else {
+        const { error: uploadError } = await supabase.storage.from(bucket).upload(objectPath, buffer, {
+          contentType: file.type,
+          upsert: false,
+        });
+        if (!uploadError) {
+          const { data } = supabase.storage.from(bucket).getPublicUrl(objectPath);
+          const imageUrl = data.publicUrl;
+          log.info('Upload success (Supabase Storage)', { fileName, size: file.size, type: file.type, bucket });
+          const ok = json(
+            {
+              success: true,
+              data: {
+                url: imageUrl,
+                fileName: fileName,
+                size: file.size,
+                type: file.type,
+                storage: 'supabase',
+                bucket,
+              },
+            },
+            200
+          );
+          ok.headers.set('X-RateLimit-Limit', String(max));
+          ok.headers.set('X-RateLimit-Remaining', String(rl.remaining));
+          ok.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
+          return ok;
+        } else {
+          log.warn('Supabase upload failed, falling back to filesystem', { error: uploadError.message });
+        }
+      }
+    }
+
+    // Fallback: salvar em filesystem local (para dev/testes)
     // Criar diretório se não existir
     const uploadDir = resolveUploadDir();
     try {
@@ -148,11 +228,7 @@ export async function POST(request: NextRequest) {
       // Diretório já existe ou não pode ser criado
     }
 
-    // Salvar arquivo
     const filePath = join(uploadDir, fileName);
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-
     await writeFile(filePath, buffer);
 
     // Retornar URL da imagem (suporte a UPLOAD_BASE_URL)
@@ -161,7 +237,7 @@ export async function POST(request: NextRequest) {
       ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
       : `/uploads/images/${fileName}`;
 
-    log.info('Upload success', { fileName, size: file.size, type: file.type });
+    log.info('Upload success (filesystem)', { fileName, size: file.size, type: file.type });
     const ok = json(
       {
         success: true,
@@ -170,6 +246,7 @@ export async function POST(request: NextRequest) {
           fileName: fileName,
           size: file.size,
           type: file.type,
+          storage: 'filesystem',
         },
       },
       200
