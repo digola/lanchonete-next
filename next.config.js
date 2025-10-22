@@ -1,4 +1,13 @@
 /** @type {import('next').NextConfig} */
+// Detecta dinamicamente o host do Supabase para permitir imagens no Next/Image
+const supabaseUrl = process.env.SUPABASE_URL;
+let supabaseHost;
+try {
+  supabaseHost = supabaseUrl ? new URL(supabaseUrl).hostname : undefined;
+} catch (e) {
+  supabaseHost = undefined;
+}
+
 const nextConfig = {
   // Configurações para produção
   reactStrictMode: true,
@@ -38,7 +47,7 @@ const nextConfig = {
   
   // Configuração de imagens
   images: {
-    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'],
+    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'].concat(supabaseHost ? [supabaseHost] : []),
     remotePatterns: [
       {
         protocol: 'https',
@@ -52,6 +61,12 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      ...(supabaseHost ? [{
+        protocol: 'https',
+        hostname: supabaseHost,
+        port: '',
+        pathname: '/**',
+      }] : []),
     ],
     formats: ['image/avif', 'image/webp'],
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],

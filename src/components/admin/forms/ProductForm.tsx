@@ -333,9 +333,44 @@ export function ProductForm({
                   placeholder="Clique para selecionar uma imagem do produto"
                   disabled={isReadOnly}
                   error={errors.imageUrl || ''}
+                  uploadType="products"
+                  resourceId={product?.id || 'general'}
                 />
               </div>
 
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Preview da Imagem */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center space-x-2">
+              <Eye className="h-4 w-4" />
+              <span>Preview da Imagem</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-3 p-4 rounded-lg border-2 border-dashed border-gray-300">
+              {imagePreview || formData.imageUrl ? (
+                <Image
+                  src={imagePreview || formData.imageUrl!}
+                  alt="Preview do produto"
+                  width={64}
+                  height={64}
+                  className="w-16 h-16 object-cover rounded-lg"
+                />
+              ) : (
+                <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <Upload className="h-6 w-6 text-gray-400" />
+                </div>
+              )}
+              <div className="flex-1">
+                <h3 className="font-semibold text-lg">{formData.name || 'Nome do produto'}</h3>
+                {formData.description && (
+                  <p className="text-gray-600 text-sm">{formData.description}</p>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>

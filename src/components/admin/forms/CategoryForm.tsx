@@ -213,6 +213,8 @@ export function CategoryForm({
                   placeholder="Clique para selecionar uma imagem da categoria"
                   disabled={isReadOnly}
                   error={errors.imageUrl || ''}
+                  uploadType="categories"
+                  resourceId={category?.id || 'general'}
                 />
               </div>
 

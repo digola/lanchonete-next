@@ -5,55 +5,46 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-<<<<<<< Updated upstream
-    "build": "prisma generate && next build",
-=======
-    "build": "next build",
->>>>>>> Stashed changes
+    "build": "node scripts/build-vercel.js",
+    "vercel-build": "node scripts/build-vercel.js",
+    "upload-image": "node scripts/upload-image.js",
     "start": "next start",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "type-check": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:ci": "jest --ci --coverage --watchAll=false",
+    "setup": "node scripts/setup-database.js",
+    "setup:sqlite": "node scripts/setup-database.js --sqlite",
+    "setup:postgres": "node scripts/setup-database.js --postgres",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
-    "db:migrate:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
-<<<<<<< Updated upstream
-=======
-    
-    
->>>>>>> Stashed changes
+    "db:setup": "npm run setup && npm run db:generate && npm run db:push && npm run db:seed",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
-    "postinstall": "prisma generate",
-    "vercel-build": "prisma generate && prisma migrate deploy && next build"
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@heroicons/react": "^2.1.7",
     "@hookform/resolvers": "^3.9.1",
     "@prisma/client": "^5.22.0",
-    "@supabase/ssr": "0.7.0",
-    "@supabase/supabase-js": "2.75.1",
     "@types/multer": "^1.4.12",
-    "@types/react-dom": "^18.3.1",
-    "@vercel/kv": "3.0.0",
-    "autoprefixer": "^10.4.20",
     "bcryptjs": "^2.4.3",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "dotenv": "17.2.3",
     "form-data": "^4.0.0",
     "framer-motion": "^12.23.21",
-    "jose": "6.1.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.460.0",
     "multer": "^1.4.5-lts.1",
     "next": "15.5.2",
-    "pino": "10.0.0",
-    "postcss": "^8.4.49",
     "prisma": "^5.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
@@ -68,24 +59,29 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "^6.8.0",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
     "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "9.0.10",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.2",
     "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
     "@typescript-eslint/eslint-plugin": "^8.15.0",
     "@typescript-eslint/parser": "^8.15.0",
-    "eslint": "8.57.1",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^8.57.1",
     "eslint-config-next": "15.5.2",
-<<<<<<< Updated upstream
-=======
+    "jest": "^30.1.3",
+    "jest-environment-jsdom": "^30.1.2",
     "postcss": "^8.4.49",
->>>>>>> Stashed changes
     "prettier": "^3.3.3",
-    "prettier-plugin-tailwindcss": "^0.6.8"
+    "prettier-plugin-tailwindcss": "^0.6.8",
+    "tsx": "^4.19.2"
   },
   "engines": {
-    "node": "20.x",
-    "npm": "10.x"
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   },
   "keywords": [
     "nextjs",
@@ -95,9 +91,6 @@
     "food-delivery",
     "pos-system"
   ],
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
-  },
   "author": "Sistema Lanchonete",
   "license": "MIT"
 }

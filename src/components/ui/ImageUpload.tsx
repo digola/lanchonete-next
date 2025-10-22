@@ -14,6 +14,9 @@ interface ImageUploadProps {
   disabled?: boolean;
   error?: string;
   className?: string;
+  // Novo: metadados para o endpoint /api/uploads
+  uploadType?: 'products' | 'categories' | 'general';
+  resourceId?: string;
 }
 
 export function ImageUpload({ 
@@ -22,7 +25,9 @@ export function ImageUpload({
   placeholder = "Clique para selecionar uma imagem",
   disabled = false,
   error,
-  className = ""
+  className = "",
+  uploadType = 'general',
+  resourceId,
 }: ImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false);
   const [preview, setPreview] = useState<string | null>(value || null);
@@ -41,30 +46,33 @@ export function ImageUpload({
       return;
     }
 
-    // Validar tamanho (máximo 5MB)
-    const maxSize = 5 * 1024 * 1024; // 5MB
+    // Validar tamanho (máximo 10MB, alinhado ao backend)
+    const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      toast.error('Arquivo muito grande. Máximo 5MB');
+      toast.error('Arquivo muito grande. Máximo 10MB');
       return;
     }
 
     setIsUploading(true);
 
     try {
-      // Criar preview local
+      // Criar preview local imediato
       const previewUrl = URL.createObjectURL(file);
       setPreview(previewUrl);
 
-      // Fazer upload para o servidor
+      // Fazer upload para o servidor (Supabase via /api/uploads)
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('file', file);
+      if (uploadType) formData.append('type', uploadType);
+      if (resourceId) formData.append('id', resourceId);
+      formData.append('filename', file.name);
 
       if (!token) {
         toast.error('Você precisa estar logado para fazer upload de imagens');
         return;
       }
 
-      const response = await fetch('/api/upload/image', {
+      const response = await fetch('/api/uploads', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -78,9 +86,9 @@ export function ImageUpload({
         throw new Error(result.error || 'Erro ao fazer upload');
       }
 
-      // Atualizar com a URL do servidor
-      setPreview(result.data.url);
-      onChange(result.data.url);
+      // Atualizar com a URL do servidor (Supabase pública)
+      setPreview(result.url);
+      onChange(result.url);
       toast.success('Imagem enviada com sucesso!');
 
     } catch (error: any) {
@@ -184,7 +192,7 @@ export function ImageUpload({
               {error || placeholder}
             </p>
             <p className="text-xs text-gray-500">
-              JPG, PNG ou WebP • Máximo 5MB
+              JPG, PNG ou WebP • Máximo 10MB
             </p>
           </div>
         )}
