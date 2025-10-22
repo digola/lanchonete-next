@@ -15,6 +15,7 @@
 temp/
 samples/
 scripts/
+!scripts/build-vercel.js
 .github/
 
 # Arquivos Docker
