@@ -1,13 +1,16 @@
-// Schema SQLite para desenvolvimento local
-// Este arquivo substitui o schema.prisma quando usando SQLite
+// Schema PostgreSQL para produção
+// Este arquivo é usado para deploy em ambientes com PostgreSQL
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+  // Usado pelo Prisma Migrate quando a URL principal é pool (PgBouncer)
+  // Configure DIRECT_URL com uma conexão direta (sem pool)
+  directUrl = env("DIRECT_URL")
 }
 
 // Modelo User
@@ -58,7 +61,7 @@ model Product {
   id              String    @id @default(cuid())
   name            String
   description     String
-  price           Float     // Usando Float em vez de Decimal para SQLite
+  price           Float
   categoryId      String
   preparationTime Int       @default(15) // em minutos
   allergens       String?
@@ -68,9 +71,9 @@ model Product {
   updatedAt       DateTime  @updatedAt
 
   // Relacionamentos
-  category Category @relation(fields: [categoryId], references: [id])
+  category  Category  @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
-  cartItems CartItem[]
+  cartItems  CartItem[]
 
   // Índices para performance
   @@index([categoryId])
@@ -84,23 +87,23 @@ model Product {
 model Order {
   id                    String   @id @default(cuid())
   userId                String
-  status                String   @default("PENDENTE") // PENDENTE, CONFIRMADO, PREPARANDO, PRONTO, ENTREGUE, CANCELADO
-  total                 Float    // Usando Float em vez de Decimal para SQLite
-  deliveryType          String   @default("RETIRADA") // RETIRADA, DELIVERY
+  status                String   @default("PENDENTE")
+  total                 Float
+  deliveryType          String   @default("RETIRADA")
   deliveryAddress       String?
-  estimatedDeliveryTime Int?     // Tempo estimado de entrega em minutos
-  deliveryFee           Float    @default(0) // Taxa de entrega
-  paymentMethod         String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
+  estimatedDeliveryTime Int?
+  deliveryFee           Float    @default(0)
+  paymentMethod         String   @default("DINHEIRO")
   notes                 String?
   tableId               String?
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
   // Relacionamentos
-  user User @relation(fields: [userId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
   table Table? @relation(fields: [tableId], references: [id])
-  reviews OrderReview[]
   items OrderItem[]
+  reviews OrderReview[]
 
   // Índices para performance
   @@index([userId])
@@ -113,13 +116,13 @@ model Order {
 
 // Modelo OrderItem
 model OrderItem {
-  id        String  @id @default(cuid())
-  orderId   String
-  productId String
-  quantity  Int
-  price     Float   // Preço no momento da compra
-  notes     String?
-  customizations String? // JSON serializado como string
+  id             String  @id @default(cuid())
+  orderId        String
+  productId      String
+  quantity       Int
+  price          Float
+  notes          String?
+  customizations String?
 
   // Relacionamentos
   order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
@@ -145,7 +148,7 @@ model OrderReview {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Índices
-  @@unique([orderId, userId]) // Um review por usuário por pedido
+  @@unique([orderId, userId])
   @@index([orderId])
   @@index([userId])
   @@map("order_reviews")
@@ -193,15 +196,15 @@ model CartItem {
 
 // Modelo Table
 model Table {
-  id              String   @id @default(cuid())
-  number          Int      @unique
-  capacity        Int      @default(4)
-  status          String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
-  area            String?  // Área da mesa (ex: "Área VIP", "Terraço")
-  qrCode          String?  // Código QR da mesa
-  assignedTo      String?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id         String   @id @default(cuid())
+  number     Int      @unique
+  capacity   Int      @default(4)
+  status     String   @default("LIVRE") // LIVRE, OCUPADA, RESERVADA, MANUTENCAO
+  area       String?  // Área da mesa (ex: "Área VIP", "Terraço")
+  qrCode     String?  // Código QR da mesa
+  assignedTo String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   // Relacionamentos
   assignedUser User? @relation(fields: [assignedTo], references: [id])
@@ -217,15 +220,15 @@ model Table {
 
 // Modelo Notification (notificações do sistema)
 model Notification {
-  id          String   @id @default(cuid())
-  userId      String?  // null = notificação global
-  type        String   // ORDER, SYSTEM, PROMOTION
-  title       String
-  message     String
-  isRead      Boolean  @default(false)
-  priority    String   @default("MEDIUM") // LOW, MEDIUM, HIGH
-  expiresAt   DateTime?
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  userId    String?  // null = notificação global
+  type      String   // ORDER, SYSTEM, PROMOTION
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  priority  String   @default("MEDIUM") // LOW, MEDIUM, HIGH
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
 
   // Relacionamentos
   user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -255,7 +258,7 @@ model SystemSettings {
   @@map("system_settings")
 }
 
-// Modelo ActivityLog (logs de atividade)
+// Modelo ActivityLog
 model ActivityLog {
   id          String   @id @default(cuid())
   userId      String?
