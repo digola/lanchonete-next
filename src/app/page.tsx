@@ -286,16 +286,16 @@ export default function HomePage() {
               ) : (
                 filteredCategories.map((category: Category) => (
                   <Button
-                    key={category.name}
-                    variant={selectedCategory === category.name ? 'primary' : 'outline'}
+                    key={category.id}
+                    variant={selectedCategory === category.id ? 'primary' : 'outline'}
                     size="sm"
-                    onClick={() => handleCategoryFilter(category.name)}
+                    onClick={() => handleCategoryFilter(category.id)}
                     className="transition-all duration-200 hover:scale-105"
                     leftIcon={
                       category.imageUrl ? (
                         <Image 
                           src={category.imageUrl} 
-                          alt={category.id}
+                          alt={category.name}
                           width={16}
                           height={16}
                           className="w-4 h-4 object-cover rounded"
@@ -314,7 +314,7 @@ export default function HomePage() {
                       )
                     }
                   >
-                    {products.filter((p) => p.categoryId === category.id).length}
+                    {category.name} ({products.filter((p) => p.categoryId === category.id).length})
                   </Button>
                 ))
               )}

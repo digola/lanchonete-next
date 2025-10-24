@@ -14,7 +14,7 @@
 # Diretórios de desenvolvimento
 temp/
 samples/
-scripts/
+scripts/*
 !scripts/build-vercel.js
 .github/
 
