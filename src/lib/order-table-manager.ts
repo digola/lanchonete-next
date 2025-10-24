@@ -18,9 +18,7 @@ export interface TableState {
   assignedTo: string | null;
   activeOrders: Array<{
     id: string;
-    status: string;
-    isActive: boolean;   
-    isReceived: boolean;
+    status: 'PENDENTE' | 'EM_PREPARO' | 'PRONTO' | 'CANCELADO' | 'ENTREGUE' | 'FINALIZADO';
     total: number;
     createdAt: Date;
   }>;
@@ -76,19 +74,16 @@ export class OrderTableManager {
       }
 
       // Verificar se já existe pedido ativo na mesa (REGRA: UM PEDIDO POR MESA)
-      const existingActiveOrder = await prisma.order.findFirst({
+        const existingActiveOrder = await prisma.order.findFirst({  
         where: {
-          tableId: tableId,
-          isActive: true,
+            tableId: tableId,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
         },
         select: {
           id: true,
-          status: true,
-          isActive: true,
-          isReceived: true,
+              status: true,
           total: true,
           createdAt: true
         }
@@ -158,7 +153,7 @@ export class OrderTableManager {
         productId: string;
         quantity: number;
         price: number;
-        notes?: string | undefined;
+            notes: string | undefined;
         customizations?: string | null;
       }> = [];
 
@@ -199,9 +194,6 @@ export class OrderTableManager {
             paymentMethod: 'PENDENTE',  // ← PAGAMENTO PENDENTE
             notes: data.notes || null,
             tableId: data.tableId,
-            isActive: true,        // ← SEMPRE TRUE na criação
-            isReceived: false,     // ← SEMPRE FALSE na criação
-            isPaid: false,         // ← SEMPRE FALSE na criação
             items: {
               create: validatedItems as any
             }
@@ -279,12 +271,12 @@ export class OrderTableManager {
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
         },
         include: {
+          user: { select: { id: true, name: true, email: true } },
           items: {
             include: {
               product: { select: { id: true, name: true, price: true } }
@@ -293,78 +285,28 @@ export class OrderTableManager {
         }
       });
 
-      if (!activeOrder) {
-        return { success: false, error: 'Nenhum pedido ativo encontrado na mesa' };
-      }
+      const activeOrders = activeOrder ? [{
+        id: activeOrder.id,
+        status: activeOrder.status as 'PENDENTE' | 'EM_PREPARO' | 'PRONTO' | 'CANCELADO' | 'ENTREGUE' | 'FINALIZADO',
+        total: Number(activeOrder.total),
+        createdAt: activeOrder.createdAt
+      }] : [];
+      const shouldBeOccupied = activeOrder !== null;
+      const statusMatches = (shouldBeOccupied && table.status === 'OCUPADA') || 
+                           (!shouldBeOccupied && ['LIVRE', 'RESERVADA', 'MANUTENCAO'].includes(table.status));
 
-      // Validar produtos
-      const validatedProducts: Array<{
-        productId: string;
-        quantity: number;
-        price: number;
-        notes: string | null;
-      }> = [];
-      let totalToAdd = 0;
-
-      for (const product of products) {
-        if (!product.productId || !product.quantity || product.quantity <= 0) {
-          return { success: false, error: 'Dados do produto inválidos' };
+      return {
+        success: true,
+        data: {
+          table,
+          activeOrders,
+          shouldBeOccupied,
+          statusMatches
         }
-
-        if (!product.price || product.price <= 0) {
-          return { success: false, error: 'Preço do produto inválido' };
-        }
-
-        validatedProducts.push({
-          productId: product.productId,
-          quantity: product.quantity,
-          price: product.price,
-          notes: product.notes?.trim() || null
-        });
-
-        totalToAdd += product.price * product.quantity;
-      }
-
-      // Adicionar produtos ao pedido e atualizar total
-      const result = await prisma.$transaction(async (tx) => {
-        // 1. Adicionar novos itens ao pedido
-        await tx.orderItem.createMany({
-          data: validatedProducts.map(item => ({
-            orderId: activeOrder.id,
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-            notes: item.notes
-          }))
-        });
-
-        // 2. Atualizar total do pedido
-        const newTotal = Number(activeOrder.total) + totalToAdd;
-        const updatedOrder = await tx.order.update({
-          where: { id: activeOrder.id },
-          data: {
-            total: newTotal,
-            updatedAt: new Date()
-          },
-          include: {
-            user: { select: { id: true, name: true, email: true } },
-            table: { select: { id: true, number: true, capacity: true } },
-            items: {
-              include: {
-                product: { select: { id: true, name: true, price: true, imageUrl: true } }
-              }
-            }
-          }
-        });
-
-        return updatedOrder;
-      });
-
-      console.log('✅ [ORDER-MANAGER] Produtos adicionados ao pedido:', result.id);
-      return { success: true, data: result };
+      };
 
     } catch (error) {
-      console.error('❌ [ORDER-MANAGER] Erro ao adicionar produtos:', error);
+      console.error('❌ [ORDER-MANAGER] Erro ao verificar status da mesa:', error);
       return { success: false, error: 'Erro interno do servidor' };
     }
   }
@@ -390,7 +332,7 @@ export class OrderTableManager {
         return { success: false, error: 'Pedido não encontrado' };
       }
 
-      if (existingOrder.isPaid) {
+      if (existingOrder.status === 'PAGO' || existingOrder.status === 'ENTREGUE' || existingOrder.status === 'FINALIZADO') {
         return { success: false, error: 'Pedido já foi pago' };
       }
 
@@ -405,7 +347,7 @@ export class OrderTableManager {
         where: { id: orderId },
         data: {
           paymentMethod: paymentMethod,
-          isPaid: true,
+          status: 'PAGO',
           updatedAt: new Date()
         },
         include: {
@@ -450,7 +392,7 @@ export class OrderTableManager {
         return { success: false, error: 'Pedido não encontrado' };
       }
 
-      if (existingOrder.isReceived) {
+      if (existingOrder.status === 'ENTREGUE') {
         return { success: false, error: 'Pedido já foi recebido' };
       }
 
@@ -460,8 +402,6 @@ export class OrderTableManager {
         const order = await tx.order.update({
           where: { id: orderId },
           data: {
-            isReceived: true,
-            isActive: false,  // ← FICA INATIVO
             updatedAt: new Date()
           },
           include: {
@@ -526,7 +466,6 @@ export class OrderTableManager {
           where: { id: orderId },
           data: {
             status: 'CANCELADO',
-            isActive: false,  // ← FICA INATIVO
             updatedAt: new Date()
           },
           include: {
@@ -598,7 +537,6 @@ export class OrderTableManager {
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -615,9 +553,7 @@ export class OrderTableManager {
 
       const activeOrders = activeOrder ? [{
         id: activeOrder.id,
-        status: activeOrder.status,
-        isActive: activeOrder.isActive,
-        isReceived: activeOrder.isReceived,
+        status: activeOrder.status as 'PENDENTE' | 'EM_PREPARO' | 'PRONTO' | 'CANCELADO' | 'ENTREGUE' | 'FINALIZADO',
         total: Number(activeOrder.total),
         createdAt: activeOrder.createdAt
       }] : [];
@@ -704,7 +640,6 @@ export class OrderTableManager {
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -712,8 +647,6 @@ export class OrderTableManager {
         select: {
           id: true,
           status: true,
-          isActive: true,
-          isReceived: true,
           total: true,
           createdAt: true
         }
@@ -721,9 +654,7 @@ export class OrderTableManager {
 
       const activeOrders = activeOrder ? [{
         id: activeOrder.id,
-        status: activeOrder.status,
-        isActive: activeOrder.isActive,
-        isReceived: activeOrder.isReceived,
+        status: activeOrder.status as 'PENDENTE' | 'EM_PREPARO' | 'PRONTO' | 'CANCELADO' | 'ENTREGUE' | 'FINALIZADO',
         total: Number(activeOrder.total),
         createdAt: activeOrder.createdAt
       }] : [];

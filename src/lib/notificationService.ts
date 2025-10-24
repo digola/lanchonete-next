@@ -24,7 +24,6 @@ export class NotificationService {
           message: params.message,
           type: params.type,
           priority: params.priority || NotificationPriority.NORMAL,
-          data: params.data ? JSON.stringify(params.data) : null,
           ...(params.expiresAt && { expiresAt: params.expiresAt })
         }
       });
@@ -171,11 +170,10 @@ export class NotificationService {
         where: {
           expiresAt: {
             lt: new Date()
-          },
-          isActive: true
+          }
         },
         data: {
-          isActive: false
+          isRead: true
         }
       });
 
@@ -196,20 +194,16 @@ export class NotificationService {
   static async getNotificationStats() {
     try {
       const [total, unread, byType, byPriority] = await Promise.all([
+        prisma.notification.count(),
         prisma.notification.count({
-          where: { isActive: true }
-        }),
-        prisma.notification.count({
-          where: { isActive: true, isRead: false }
+          where: { isRead: false }
         }),
         prisma.notification.groupBy({
           by: ['type'],
-          where: { isActive: true },
           _count: { type: true }
         }),
         prisma.notification.groupBy({
           by: ['priority'],
-          where: { isActive: true },
           _count: { priority: true }
         })
       ]);
