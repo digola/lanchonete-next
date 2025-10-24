@@ -52,31 +52,26 @@ async function main() {
     {
       name: 'Hambúrgueres',
       description: 'Deliciosos hambúrgueres artesanais',
-      icon: '',
       color: '#f97316',
     },
     {
       name: 'Bebidas',
       description: 'Refrigerantes, sucos e bebidas geladas',
-      icon: '',
       color: '#3b82f6',
     },
     {
       name: 'Acompanhamentos',
       description: 'Batatas, saladas e outros acompanhamentos',
-      icon: '',
       color: '#10b981',
     },
     {
       name: 'Sobremesas',
       description: 'Doces e sobremesas deliciosas',
-      icon: '',
       color: '#f59e0b',
     },
     {
       name: 'Pizzas',
       description: 'Pizzas artesanais com ingredientes frescos',
-      icon: '',
       color: '#ef4444',
     },
   ];
@@ -88,7 +83,6 @@ async function main() {
       create: {
         name: categoria.name,
         description: categoria.description,
-        icon: categoria.icon,
         color: categoria.color,
         isActive: true,
       },

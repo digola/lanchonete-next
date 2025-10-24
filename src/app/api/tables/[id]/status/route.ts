@@ -69,11 +69,10 @@ export async function PUT(
 
     console.log('🪑 Atualizando status da mesa:', tableId);
 
-    // Verificar pedidos ativos para esta mesa (não inativos e não finalizados)
+    // Verificar pedidos ativos para esta mesa (não finalizados)
     const activeOrders = await prisma.order.findMany({
       where: {
         tableId: tableId,
-        isActive: true,
         status: {
           notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
         }
@@ -225,11 +224,10 @@ export async function GET(
       );
     }
 
-    // Buscar pedidos ativos para esta mesa (não inativos e não finalizados)
+    // Buscar pedidos ativos para esta mesa (não finalizados)
     const activeOrders = await prisma.order.findMany({
       where: {
         tableId: tableId,
-        isActive: true,
         status: {
           notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
         }

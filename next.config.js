@@ -24,14 +24,15 @@ const nextConfig = {
   // Configuração específica do Turbopack (Next.js) para suportar loaders
   // recomendados oficialmente, como @svgr/webpack para SVGs.
   // Referência: https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack
-  turbopack: {
-    rules: {
-      '*.svg': {
-        loaders: ['@svgr/webpack'],
-        as: '*.js',
-      },
-    },
-  },
+  // turbopack: {
+  //   root: 'C:\\Users\\PC-home\\Desktop\\projetos\\lanchonete-next',
+  //   rules: {
+  //     '*.svg': {
+  //       loaders: ['@svgr/webpack'],
+  //       as: '*.js',
+  //     },
+  //   },
+  // },
   
   // Configurações de TypeScript para deploy
   typescript: {
@@ -39,15 +40,10 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   
-  // Configurações de ESLint para deploy
-  eslint: {
-    // Manter verificação de ESLint em produção
-    ignoreDuringBuilds: false,
-  },
+
   
   // Configuração de imagens
   images: {
-    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'].concat(supabaseHost ? [supabaseHost] : []),
     remotePatterns: [
       {
         protocol: 'https',

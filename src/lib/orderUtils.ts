@@ -4,17 +4,15 @@
 
 export interface PendingOrder {
   id: string;
-  status: string;
   total: number;
-  user?: {
+  status: string;
+  user: {
     name: string;
   };
   table?: {
     number: number;
   };
   createdAt: string;
-  isActive: boolean;
-  isPaid: boolean;
 }
 
 /**
@@ -33,7 +31,7 @@ export async function checkPendingOrders(): Promise<{
     }
 
     // Buscar pedidos não pagos do dia atual
-    const url = `/api/orders?isPaid=false&isActive=true&includeUser=true&includeTable=true`;
+    const url = `/api/orders?status=PENDENTE,CONFIRMADO&includeUser=true&includeTable=true`;
     
     const response = await fetch(url, {
       headers: {
@@ -47,8 +45,10 @@ export async function checkPendingOrders(): Promise<{
     }
 
     const data = await response.json();
-    // Filtrar apenas pedidos não pagos (isPaid = false)
-    const pendingOrders = (data.data || []).filter((order: PendingOrder) => !order.isPaid);
+    // Filtrar apenas pedidos não pagos (status PENDENTE ou CONFIRMADO)
+    const pendingOrders = (data.data || []).filter((order: PendingOrder) => 
+      order.status === 'PENDENTE' || order.status === 'CONFIRMADO'
+    );
 
     return {
       hasPendingOrders: pendingOrders.length > 0,

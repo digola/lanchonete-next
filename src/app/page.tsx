@@ -4,11 +4,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 
-import { useBasicMenu } from '@/hooks/useBasicMenu';
+import { useSupabaseMenu } from '@/hooks/useSupabaseMenu';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useCart } from '@/hooks/useCart';
 import { useApi } from '@/hooks/useApi';
 import { usePublicSettings } from '@/hooks/usePublicSettings';
+import { SupabaseTestComponent } from '@/components/SupabaseTestComponent';
 import { OptimizedProductCard, OptimizedProductList } from '@/components/OptimizedProductCard';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -65,22 +66,22 @@ export default function HomePage() {
   }, [tableData]);
  
 
-  // Buscar dados do menu com hook básico e estável
+  // Buscar dados do menu com Supabase (dados reais do banco)
   const {
     categories,
     products,
     pagination,
-    loading: { categories: categoriesLoading, products: productsLoading },
+    loading,
     refetch: refetchProducts,
     isSearching,
-  } = useBasicMenu({
+  } = useSupabaseMenu({
     ...(searchTerm && { search: searchTerm }),
     ...(selectedCategory && { categoryId: selectedCategory }),
     isAvailable: true,
   });
 
-  // Remover debounce manual - agora é feito no hook
-  // useEffect removido - o debounce é feito internamente no useOptimizedMenuStatic
+  // Remover debounce manual - agora é feito no hook useSupabaseMenu
+  // useEffect removido - o debounce é feito internamente no useSupabaseMenu
 
   const handleAddToCart = useCallback((product: Product) => {
     console.log('🛒 Adicionando produto ao carrinho:', {
@@ -201,6 +202,9 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="container-app py-8">
+        {/* Componente de Teste do Supabase - REMOVER EM PRODUÇÃO */}
+        <SupabaseTestComponent />
+
         {/* Mesa Info para Staff */}
         {shouldShowStaffFeatures && tableId && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
@@ -273,7 +277,7 @@ export default function HomePage() {
               >
                 🍽️ Todas
               </Button>
-              {categoriesLoading ? (
+              {loading ? (
                 <div className="flex space-x-2">
                   {[...Array(4)].map((_, i) => (
                     <div key={i} className="h-8 w-24 bg-gray-200 rounded animate-pulse" />
@@ -282,16 +286,16 @@ export default function HomePage() {
               ) : (
                 filteredCategories.map((category: Category) => (
                   <Button
-                    key={category.id}
-                    variant={selectedCategory === category.id ? 'primary' : 'outline'}
+                    key={category.name}
+                    variant={selectedCategory === category.name ? 'primary' : 'outline'}
                     size="sm"
-                    onClick={() => handleCategoryFilter(category.id)}
+                    onClick={() => handleCategoryFilter(category.name)}
                     className="transition-all duration-200 hover:scale-105"
                     leftIcon={
                       category.imageUrl ? (
                         <Image 
                           src={category.imageUrl} 
-                          alt={category.name}
+                          alt={category.id}
                           width={16}
                           height={16}
                           className="w-4 h-4 object-cover rounded"
@@ -310,7 +314,7 @@ export default function HomePage() {
                       )
                     }
                   >
-                    {category.name}
+                    {products.filter((p) => p.categoryId === category.id).length}
                   </Button>
                 ))
               )}
@@ -322,7 +326,7 @@ export default function HomePage() {
 
         {/* Products Grid */}
         <div className="transition-all duration-300 ease-in-out">
-          {(productsLoading || isSearching) ? (
+          {(loading || isSearching) ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 animate-fade-in">
               {[...Array(8)].map((_, i) => (
                 <ProductSkeleton key={i} />
@@ -348,7 +352,7 @@ export default function HomePage() {
         </div>
 
         {/* Empty State */}
-        {!productsLoading && products.length === 0 && (
+        {!loading && products.length === 0 && (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">🔍</div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">

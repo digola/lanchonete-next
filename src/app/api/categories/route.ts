@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
               },
             },
           }
-        : undefined,
+        : {},
     });
 
     return NextResponse.json({

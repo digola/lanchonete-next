@@ -29,8 +29,7 @@ export async function GET(request: NextRequest) {
       OR: [
         { userId: decoded.userId }, // Notificações específicas do usuário
         { userId: null } // Notificações globais
-      ],
-      isActive: true
+      ]
     };
 
     if (type) {
@@ -140,7 +139,6 @@ export async function POST(request: NextRequest) {
         message,
         type,
         priority,
-        data: data ? JSON.stringify(data) : null,
         expiresAt: expiresAt ? new Date(expiresAt) : null
       },
       include: {

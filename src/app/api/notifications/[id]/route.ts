@@ -107,10 +107,9 @@ export async function DELETE(
       );
     }
 
-    // Marcar como inativa (soft delete)
-    await prisma.notification.update({
-      where: { id },
-      data: { isActive: false }
+    // Deletar a notificação
+    await prisma.notification.delete({
+      where: { id }
     });
 
     return NextResponse.json({

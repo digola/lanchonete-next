@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '@/lib/auth';
+import { verifyToken } from '@/lib/auth-server';
 
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || '';
-  const payload = verifyToken(authHeader);
+  const payload = await verifyToken(authHeader.replace('Bearer ', ''));
   if (!payload) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || '';
-  const payload = verifyToken(authHeader);
+  const payload = await verifyToken(authHeader.replace('Bearer ', ''));
   const body = await req.json().catch(() => null);
   if (!payload) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });

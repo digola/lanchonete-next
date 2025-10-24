@@ -78,8 +78,8 @@ export async function PUT(
       );
     }
 
-    // Verificar se já foi recebido
-    if (existingOrder.isReceived) {
+    // Verificar se já foi recebido (status ENTREGUE ou FINALIZADO)
+    if (existingOrder.status === 'ENTREGUE' || existingOrder.status === 'FINALIZADO') {
       return NextResponse.json(
         { success: false, error: 'Pedido já foi recebido' },
         { status: 400 }
@@ -88,14 +88,13 @@ export async function PUT(
 
     console.log('📦 Marcando pedido como recebido:', orderId);
 
-    // Atualizar pedido: marcar como recebido e inativo
+    // Atualizar pedido: marcar como ENTREGUE
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Atualizar pedido
       const order = await tx.order.update({
         where: { id: orderId },
         data: {
-          isReceived: true,
-          isActive: false, // Marcar como inativo quando recebido
+          status: 'ENTREGUE',
           updatedAt: new Date(),
         },
         include: {
@@ -136,7 +135,6 @@ export async function PUT(
         const activeOrdersCount = await tx.order.count({
           where: {
             tableId: existingOrder.tableId,
-            isActive: true,
             status: {
               notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
             }

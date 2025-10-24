@@ -24,8 +24,7 @@ export async function POST(request: NextRequest) {
           { userId: decoded.userId },
           { userId: null } // Notificações globais
         ],
-        isRead: false,
-        isActive: true
+        isRead: false
       },
       data: {
         isRead: true

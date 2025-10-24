@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 
 interface RealDataConfig {
   enableRealData: boolean;
-  fallbackToMock: boolean;
   cacheTimeout: number;
   retryAttempts: number;
 }
@@ -14,7 +13,6 @@ interface ApiResponse<T> {
   data?: T;
   error?: string;
   fromCache?: boolean;
-  fromFallback?: boolean;
 }
 
 interface CacheItem<T> {
@@ -59,24 +57,22 @@ const cache = new DataCache();
 
 export function useRealData<T>(
   apiUrl: string,
-  mockData: T,
+  initialData: T | null = null,
   config: RealDataConfig = {
     enableRealData: true,
-    fallbackToMock: true,
     cacheTimeout: 300000, // 5 minutos
     retryAttempts: 3
   }
 ) {
   const {
     enableRealData = true,
-    fallbackToMock = true,
     cacheTimeout = 300000,
     retryAttempts = 3,
   } = config;
-  const [data, setData] = useState<T>(mockData);
+  
+  const [data, setData] = useState<T | null>(initialData);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isRealData, setIsRealData] = useState(false);
   const [isFromCache, setIsFromCache] = useState(false);
 
   const fetchData = useCallback(async (forceRefresh = false): Promise<ApiResponse<T>> => {
@@ -96,11 +92,10 @@ export function useRealData<T>(
     }
 
     if (!enableRealData) {
-      console.log(`🎭 Usando dados simulados: ${apiUrl}`);
+      console.log(`❌ Dados reais desabilitados: ${apiUrl}`);
       return {
-        success: true,
-        data: mockData,
-        fromFallback: true
+        success: false,
+        error: 'Dados reais desabilitados'
       };
     }
 
@@ -152,18 +147,9 @@ export function useRealData<T>(
       }
     }
 
-    // Se todas as tentativas falharam, usar fallback
-    if (fallbackToMock) {
-      console.log(`🔄 Fallback para dados simulados: ${apiUrl}`);
-      return {
-        success: true,
-        data: mockData,
-        fromFallback: true
-      };
-    }
-
+    // Se todas as tentativas falharam, retornar erro
     throw lastError || new Error('Falha ao carregar dados');
-  }, [apiUrl, mockData, enableRealData, cacheTimeout, retryAttempts, fallbackToMock]);
+  }, [apiUrl, enableRealData, cacheTimeout, retryAttempts]);
 
   const loadData = useCallback(async (forceRefresh = false) => {
     try {
@@ -171,24 +157,17 @@ export function useRealData<T>(
       
       if (result.success && result.data) {
         setData(result.data);
-        setIsRealData(!result.fromFallback);
         setIsFromCache(!!result.fromCache);
         setError(null);
       }
     } catch (error) {
       console.error(`❌ Erro ao carregar dados: ${apiUrl}`, error);
       setError(error instanceof Error ? error.message : 'Erro desconhecido');
-      
-      // Em caso de erro, usar dados simulados como fallback
-      if (fallbackToMock) {
-        setData(mockData);
-        setIsRealData(false);
-        setIsFromCache(false);
-      }
+      setData(null);
     } finally {
       setLoading(false);
     }
-  }, [fetchData, mockData, fallbackToMock, apiUrl]);
+  }, [fetchData, apiUrl]);
 
   const refresh = useCallback(() => {
     return loadData(true);
@@ -208,7 +187,6 @@ export function useRealData<T>(
     data,
     loading,
     error,
-    isRealData,
     isFromCache,
     refresh,
     invalidateCache,
@@ -217,13 +195,12 @@ export function useRealData<T>(
 }
 
 // Hook especializado para produtos
-export function useRealProducts(mockProducts: any[] = []) {
+export function useRealProducts() {
   return useRealData(
     '/api/products?isAvailable=true&limit=50',
-    mockProducts,
+    null,
     {
       enableRealData: true,
-      fallbackToMock: true,
       cacheTimeout: 600000, // 10 minutos para produtos
       retryAttempts: 2
     }
@@ -231,17 +208,16 @@ export function useRealProducts(mockProducts: any[] = []) {
 }
 
 // Hook especializado para pedidos
-export function useRealOrders(userId?: string, mockOrders: any[] = []) {
+export function useRealOrders(userId?: string) {
   const apiUrl = userId 
     ? `/api/orders?customerId=${userId}&limit=20&sortBy=createdAt&sortOrder=desc`
     : '/api/orders?limit=20&sortBy=createdAt&sortOrder=desc';
     
   return useRealData(
     apiUrl,
-    mockOrders,
+    null,
     {
       enableRealData: true,
-      fallbackToMock: true,
       cacheTimeout: 300000, // 5 minutos para pedidos
       retryAttempts: 3
     }
@@ -249,13 +225,12 @@ export function useRealOrders(userId?: string, mockOrders: any[] = []) {
 }
 
 // Hook especializado para categorias
-export function useRealCategories(mockCategories: any[] = []) {
+export function useRealCategories() {
   return useRealData(
     '/api/categories',
-    mockCategories,
+    null,
     {
       enableRealData: true,
-      fallbackToMock: true,
       cacheTimeout: 1800000, // 30 minutos para categorias
       retryAttempts: 2
     }
@@ -263,13 +238,12 @@ export function useRealCategories(mockCategories: any[] = []) {
 }
 
 // Hook especializado para mesas
-export function useRealTables(mockTables: any[] = []) {
+export function useRealTables() {
   return useRealData(
     '/api/tables?includeAssignedUser=true',
-    mockTables,
+    null,
     {
       enableRealData: true,
-      fallbackToMock: true,
       cacheTimeout: 300000, // 5 minutos para mesas
       retryAttempts: 2
     }
@@ -277,13 +251,12 @@ export function useRealTables(mockTables: any[] = []) {
 }
 
 // Hook para estatísticas administrativas
-export function useRealAdminStats(mockStats: any = {}) {
+export function useRealAdminStats() {
   return useRealData(
     '/api/admin/dashboard',
-    mockStats,
+    null,
     {
       enableRealData: true,
-      fallbackToMock: true,
       cacheTimeout: 60000, // 1 minuto para stats
       retryAttempts: 2
     }

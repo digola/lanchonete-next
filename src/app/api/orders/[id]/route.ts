@@ -62,12 +62,12 @@ export async function PUT(
 
     // Obter dados do corpo da requisição
     const body = await request.json();
-    const { status, paymentMethod, isReceived, isActive } = body;
+    const { status, paymentMethod } = body;
 
-    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod, isReceived, isActive });
+    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod });
 
     // Validar que pelo menos um campo foi fornecido
-    if (!status && paymentMethod === undefined && isReceived === undefined && isActive === undefined) {
+    if (!status && paymentMethod === undefined) {
       return NextResponse.json(
         { success: false, error: 'Pelo menos um campo deve ser fornecido para atualização' },
         { status: 400 }
@@ -148,25 +148,11 @@ export async function PUT(
       }
       updateData.paymentMethod = paymentMethod;
     }
-    
-    if (isReceived !== undefined) {
-      updateData.isReceived = isReceived;
-      // Se pedido foi recebido, marcar como inativo automaticamente
-      if (isReceived === true) {
-        updateData.isActive = false;
-        console.log('📦 Pedido recebido - marcando como inativo');
-      }
-    }
-    
-    if (isActive !== undefined) {
-      updateData.isActive = isActive;
-    }
 
     console.log('🔍 Dados de atualização:', updateData);
 
     // Verificar se precisa atualizar status da mesa
-    const shouldUpdateTable = status && (status === 'CANCELADO' || status === 'ENTREGUE' || status === 'FINALIZADO') || 
-                             (isReceived === true); // Também atualizar mesa quando pedido for recebido
+    const shouldUpdateTable = status && (status === 'CANCELADO' || status === 'ENTREGUE' || status === 'FINALIZADO');
     
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Criar logs de mudanças antes de atualizar
@@ -200,33 +186,7 @@ export async function PUT(
         });
       }
       
-      if (isReceived !== undefined && isReceived !== existingOrder.isReceived) {
-        logsToCreate.push({
-          orderId,
-          userId: decoded.userId,
-          action: 'UPDATE_RECEIVED',
-          field: 'isReceived',
-          oldValue: JSON.stringify({ isReceived: existingOrder.isReceived }),
-          newValue: JSON.stringify({ isReceived }),
-          reason: `Status de recebimento alterado para ${isReceived ? 'recebido' : 'não recebido'}`,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent'),
-        });
-      }
-      
-      if (isActive !== undefined && isActive !== existingOrder.isActive) {
-        logsToCreate.push({
-          orderId,
-          userId: decoded.userId,
-          action: 'UPDATE_ACTIVE',
-          field: 'isActive',
-          oldValue: JSON.stringify({ isActive: existingOrder.isActive }),
-          newValue: JSON.stringify({ isActive }),
-          reason: `Status ativo alterado para ${isActive ? 'ativo' : 'inativo'}`,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent'),
-        });
-      }
+
 
       // Criar logs se houver mudanças
       if (logsToCreate.length > 0) {
@@ -276,7 +236,6 @@ export async function PUT(
         const activeOrdersCount = await tx.order.count({
           where: {
             tableId: existingOrder.tableId,
-            isActive: true,
             status: {
               notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
             }

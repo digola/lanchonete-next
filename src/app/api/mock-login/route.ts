@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { generateTokenPair } from '@/lib/auth';
+import { generateJWT } from '@/lib/auth';
 import { UserRole, User } from '@/types';
 
 function randomId() {
@@ -26,8 +26,12 @@ export async function POST(req: NextRequest) {
     updatedAt: now,
   };
 
-  const tokens = generateTokenPair(user);
-  return NextResponse.json({ ok: true, user, ...tokens });
+  const token = await generateJWT({
+    userId: user.id,
+    email: user.email,
+    role: user.role
+  });
+  return NextResponse.json({ ok: true, user, token });
 }
 
 export async function GET() {
@@ -42,6 +46,10 @@ export async function GET() {
     createdAt: now,
     updatedAt: now,
   };
-  const tokens = generateTokenPair(user);
-  return NextResponse.json({ ok: true, user, ...tokens });
+  const token = await generateJWT({
+    userId: user.id,
+    email: user.email,
+    role: user.role
+  });
+  return NextResponse.json({ ok: true, user, token });
 }
