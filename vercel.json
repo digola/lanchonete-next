@@ -1,11 +1,13 @@
 {
-  "buildCommand": "npm run vercel-build",
+  "buildCommand": "npm run build",
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
     }
   },
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "VERCEL": "1",
+    "VERCEL_SKIP_MIGRATIONS": "true"
   }
 }

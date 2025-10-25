@@ -45,37 +45,71 @@ export default function ConnectivityDashboard() {
     try {
       setLoading(true)
       const response = await fetch('/api/test/supabase')
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
       const data = await response.json()
       setSupabaseResults(data)
     } catch (error) {
       console.error('Erro ao testar Supabase:', error)
       setSupabaseResults({
         timestamp: new Date().toISOString(),
-        environment: {},
-        tests: {},
-        summary: { total: 0, successful: 0, failed: 1, success: false, percentage: 0 }
+        environment: 'unknown',
+        tests: {
+          connection: {
+            success: false,
+            message: error instanceof Error ? error.message : 'Erro desconhecido',
+            timestamp: new Date().toISOString()
+          }
+        },
+        summary: {
+          total: 1,
+          successful: 0,
+          failed: 1,
+          success: false,
+          percentage: 0
+        }
       })
+    } finally {
+      setLoading(false)
+      setLastUpdate(new Date())
     }
   }
-
   // Função para testar Vercel
   const testVercel = async () => {
     try {
       setLoading(true)
       const response = await fetch('/api/test/vercel')
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
       const data = await response.json()
       setVercelResults(data)
     } catch (error) {
       console.error('Erro ao testar Vercel:', error)
       setVercelResults({
         timestamp: new Date().toISOString(),
-        environment: {},
-        tests: {},
-        summary: { total: 0, successful: 0, failed: 1, success: false, percentage: 0 }
+        environment: 'unknown',
+        tests: {
+          connection: {
+            success: false,
+            message: error instanceof Error ? error.message : 'Erro desconhecido',
+            timestamp: new Date().toISOString()
+          }
+        },
+        summary: {
+          total: 1,
+          successful: 0,
+          failed: 1,
+          success: false,
+          percentage: 0
+        }
       })
+    } finally {
+      setLoading(false)
+      setLastUpdate(new Date())
     }
   }
-
   // Função para executar todos os testes
   const runAllTests = async () => {
     setLoading(true)
