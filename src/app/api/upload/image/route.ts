@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 export const runtime = 'nodejs';
-import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth-server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -223,38 +222,40 @@ export async function POST(request: NextRequest) {
     // Criar diretório se não existir
     const uploadDir = resolveUploadDir();
     try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // Diretório já existe ou não pode ser criado
-    }
+      const fsPromises = await import('fs/promises');
+      await fsPromises.mkdir(uploadDir, { recursive: true });
+      const filePath = join(uploadDir, fileName);
+      await fsPromises.writeFile(filePath, buffer);
 
-    const filePath = join(uploadDir, fileName);
-    await writeFile(filePath, buffer);
+      // Retornar URL da imagem (suporte a UPLOAD_BASE_URL)
+      const baseUrl = process.env.UPLOAD_BASE_URL;
+      const imageUrl = baseUrl
+        ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
+        : `/uploads/images/${fileName}`;
 
-    // Retornar URL da imagem (suporte a UPLOAD_BASE_URL)
-    const baseUrl = process.env.UPLOAD_BASE_URL;
-    const imageUrl = baseUrl
-      ? `${baseUrl.replace(/\/$/, '')}/${fileName}`
-      : `/uploads/images/${fileName}`;
-
-    log.info('Upload success (filesystem)', { fileName, size: file.size, type: file.type });
-    const ok = json(
-      {
-        success: true,
-        data: {
-          url: imageUrl,
-          fileName: fileName,
-          size: file.size,
-          type: file.type,
-          storage: 'filesystem',
+      log.info('Upload success (filesystem)', { fileName, size: file.size, type: file.type });
+      const ok = json(
+        {
+          success: true,
+          data: {
+            url: imageUrl,
+            fileName: fileName,
+            size: file.size,
+            type: file.type,
+            storage: 'filesystem',
+          },
         },
-      },
-      200
-    );
-    ok.headers.set('X-RateLimit-Limit', String(max));
-    ok.headers.set('X-RateLimit-Remaining', String(rl.remaining));
-    ok.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
-    return ok;
+        200
+      );
+      ok.headers.set('X-RateLimit-Limit', String(max));
+      ok.headers.set('X-RateLimit-Remaining', String(rl.remaining));
+      ok.headers.set('X-RateLimit-Reset', String(rl.resetInMs));
+      return ok;
+    } catch (error) {
+      // Diretório já existe ou não pode ser criado / erro de escrita
+      log.error('Filesystem upload error', { error: error instanceof Error ? error.message : String(error) });
+      return json({ success: false, error: 'Falha ao salvar arquivo no filesystem' }, 500);
+    }
   } catch (error) {
     log.error('Unhandled error during upload', { error: error instanceof Error ? error.message : String(error) });
     const res = NextResponse.json(

@@ -1,4 +1,3 @@
-import sharp from 'sharp';
 import { uploadBinary, getPublicUrl } from '@/lib/storage';
 
 export const runtime = 'nodejs';
@@ -40,6 +39,9 @@ export async function POST(request: Request) {
     const stamp = Date.now();
 
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // Import dinâmico reduz o peso do bundle e carrega o Sharp apenas quando necessário
+    const sharp = (await import('sharp')).default;
 
     // Por padrão, tentaremos converter para WebP e também gerar thumbnail.
     let targetPath = `${type}/${resourceId}/${baseSlug}-${stamp}.webp`;

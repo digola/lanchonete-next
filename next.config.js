@@ -16,6 +16,20 @@ const nextConfig = {
   experimental: {
     // Otimizar imports de pacotes para melhor performance
     optimizePackageImports: ['lucide-react', '@heroicons/react'],
+    // Excluir diretórios pesados da função Serverless via file tracing
+    outputFileTracingExcludes: {
+      '*': [
+        './public/uploads/**',
+        './prisma/migrations/**',
+        './scripts/**',
+        './tests/**',
+        './__tests__/**',
+        './docs/**',
+        './.cache/**',
+        './.turbo/**',
+        './.swc/**',
+      ],
+    },
   },
 
   // Otimizações para reduzir tamanho da função serverless
