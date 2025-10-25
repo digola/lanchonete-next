@@ -2,21 +2,26 @@
   "buildCommand": "npm run build",
   "functions": {
     "src/app/api/**/*.ts": {
-      "maxDuration": 30
+      "maxDuration": 30,
+      "excludeFiles": [
+        ".next/cache/**",
+        ".git/**",
+        "public/uploads/**",
+        "prisma/migrations/**",
+        "**/*.map",
+        "**/*.d.ts"
+      ]
     },
     "src/app/api/files/[filename]/route.ts": {
       "maxDuration": 15,
-      "memory": 512
+      "memory": 512,
+      "excludeFiles": [
+        ".next/cache/**",
+        "public/uploads/**",
+        "prisma/migrations/**"
+      ]
     }
   },
-  "excludeFiles": [
-    ".next/cache/**",
-    ".git/**",
-    "public/uploads/**",
-    "prisma/migrations/**",
-    "**/*.map",
-    "**/*.d.ts"
-  ],
   "env": {
     "NODE_ENV": "production",
     "VERCEL": "1",
