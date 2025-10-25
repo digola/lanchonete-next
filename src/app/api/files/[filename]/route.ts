@@ -19,7 +19,8 @@ export async function GET(
 
     // Servir sempre do Supabase Storage em produção
     try {
-      const publicUrl = getPublicUrl(`images/${filename}`);
+      const bucket = process.env.SUPABASE_BUCKET_IMAGES || 'images';
+      const publicUrl = getPublicUrl(bucket, filename);
       
       // Redireciona para a URL pública do Supabase
       return NextResponse.redirect(publicUrl, 302);
