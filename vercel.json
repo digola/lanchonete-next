@@ -2,24 +2,11 @@
   "buildCommand": "npm run build",
   "functions": {
     "src/app/api/**/*.ts": {
-      "maxDuration": 30,
-      "excludeFiles": [
-        ".next/cache/**",
-        ".git/**",
-        "public/uploads/**",
-        "prisma/migrations/**",
-        "**/*.map",
-        "**/*.d.ts"
-      ]
+      "maxDuration": 30
     },
     "src/app/api/files/[filename]/route.ts": {
       "maxDuration": 15,
-      "memory": 512,
-      "excludeFiles": [
-        ".next/cache/**",
-        "public/uploads/**",
-        "prisma/migrations/**"
-      ]
+      "memory": 512
     }
   },
   "env": {
