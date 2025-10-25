@@ -1,81 +1,100 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server';
+import { getPublicUrl } from '@/lib/storage';
 
-export const runtime = 'nodejs';
-
-// Simple content-type mapping for common image formats
-const mimeTypes: Record<string, string> = {
-  '.png': 'image/png',
-  '.jpg': 'image/jpeg',
-  '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp',
-  '.gif': 'image/gif',
-  '.svg': 'image/svg+xml',
-};
-
-function getContentType(filePath: string): string {
-  const ext = path.extname(filePath).toLowerCase();
-  return mimeTypes[ext] || 'application/octet-stream';
-}
-
-function preferSupabaseStorage(): boolean {
-  const storagePref = process.env.UPLOAD_STORAGE || 'supabase';
-  return storagePref !== 'filesystem';
-}
-
-/**
- * Stream files saved in UPLOAD_DIR (defaults to public/uploads/images).
- * In production we prefer Supabase Storage to avoid bundling large local directories.
- *
- * GET /api/files/:filename
- */
-export async function GET(_req: NextRequest, { params }: { params: { filename: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { filename: string } }
+) {
   try {
-    // If Supabase is configured, redirect to its public URL to serve the asset
-    if (preferSupabaseStorage()) {
-      const bucket = process.env.SUPABASE_BUCKET_IMAGES || 'images';
-      const supabaseUrl = process.env.SUPABASE_URL;
-      if (!supabaseUrl) {
-        return NextResponse.json({ error: 'Storage não configurado' }, { status: 500 });
+    const { filename } = params;
+    
+    if (!filename) {
+      return NextResponse.json({ error: 'Filename is required' }, { status: 400 });
+    }
+
+    // Validação básica de segurança para evitar path traversal
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+      return NextResponse.json({ error: 'Invalid filename' }, { status: 400 });
+    }
+
+    // Servir sempre do Supabase Storage em produção
+    try {
+      const publicUrl = getPublicUrl(`images/${filename}`);
+      
+      // Redireciona para a URL pública do Supabase
+      return NextResponse.redirect(publicUrl, 302);
+    } catch (supabaseError) {
+      // Em produção, se Supabase falhar, retorna erro
+      if (process.env.NODE_ENV === 'production') {
+        console.error('Supabase storage error:', supabaseError);
+        return NextResponse.json({ error: 'File not found' }, { status: 404 });
       }
-      const redirectUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${encodeURIComponent(params.filename)}`;
-      return NextResponse.redirect(redirectUrl, 307);
+      
+      console.log('Supabase storage not available, trying local filesystem...');
     }
 
-    // Fallback: local filesystem only when explicitly using filesystem storage
-    const baseDirEnv = process.env.UPLOAD_DIR || 'public/uploads/images';
-    // Resolve to absolute path from project root (/app in container)
-    const absolutePath = path.resolve(process.cwd(), baseDirEnv, params.filename);
+    // Fallback: servir do sistema de arquivos local APENAS em desenvolvimento
+    // E APENAS se explicitamente habilitado
+    if (process.env.NODE_ENV === 'development' && process.env.ENABLE_LOCAL_STORAGE === 'true') {
+      // Importação dinâmica para evitar bundling em produção
+      const [fs, path] = await Promise.all([
+        import('fs'),
+        import('path')
+      ]);
+      
+      const filePath = path.join(process.cwd(), 'public', 'uploads', 'images', filename);
+      
+      try {
+        const stats = await fs.promises.stat(filePath);
+        
+        if (!stats.isFile()) {
+          return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        }
 
-    // Prevent path traversal
-    const baseDirAbs = path.resolve(process.cwd(), baseDirEnv);
-    if (!absolutePath.startsWith(baseDirAbs + path.sep)) {
-      return NextResponse.json({ error: 'Invalid path' }, { status: 400 });
+        // Usar ReadableStream mais simples para reduzir overhead
+        const buffer = await fs.promises.readFile(filePath);
+        
+        // Determinar o tipo de conteúdo baseado na extensão
+        const ext = path.extname(filename).toLowerCase();
+        const contentType = getContentType(ext);
+
+        return new NextResponse(buffer, {
+          headers: {
+            'Content-Type': contentType,
+            'Cache-Control': 'public, max-age=31536000, immutable',
+            'Content-Length': buffer.length.toString(),
+          },
+        });
+      } catch (error) {
+        console.error('Error serving file:', error);
+        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+      }
     }
 
-    const fsMod = await import('fs');
-    await fsMod.promises.access(absolutePath, fsMod.constants.R_OK);
-    const stat = await fsMod.promises.stat(absolutePath);
-
-    const stream = fsMod.createReadStream(absolutePath);
-    const headers = new Headers({
-      'Content-Type': getContentType(absolutePath),
-      'Content-Length': String(stat.size),
-      'Last-Modified': stat.mtime.toUTCString(),
-      'Cache-Control': 'public, max-age=31536000, immutable',
-      'X-Accel-Buffering': 'no',
-    });
-
-    return new Response(stream as unknown as ReadableStream, {
-      status: 200,
-      headers,
-    });
-  } catch (err: any) {
-    if (err?.code === 'ENOENT') {
-      return NextResponse.json({ error: 'File not found' }, { status: 404 });
-    }
-    console.error('File serving error:', err);
+    // Se chegou até aqui, não conseguiu servir o arquivo
+    return NextResponse.json({ error: 'File not found' }, { status: 404 });
+    
+  } catch (error) {
+    console.error('Error in file route:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// Função mais leve para determinar content-type
+function getContentType(ext: string): string {
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.png':
+      return 'image/png';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    case '.svg':
+      return 'image/svg+xml';
+    default:
+      return 'application/octet-stream';
   }
 }

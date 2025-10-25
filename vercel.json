@@ -3,11 +3,23 @@
   "functions": {
     "src/app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "src/app/api/files/[filename]/route.ts": {
+      "maxDuration": 15,
+      "memory": 512
     }
   },
+  "excludeFiles": [
+    ".next/cache/**",
+    ".git/**",
+    "public/uploads/**",
+    "prisma/migrations/**",
+    "**/*.map",
+    "**/*.d.ts"
+  ],
   "env": {
     "NODE_ENV": "production",
     "VERCEL": "1",
-    "VERCEL_SKIP_MIGRATIONS": "true"
+    "VERCEL_SKIP_MIGRATIONS": "1"
   }
 }

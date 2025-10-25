@@ -19,6 +19,13 @@ const nextConfig = {
     // Excluir diretórios pesados da função Serverless via file tracing
     outputFileTracingExcludes: {
       '*': [
+        // Build artifacts e cache que estão inflando o bundle
+        '.next/cache/**',
+        '.next/trace/**',
+        '.next/static/**',
+        '.git/**',
+        '.git/objects/**',
+        // Diretórios de desenvolvimento e assets
         './public/uploads/**',
         './prisma/migrations/**',
         './scripts/**',
@@ -28,6 +35,15 @@ const nextConfig = {
         './.cache/**',
         './.turbo/**',
         './.swc/**',
+        // Node modules específicos que podem ser pesados
+        'node_modules/@swc/**',
+        'node_modules/.cache/**',
+        // Arquivos de desenvolvimento
+        '**/*.map',
+        '**/*.d.ts',
+        '**/README.md',
+        '**/CHANGELOG.md',
+        '**/LICENSE*',
       ],
     },
   },
