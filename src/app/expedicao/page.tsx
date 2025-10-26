@@ -37,6 +37,7 @@ import {
   LogOut
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import Link from 'next/link';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -929,17 +930,27 @@ export default function ExpedicaoPage() {
               <div className="text-center py-8">
                 <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-400" />
                 <p className="text-gray-600">Carregando pedidos...</p>
-                        </div>
+                  </div>
             ) : filteredOrders.length === 0 ? (
               <Card>
                 <CardContent className="p-8 text-center">
                   <Package className="h-12 w-12 mx-auto mb-4 text-gray-400" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">Nenhum pedido encontrado</h3>
-                <p className="text-gray-600">
+                  <p className="text-gray-600">
                     {searchTerm ? 'Tente ajustar os filtros de busca' : 'Não há pedidos no momento'}
-                </p>
-          </CardContent>
-        </Card>
+                  </p>
+                  <div className="mt-6 flex items-center justify-center gap-3">
+                    <Link href="/staff" className="inline-block">
+                      <Button variant="primary">
+                        <Plus className="h-4 w-4 mr-1" /> Criar pedido no Caixa
+                      </Button>
+                    </Link>
+                    <Button variant="outline" onClick={() => refetchOrders()}>
+                      <RefreshCw className="h-4 w-4 mr-1" /> Atualizar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             ) : (
               filteredOrders.map((order) => (
                 <Card key={order.id} className="hover:shadow-lg transition-all hover:scale-[1.01]">
