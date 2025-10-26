@@ -5,6 +5,21 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [0.1.0] - 2025-10-26
+
+### Adicionado
+- Release inicial após reset do repositório
+- Proteções de rota com Middleware e ProtectedRoute
+- Hierarquia de papéis: CUSTOMER/CLIENTE, STAFF, MANAGER, ADMIN/ADMINISTRADOR
+- Páginas principais: Admin (dashboard, users, etc.), Staff (mesas), Customer (dashboard, perfil), Expedicao (gestão de pedidos)
+- APIs de pedidos e mesas com validações de autorização
+- Store de autenticação (Zustand) e libs de auth com JWT
+- Build e lint com scripts padronizados
+
+### Melhorias
+- Organização de permissões e papéis consistentes entre frontend e backend
+- Preparação para CI e status checks (type-check, lint, build)
+
 ## [1.0.0] - 2025-01-23
 
 ### Adicionado
