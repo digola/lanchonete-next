@@ -1,0 +1,608 @@
+// Tipos base do sistema conforme documentação
+
+// Enums conforme Prisma schema
+export enum UserRole {
+  CUSTOMER = 'CUSTOMER',
+  CLIENTE = 'CLIENTE',
+  STAFF = 'STAFF',
+  MANAGER = 'MANAGER',
+  ADMIN = 'ADMIN',
+  ADMINISTRADOR = 'ADMINISTRADOR',
+  ADMINISTRADOR_LOWER = 'administrador',
+  ADMINISTRADOR_TITLE = 'Administrador',
+}
+
+export enum OrderStatus {
+  PENDENTE = 'PENDENTE',
+  CONFIRMADO = 'CONFIRMADO',
+  PREPARANDO = 'PREPARANDO',
+  PRONTO = 'PRONTO',
+  ENTREGUE = 'ENTREGUE',
+  FINALIZADO = 'FINALIZADO',
+  CANCELADO = 'CANCELADO',
+}
+
+export enum TableStatus {
+  LIVRE = 'LIVRE',
+  OCUPADA = 'OCUPADA',
+}
+
+export enum DeliveryType {
+  RETIRADA = 'RETIRADA',
+  DELIVERY = 'DELIVERY',
+}
+
+export enum PaymentMethod {
+  DINHEIRO = 'DINHEIRO',
+  CARTAO = 'CARTAO',
+  PIX = 'PIX',
+}
+
+// Tipos de entidades
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Category {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  color: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  imageUrl?: string;
+  categoryId: string;
+  category?: Category;
+  isAvailable: boolean;
+  preparationTime: number;
+  allergens?: string;
+  
+  // Campos de estoque
+  stockQuantity?: number;
+  minStockLevel?: number;
+  maxStockLevel?: number;
+  trackStock: boolean;
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProductOption {
+  id: string;
+  productId: string;
+  name: string;
+  options: string; // JSON
+  isRequired: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Order {
+  id: string;
+  userId: string;
+  user?: User;
+  status: OrderStatus;
+  total: number;
+  deliveryType: DeliveryType;
+  deliveryAddress?: string;
+  paymentMethod: PaymentMethod;
+  paymentProcessedAt?: Date;
+  paymentAmount?: number;
+  isPaid: boolean;
+  isReceived: boolean;
+  isActive: boolean;
+  notes?: string;
+  tableId?: string;
+  table?: Table;
+  items: OrderItem[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface OrderItem {
+  id: string;
+  orderId: string;
+  productId: string;
+  product?: Product;
+  quantity: number;
+  price: number;
+  customizations?: string; // JSON
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Table {
+  id: string;
+  number: number;
+  capacity: number;
+  status: TableStatus;
+  currentOrderId?: string;
+  assignedTo?: string;
+  assignedUser?: User;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface StockMovement {
+  id: string;
+  productId: string;
+  product?: Product;
+  type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
+  quantity: number;
+  reason: string;
+  reference?: string;
+  userId?: string;
+  user?: User;
+  notes?: string;
+  createdAt: Date;
+}
+
+export interface SystemSettings {
+  id: string;
+  key: string;
+  value: string; // JSON
+  description?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ActivityLog {
+  id: string;
+  userId?: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  details?: string; // JSON
+  ipAddress?: string;
+  userAgent?: string;
+  createdAt: Date;
+}
+
+// Tipos para formulários
+export interface LoginCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
+
+export interface UpdateProfileData {
+  name?: string;
+  email?: string;
+}
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+// Tipos para APIs
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
+
+export interface PaginatedResponse<T> extends ApiResponse<T[]> {
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface QueryParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+  [key: string]: any;
+}
+
+// Tipos para autenticação
+export interface AuthUser extends User {
+  token?: string;
+  refreshToken?: string;
+}
+
+export interface AuthState {
+  user: AuthUser | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+// Tipos para carrinho
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  customizations?: Record<string, any>;
+  notes?: string;
+}
+
+export interface CartState {
+  items: CartItem[];
+  totalItems: number;
+  totalPrice: number;
+}
+
+// Tipos para permissões
+export type Permission = 
+  | 'menu:read'
+  | 'menu:write'
+  | 'menu:delete'
+  | 'orders:read'
+  | 'orders:write'
+  | 'orders:delete'
+  | 'orders:create'
+  | 'orders:update'
+  | 'products:read'
+  | 'products:write'
+  | 'products:delete'
+  | 'categories:read'
+  | 'categories:write'
+  | 'categories:delete'
+  | 'users:read'
+  | 'users:write'
+  | 'users:delete'
+  | 'reports:read'
+  | 'settings:read'
+  | 'settings:write'
+  | 'profile:read'
+  | 'profile:write'
+  | 'cart:read'
+  | 'cart:write'
+  | 'cart:delete'
+  | 'expedition:read'
+  | 'expedition:write'
+  | 'expedition:manage'
+  | 'tables:read'
+  | 'tables:write'
+  | 'tables:manage';
+
+export interface RolePermissions {
+  [UserRole.CUSTOMER]: Permission[];
+  [UserRole.STAFF]: Permission[];
+  [UserRole.MANAGER]: Permission[];
+  [UserRole.ADMIN]: Permission[];
+}
+
+// Tipos para upload
+export interface UploadFile {
+  file: File;
+  preview?: string;
+  progress?: number;
+}
+
+export interface UploadResult {
+  url: string;
+  filename: string;
+  size: number;
+  mimeType: string;
+}
+
+// Tipos para relatórios
+export interface SalesReport {
+  period: string;
+  totalSales: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  topProducts: Array<{
+    product: Product;
+    quantity: number;
+    revenue: number;
+  }>;
+}
+
+export interface DashboardStats {
+  totalOrders: number;
+  totalRevenue: number;
+  totalCustomers: number;
+  totalProducts: number;
+  pendingOrders: number;
+  occupiedTables: number;
+  recentOrders: Order[];
+}
+
+// Tipos para notificações
+export interface Notification {
+  id: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  title: string;
+  message: string;
+  timestamp: Date;
+  read: boolean;
+}
+
+// Tipos para configurações
+export interface AppConfig {
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantPhone: string;
+  deliveryFee: number;
+  minOrderValue: number;
+  deliveryTime: number;
+  isOpen: boolean;
+  openingHours: {
+    [key: string]: {
+      open: string;
+      close: string;
+      isOpen: boolean;
+    };
+  };
+}
+
+// Tipos para validação
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+
+export interface FormState<T = any> {
+  data: T;
+  errors: ValidationError[];
+  isValid: boolean;
+  isSubmitting: boolean;
+  isDirty: boolean;
+}
+
+// Tipos para navegação
+export interface NavItem {
+  label: string;
+  href: string;
+  icon?: string;
+  badge?: string | number;
+  children?: NavItem[];
+  permission?: Permission;
+}
+
+export interface BreadcrumbItem {
+  label: string;
+  href?: string;
+}
+
+// Tipos para filtros
+export interface FilterOption {
+  label: string;
+  value: string;
+  count?: number;
+}
+
+export interface FilterState {
+  [key: string]: string | string[] | boolean | number;
+}
+
+// Tipos para tabelas
+export interface TableColumn<T = any> {
+  key: keyof T;
+  label: string;
+  sortable?: boolean;
+  render?: (value: any, item: T) => React.ReactNode;
+  width?: string;
+  align?: 'left' | 'center' | 'right';
+}
+
+export interface TableState {
+  data: any[];
+  loading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+  };
+  sorting: {
+    field: string;
+    direction: 'asc' | 'desc';
+  };
+  filters: FilterState;
+}
+
+// Tipos para modais
+export interface ModalState {
+  isOpen: boolean;
+  title?: string;
+  content?: React.ReactNode;
+  size?: 'sm' | 'md' | 'lg' | 'xl';
+  onClose?: () => void;
+}
+
+// Tipos para toasts
+export interface Toast {
+  id: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  title: string;
+  description?: string;
+  duration?: number;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+}
+
+// Tipos para contexto
+export interface AppContextType {
+  theme: 'light' | 'dark';
+  language: 'pt' | 'en';
+  timezone: string;
+  currency: string;
+}
+
+// Tipos para hooks
+export interface UseApiOptions {
+  immediate?: boolean;
+  onSuccess?: (data: any) => void;
+  onError?: (error: Error) => void;
+}
+
+export interface UseApiReturn<T = any> {
+  data: T | null;
+  loading: boolean;
+  error: Error | null;
+  execute: (...args: any[]) => Promise<T>;
+  reset: () => void;
+}
+
+// Tipos para utilitários
+export type DeepPartial<T> = {
+  [P in keyof T]?: T[P] extends object ? DeepPartial<T[P]> : T[P];
+};
+
+export type Optional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
+
+export type RequiredFields<T, K extends keyof T> = T & Required<Pick<T, K>>;
+
+// Tipos para eventos
+export interface OrderEvent {
+  type: 'order_created' | 'order_updated' | 'order_cancelled';
+  order: Order;
+  timestamp: Date;
+}
+
+export interface TableEvent {
+  type: 'table_occupied' | 'table_freed' | 'table_reserved';
+  table: Table;
+  timestamp: Date;
+}
+
+// Tipos para Configurações do Sistema
+export interface Settings {
+  id: string;
+  key: string;
+  value: string;
+  category: 'general' | 'payment' | 'printing' | 'backup';
+  description?: string;
+  isActive: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Configurações Gerais
+export interface GeneralSettings {
+  restaurantName: string;
+  restaurantAddress: string;
+  restaurantPhone: string;
+  restaurantEmail: string;
+  openingTime: string; // HH:MM
+  closingTime: string; // HH:MM
+  workingDays: string[]; // ['monday', 'tuesday', ...]
+  timezone: string;
+  currency: string;
+  language: string;
+}
+
+// Configurações de Pagamento
+export interface PaymentSettings {
+  acceptedMethods: ('cash' | 'credit_card' | 'debit_card' | 'pix' | 'digital_wallet')[];
+  pixKey?: string;
+  pixEnabled: boolean;
+  cashEnabled: boolean;
+  creditCardEnabled: boolean;
+  debitCardEnabled: boolean;
+  digitalWalletEnabled: boolean;
+  taxRate: number; // Taxa em porcentagem
+  minimumOrderValue: number;
+  maximumOrderValue?: number;
+}
+
+// Configurações de Impressão
+export interface PrintingSettings {
+  printerName: string;
+  printerType: 'thermal' | 'laser' | 'inkjet';
+  paperWidth: number; // mm
+  fontSize: number;
+  printHeader: boolean;
+  printFooter: boolean;
+  printLogo: boolean;
+  logoUrl?: string;
+  headerText: string;
+  footerText: string;
+  autoPrint: boolean;
+  printOrders: boolean;
+  printReceipts: boolean;
+}
+
+// Configurações de Backup
+export interface BackupSettings {
+  autoBackupEnabled: boolean;
+  backupFrequency: 'daily' | 'weekly' | 'monthly';
+  backupTime: string; // HH:MM
+  backupRetention: number; // dias
+  cloudBackupEnabled: boolean;
+  localBackupEnabled: boolean;
+  backupLocation?: string;
+  lastBackupDate?: Date;
+}
+
+// Tipos de notificações
+export enum NotificationType {
+  ORDER = 'order',
+  STOCK = 'stock',
+  SYSTEM = 'system',
+  PAYMENT = 'payment',
+  USER = 'user',
+  TABLE = 'table',
+  GENERAL = 'general'
+}
+
+export enum NotificationPriority {
+  LOW = 'low',
+  NORMAL = 'normal',
+  HIGH = 'high',
+  URGENT = 'urgent'
+}
+
+export interface Notification {
+  id: string;
+  userId?: string;
+  title: string;
+  message: string;
+   priority: NotificationPriority;
+  isRead: boolean;
+  isActive: boolean;
+  data?: any; // Dados adicionais (JSON)
+  expiresAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  user?: User;
+}
+
+export interface NotificationData {
+  orderId?: string;
+  productId?: string;
+  tableId?: string;
+  amount?: number;
+  action?: string;
+  [key: string]: any;
+}
+
+// Exportar todos os tipos
+// export type * from './api';
+// export type * from './auth';
+// export type * from './cart';
+// export type * from './components';
