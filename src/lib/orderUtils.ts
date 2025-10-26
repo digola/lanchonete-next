@@ -38,11 +38,19 @@ export async function checkPendingOrders(): Promise<{
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      cache: 'no-store'
     });
 
     if (!response.ok) {
-      console.error('❌ Erro na API de pedidos:', response.status, response.statusText);
+      let details = '';
+      try {
+        const err = await response.json();
+        details = err?.error || err?.details || JSON.stringify(err);
+      } catch {
+        // ignore parse error
+      }
+      console.error('❌ Erro na API de pedidos:', response.status, response.statusText, details);
       return { hasPendingOrders: false, pendingOrders: [], count: 0 };
     }
 
