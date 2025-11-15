@@ -20,6 +20,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('sortOrder') || 'desc';
     const includeItems = searchParams.get('includeItems') === 'true';
     const includeUser = searchParams.get('includeUser') === 'true';
+    const includeTable = searchParams.get('includeTable') === 'true';
     const date = searchParams.get('date');
     const dateFrom = searchParams.get('dateFrom');
     const dateTo = searchParams.get('dateTo');
@@ -91,9 +92,7 @@ export async function GET(request: NextRequest) {
         where.status = status;
       }
     }
-    if (isActive !== null) {
-      where.isActive = isActive === 'true';
-    }
+    // Campo isActive não existe no schema atual; derive pelo status quando necessário.
     if (isPaid !== null) {
       where.isPaid = isPaid === 'true';
     }
@@ -136,8 +135,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Verificar cache (baseado nos parâmetros da query)
-    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isActive, isPaid, date, dateFrom, dateTo, page, limit, sortBy, sortOrder })}`;
-    const cachedData = getCache(cacheKey, CACHE_DURATION.SHORT);
+    const cacheKey = `orders_${decoded.userId}_${JSON.stringify({ userId, tableId, status, isPaid, date, dateFrom, dateTo, page, limit, sortBy, sortOrder })}`;
+    const lightweightQuery = !includeItems && !includeUser && !includeTable && limit <= 5;
+    const cacheDuration = lightweightQuery ? CACHE_DURATION.MEDIUM : CACHE_DURATION.SHORT;
+    const cachedData = getCache(cacheKey, cacheDuration);
     
     if (cachedData) {
       return NextResponse.json(cachedData);
@@ -171,16 +172,19 @@ export async function GET(request: NextRequest) {
       };
     }
     
-    include.table = {
-      select: {
-        id: true,
-        number: true,
-        capacity: true,
-      },
-    };
+    if (includeTable) {
+      include.table = {
+        select: {
+          id: true,
+          number: true,
+          capacity: true,
+        },
+      };
+    }
 
-    let orders;
-    let total;
+    // Garantir tipos seguros para evitar null/undefined em cenários sem pedidos
+    let orders: any[] = [];
+    let total: number = 0;
 
     try {
       // Query única otimizada - busca tudo de uma vez para evitar N+1
@@ -195,8 +199,19 @@ export async function GET(request: NextRequest) {
         prisma.order.count({ where }),
       ]);
 
-      orders = result[0];
-      total = result[1];
+      const rawOrders = Array.isArray(result?.[0]) ? result[0] : [];
+      const rawTotal = typeof result?.[1] === 'number' ? result[1] : 0;
+
+      // Compatibilidade: em ambientes SQLite de dev, o campo isPaid pode não existir.
+      // Para manter o contrato esperado no frontend, derivamos isPaid a partir do status quando ausente.
+      orders = rawOrders.map((o: any) => {
+        const derivedIsPaid = ['FINALIZADO', 'ENTREGUE'].includes((o?.status || '').toUpperCase());
+        return {
+          ...o,
+          isPaid: typeof o.isPaid === 'boolean' ? o.isPaid : derivedIsPaid,
+        };
+      });
+      total = rawTotal;
       
       // Preparar resposta
       const responseData = {
@@ -294,9 +309,13 @@ export async function POST(request: NextRequest) {
       price: number;
       notes?: string;
       customizations?: string | null;
+      
     }> = [];
 
     for (const item of items) {
+      // Sanitizar quantidade (fallback para 1 se inválida) e garantir inteiro
+      const rawQty = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
+      const qty = Number.isInteger(rawQty) ? rawQty : Math.max(1, Math.floor(rawQty));
       const product = await prisma.product.findUnique({
         where: { id: item.productId },
       });
@@ -315,16 +334,21 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const itemTotal = Number(product.price) * item.quantity;
+      const itemTotal = Number(product.price) * qty;
       total += itemTotal;
 
       validatedItems.push({
         productId: item.productId,
-        quantity: item.quantity,
+        quantity: qty,
         price: Number(product.price),
         notes: item.notes,
         customizations: item.customizations ? JSON.stringify(item.customizations) : null,
       });
+    }
+
+    // Garantir que total é um número válido
+    if (!Number.isFinite(total) || Number.isNaN(total)) {
+      total = validatedItems.reduce((acc, vi) => acc + vi.price * vi.quantity, 0);
     }
 
     // Verificar se a mesa existe (se fornecida)
@@ -343,6 +367,10 @@ export async function POST(request: NextRequest) {
 
     // Criar pedido e atualizar status da mesa em uma transação
     console.log('🔄 Iniciando transação para criar pedido...');
+    // Reparo: utilizar `$transaction` com o cliente transacional `tx` em vez de
+    // `prisma.transaction`. Em Prisma, o método correto é `$transaction` e, dentro
+    // do callback, devemos usar o cliente `tx` para garantir que todas as operações
+    // (create do pedido e update da mesa) ocorram na mesma transação.
     const result = await prisma.$transaction(async (tx) => {
       // Criar pedido
       console.log('📝 Criando pedido no banco...');

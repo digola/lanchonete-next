@@ -259,7 +259,6 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Verificar permissão
     if (!hasPermission(decoded.role, 'tables:write')) {
       return NextResponse.json(
         { success: false, error: 'Sem permissão para deletar mesas' },

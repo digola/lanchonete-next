@@ -147,19 +147,6 @@ export async function PUT(
       }
       updateData.paymentMethod = paymentMethod;
     }
-    
-    if (isReceived !== undefined) {
-      updateData.isReceived = isReceived;
-      // Se pedido foi recebido, marcar como inativo automaticamente
-      if (isReceived === true) {
-        updateData.isActive = false;
-        console.log('📦 Pedido recebido - marcando como inativo');
-      }
-    }
-    
-    if (isActive !== undefined) {
-      updateData.isActive = isActive;
-    }
 
     console.log('🔍 Dados de atualização:', updateData);
 

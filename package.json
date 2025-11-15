@@ -16,8 +16,6 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:reset": "prisma migrate reset --force",
-    
-    
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
@@ -37,8 +35,8 @@
     "multer": "^1.4.5-lts.1",
     "next": "15.5.2",
     "prisma": "^5.22.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
+    "react": "^18.2.1",
+    "react-dom": "^18.2.1",
     "react-hook-form": "^7.53.2",
     "react-hot-toast": "^2.4.1",
     "recharts": "^2.12.7",
@@ -60,9 +58,11 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.2",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "postcss": "^8.4.49",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.8",
+    "puppeteer": "22.15.0",
     "tsx": "^4.19.2"
   },
   "engines": {

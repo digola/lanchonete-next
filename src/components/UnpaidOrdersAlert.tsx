@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/Badge';
 import { AlertCircle, CreditCard, X, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
+import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
 
 interface UnpaidOrdersAlertProps {
   onRefresh?: () => void;
@@ -17,6 +18,8 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
   const [unpaidOrders, setUnpaidOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isVisible, setIsVisible] = useState(true);
+  const [totalCount, setTotalCount] = useState(0);
+  const { hasPendingOrders, forceCheck } = usePendingOrdersWarning({ enabled: true, checkInterval: 30000 });
 
   // Buscar pedidos não pagos
   const fetchUnpaidOrders = async () => {
@@ -25,7 +28,7 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
       const token = localStorage.getItem('auth-token');
       if (!token) return;
 
-      const response = await fetch('/api/orders?isPaid=false&isActive=true&includeUser=true&includeTable=true', {
+      const response = await fetch('/api/orders?includeUser=true&includeTable=true&status=PENDENTE,CONFIRMADO,PREPARANDO,PRONTO&limit=3', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -34,6 +37,7 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
       if (response.ok) {
         const data = await response.json();
         setUnpaidOrders(data.data || []);
+        setTotalCount(data.pagination?.total || (data.data?.length || 0));
       }
     } catch (error) {
       console.error('Erro ao buscar pedidos não pagos:', error);
@@ -42,18 +46,18 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
     }
   };
 
-  // Carregar pedidos não pagos ao montar o componente
   useEffect(() => {
-    fetchUnpaidOrders();
-    
-    // Atualizar a cada 30 segundos
-    const interval = setInterval(fetchUnpaidOrders, 30000);
-    
-    return () => clearInterval(interval);
-  }, []);
+    if (!hasPendingOrders) {
+      setUnpaidOrders([]);
+      setTotalCount(0);
+      setIsVisible(false);
+    } else {
+      setIsVisible(true);
+    }
+  }, [hasPendingOrders]);
 
   // Se não há pedidos não pagos ou o alerta foi fechado, não mostrar
-  if (!isVisible || unpaidOrders.length === 0) {
+  if (!isVisible || (!hasPendingOrders && unpaidOrders.length === 0)) {
     return null;
   }
 
@@ -72,7 +76,7 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
                 Pedidos Não Pagos Detectados
               </h3>
               <p className="text-red-600 text-xs sm:text-sm">
-                {unpaidOrders.length} pedido(s) pendente(s) • Total: {formatCurrency(totalUnpaidAmount)}
+                {totalCount} pedido(s) pendente(s) • Total (amostra): {formatCurrency(totalUnpaidAmount)}
               </p>
             </div>
           </div>
@@ -99,6 +103,14 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
               className="text-red-600 hover:bg-red-100"
             >
               <X className="h-4 w-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { forceCheck(); fetchUnpaidOrders(); }}
+              className="text-red-600 hover:bg-red-100"
+            >
+              Atualizar
             </Button>
           </div>
         </div>

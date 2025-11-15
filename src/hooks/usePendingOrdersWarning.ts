@@ -8,7 +8,14 @@ interface UsePendingOrdersWarningOptions {
 }
 
 /**
- * Hook que monitora pedidos pendentes e avisa quando o usuário tenta fechar o navegador
+ * usePendingOrdersWarning
+ *
+ * Monitora pedidos não pagos e exibe um aviso ao tentar fechar a aba/janela.
+ * Faz verificações periódicas e usa localStorage para leitura rápida no
+ * evento beforeunload.
+ *
+ * @param options enabled, checkInterval e customMessage
+ * @returns hasPendingOrders e função forceCheck
  */
 export function usePendingOrdersWarning({
   enabled = true,
@@ -17,12 +24,14 @@ export function usePendingOrdersWarning({
 }: UsePendingOrdersWarningOptions = {}) {
   const hasPendingOrdersRef = useRef(false);
   const lastCheckRef = useRef<number>(0);
+  const countRef = useRef<number>(0);
 
   // Função para verificar pedidos pendentes (não pagos)
   const checkPendingOrdersStatus = async () => {
     try {
-      const { hasPendingOrders, pendingOrders, count } = await checkPendingOrders();
+      const { hasPendingOrders, count } = await checkPendingOrders({ details: false });
       hasPendingOrdersRef.current = hasPendingOrders;
+      countRef.current = count;
       lastCheckRef.current = Date.now();
       
       // Salvar no cache do localStorage para acesso síncrono no beforeunload
@@ -121,6 +130,7 @@ export function usePendingOrdersWarning({
 
   return {
     hasPendingOrders: hasPendingOrdersRef.current,
+    count: countRef.current,
     forceCheck
   };
 }

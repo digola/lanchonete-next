@@ -16,28 +16,21 @@ export function PendingOrdersIndicator({
 }: PendingOrdersIndicatorProps) {
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [isVisible, setIsVisible] = useState(false);
-  const { hasPendingOrders, forceCheck } = usePendingOrdersWarning({
+  const { hasPendingOrders, count, forceCheck } = usePendingOrdersWarning({
     enabled: true,
     checkInterval: 15000 // Verificar a cada 15 segundos
   });
 
   // Buscar detalhes dos pedidos pendentes quando necessário
   useEffect(() => {
-    if (hasPendingOrders && showDetails) {
-      const fetchPendingOrdersDetails = async () => {
-        try {
-          const { pendingOrders: orders } = await checkPendingOrders();
-          setPendingOrders(orders);
-          setIsVisible(true);
-        } catch (error) {
-          console.error('Erro ao buscar detalhes dos pedidos pendentes:', error);
-        }
-      };
-
-      fetchPendingOrdersDetails();
-    } else if (!hasPendingOrders) {
+    if (!hasPendingOrders) {
       setIsVisible(false);
       setPendingOrders([]);
+    } else if (showDetails) {
+      checkPendingOrders().then(({ pendingOrders: orders }) => {
+        setPendingOrders(orders);
+        setIsVisible(true);
+      }).catch(() => {});
     }
   }, [hasPendingOrders, showDetails]);
 
@@ -52,12 +45,17 @@ export function PendingOrdersIndicator({
       <div className={`fixed top-4 right-4 z-40 ${className}`}>
         <div 
           className="bg-gradient-to-r from-orange-500 to-red-600 text-white px-4 py-3 rounded-lg shadow-lg cursor-pointer hover:shadow-xl transition-all duration-300 flex items-center space-x-2 animate-pulse"
-          onClick={forceCheck}
-          title="Clique para verificar pedidos pendentes"
+          onClick={() => {
+            checkPendingOrders({ details: true }).then(({ pendingOrders: orders }) => {
+              setPendingOrders(orders);
+              setIsVisible(true);
+            }).catch(() => {});
+          }}
+          title="Clique para ver detalhes dos pedidos pendentes"
         >
           <AlertTriangle className="h-5 w-5" />
           <span className="font-semibold text-sm">
-            Pedidos em Aberto
+            Pedidos em Aberto ({count || 0})
           </span>
           <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
         </div>

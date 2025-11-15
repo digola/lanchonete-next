@@ -1,10 +1,13 @@
 {
   "extends": ["next/core-web-vitals"],
+  "plugins": ["react-hooks"],
   "rules": {
     "react/no-unescaped-entities": "off",
     "react/prop-types": "off",
     "@next/next/no-img-element": "error",
-    "@next/next/no-html-link-for-pages": "error"
+    "@next/next/no-html-link-for-pages": "error",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "warn"
   },
   "ignorePatterns": [
     "node_modules/",

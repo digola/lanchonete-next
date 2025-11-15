@@ -23,20 +23,19 @@ export async function POST(
     }
 
     // Verificar permissões (apenas MANAGER)
-    if (decoded.role !== UserRole.MANAGER) {
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    if (decoded.role !== UserRole.MANAGER && decoded.role !== UserRole.STAFF) {
+      return NextResponse.json({ error: 'Acesso negado livrar mesa apenas na expedicão' }, { status: 403 });
     }
 
-    // Buscar a mesa
+    // Buscar a mesa e pedidos relevantes
     const table = await prisma.table.findUnique({
       where: { id },
       include: {
         orders: {
           where: {
-            status: {
-              in: ['CONFIRMADO', 'PREPARANDO', 'ENTREGUE', 'FINALIZADO']
-            }
-          }
+            status: { in: ['CONFIRMADO', 'PREPARANDO', 'PRONTO', 'ENTREGUE', 'FINALIZADO'] }
+          },
+          select: { id: true, status: true, isPaid: true, total: true }
         }
       }
     });
@@ -48,26 +47,27 @@ export async function POST(
       return NextResponse.json({ error: 'Mesa não encontrada' }, { status: 404 });
     }
 
-    // Verificar se há pedidos ativos na mesa (apenas pedidos não finalizados)
-    const activeOrders = table.orders.filter(order => 
-      order.status === 'CONFIRMADO' || order.status === 'PREPARANDO'
-    );
-    
-    console.log('🔍 Pedidos ativos:', activeOrders);
-    console.log('🔍 Total de pedidos na mesa:', table.orders.length);
-    
-    // Permitir limpeza apenas se não há pedidos em preparo
-    if (activeOrders.length > 0) {
-      console.log('❌ Não é possível limpar mesa com pedidos em preparo');
+    // Regras de liberação:
+    // 1) Não pode haver pedidos com status em preparo/ativos
+    const activeStatuses = ['CONFIRMADO', 'PREPARANDO', 'PRONTO'];
+    const hasActive = table.orders.some(o => activeStatuses.includes(String(o.status).toUpperCase()));
+
+    // 2) Não pode haver pedido ENTREGUE sem pagamento
+    const hasDeliveredUnpaid = table.orders.some(o => String(o.status).toUpperCase() === 'ENTREGUE' && !o.isPaid);
+
+    if (hasActive || hasDeliveredUnpaid) {
+      const reason = hasActive
+        ? 'Há pedidos em preparo/ativos na mesa.'
+        : 'Há pedido ENTREGUE ainda não pago.';
       return NextResponse.json(
-        { error: 'Não é possível limpar a mesa. Há pedidos em preparo.' },
+        { error: `Não é possível limpar a mesa. ${reason}` },
         { status: 400 }
       );
     }
     
     console.log('✅ Mesa pode ser limpa');
 
-    // Limpar a mesa
+    // Limpar a mesa somente via botão
     console.log('🧹 Limpando mesa...');
     console.log('🔍 Dados de atualização:', { status: 'LIVRE', assignedTo: null });
     

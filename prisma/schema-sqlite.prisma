@@ -17,7 +17,7 @@ model User {
   email     String   @unique
   name      String
   password  String
-  role      String   @default("CLIENTE") // CLIENTE, FUNCIONARIO, ADMINISTRADOR
+  role      String   @default("CUSTOMER") // CUSTOMER, STAFF, MANAGER, ADMIN
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -77,6 +77,8 @@ model Order {
   deliveryType    String   @default("RETIRADA") // RETIRADA, DELIVERY
   deliveryAddress String?
   paymentMethod   String   @default("DINHEIRO") // DINHEIRO, CARTAO, PIX
+  isPaid          Boolean  @default(false)
+  isActive        Boolean  @default(true)
   notes           String?
   tableId         String?
   createdAt       DateTime @default(now())
@@ -144,4 +146,19 @@ model Table {
   orders       Order[]
 
   @@map("tables")
+}
+
+// Modelo Settings (configurações públicas)
+model Settings {
+  id          String   @id @default(cuid())
+  category    String
+  key         String
+  value       String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([category, key])
+  @@map("settings")
 }

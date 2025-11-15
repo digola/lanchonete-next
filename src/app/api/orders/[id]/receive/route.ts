@@ -53,6 +53,7 @@ export async function PUT(
             id: true,
             number: true,
             capacity: true,
+            status: true,
           },
         },
         items: {
@@ -77,8 +78,7 @@ export async function PUT(
       );
     }
 
-    // Verificar se já foi recebido
-    if (existingOrder.isReceived) {
+    if (existingOrder.status === 'FINALIZADO') {
       return NextResponse.json(
         { success: false, error: 'Pedido já foi recebido' },
         { status: 400 }
@@ -87,14 +87,14 @@ export async function PUT(
 
     console.log('📦 Marcando pedido como recebido:', orderId);
 
-    // Atualizar pedido: marcar como recebido e inativo
+    // Atualizar pedido: marcar como entregue
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Atualizar pedido
       const order = await tx.order.update({
         where: { id: orderId },
         data: {
-          isReceived: true,
-          isActive: false, // Marcar como inativo quando recebido
+          status: 'FINALIZADO',
+          isPaid: true,
           updatedAt: new Date(),
         },
         include: {
@@ -109,6 +109,7 @@ export async function PUT(
             select: {
               id: true,
               number: true,
+              status: true,
               capacity: true,
             },
           },
@@ -135,25 +136,27 @@ export async function PUT(
         const activeOrdersCount = await tx.order.count({
           where: {
             tableId: existingOrder.tableId,
-            isActive: true,
             status: {
-              notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
+             // notIn: ['CANCELADO', 'FINALIZADO']
             }
           }
         });
 
         console.log('📊 Pedidos ativos na mesa:', activeOrdersCount);
 
-        if (activeOrdersCount === 0) {
+        if (!order.isActive ) {
           // Liberar mesa se não há pedidos ativos
-          console.log('🆓 Liberando mesa:', existingOrder.tableId);
+          console.log('🆓 Liberando mesa aqui:', existingOrder.tableId);
+         
           await tx.table.update({
             where: { id: existingOrder.tableId },
             data: { 
               status: 'LIVRE',
-              assignedTo: null
+              assignedTo: null,
+              isActive: false,
             },
           });
+      
           console.log('✅ Mesa liberada com sucesso');
         } else {
           console.log('🔒 Mesa mantida ocupada - há pedidos ativos');
@@ -161,11 +164,12 @@ export async function PUT(
       }
 
       return order;
+        
     });
 
     console.log('✅ Pedido marcado como recebido:', updatedOrder);
 
-    // Limpar cache de pedidos após atualização
+  // Limpar cache de pedidos após atualização
     clearCachePattern('orders_');
 
     return NextResponse.json({

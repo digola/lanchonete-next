@@ -88,38 +88,6 @@ export default function SettingsPage() {
     backupLocation: '',
   });
 
-  // Buscar dados do usuário
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const token = localStorage.getItem('auth-token');
-        if (!token) {
-          setIsLoading(false);
-          return;
-        }
-
-        const response = await fetch('/api/auth/me', {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data && data.data.user) {
-            setUser(data.data.user);
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao buscar usuário:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUser();
-  }, []);
-
   // Buscar configurações
   useEffect(() => {
     if (user) {

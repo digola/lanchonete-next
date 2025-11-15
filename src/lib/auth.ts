@@ -366,7 +366,6 @@ export const hasPermission = (userRole: UserRole, permission: string): boolean =
 export const hasRole = (userRole: UserRole, requiredRole: UserRole): boolean => {
   const roleHierarchy = {
     [UserRole.CUSTOMER]: 1,
-    [UserRole.CLIENTE]: 1,
     [UserRole.STAFF]: 2,
     [UserRole.MANAGER]: 3,
     [UserRole.ADMIN]: 4,

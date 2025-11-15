@@ -10,6 +10,7 @@
  */
 
 import { prisma } from '@/lib/prisma';
+import { OrderStatus } from '@/types';
 
 export interface TableState {
   tableId: string;
@@ -75,11 +76,10 @@ export class OrderTableManager {
         };
       }
 
-      // Verificar se já existe pedido ativo na mesa (REGRA: UM PEDIDO POR MESA)
+      // Verificar se já existe pedido em andamento na mesa (REGRA: UM PEDIDO POR MESA)
       const existingActiveOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -87,8 +87,6 @@ export class OrderTableManager {
         select: {
           id: true,
           status: true,
-          isActive: true,
-          isReceived: true,
           total: true,
           createdAt: true
         }
@@ -194,14 +192,13 @@ export class OrderTableManager {
           data: {
             userId: data.staffUserId,
             status: 'CONFIRMADO',
+            isPaid: false,
+            isActive: true,
             total,
             deliveryType: 'RETIRADA',
-            paymentMethod: 'PENDENTE',  // ← PAGAMENTO PENDENTE
+            // paymentMethod não definido aqui para usar o default do schema (ex.: 'DINHEIRO')
             notes: data.notes || null,
             tableId: data.tableId,
-            isActive: true,        // ← SEMPRE TRUE na criação
-            isReceived: false,     // ← SEMPRE FALSE na criação
-            isPaid: false,         // ← SEMPRE FALSE na criação
             items: {
               create: validatedItems as any
             }
@@ -279,7 +276,6 @@ export class OrderTableManager {
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -390,33 +386,37 @@ export class OrderTableManager {
         return { success: false, error: 'Pedido não encontrado' };
       }
 
-      if (existingOrder.isPaid) {
-        return { success: false, error: 'Pedido já foi pago' };
-      }
+      // Agora o schema local inclui isPaid; usamos este campo para persistir estado de pagamento.
 
       // Validar método de pagamento
-      const validPaymentMethods = ['DINHEIRO', 'CARTAO', 'PIX', 'CARTAO_CREDITO', 'CARTAO_DEBITO'];
+      const validPaymentMethods = ['DINHEIRO', 'CARTAO', 'PIX'];
       if (!validPaymentMethods.includes(paymentMethod)) {
         return { success: false, error: 'Método de pagamento inválido' };
       }
 
-      // Processar pagamento
-      const result = await prisma.order.update({
-        where: { id: orderId },
-        data: {
-          paymentMethod: paymentMethod,
-          isPaid: true,
-          updatedAt: new Date()
-        },
-        include: {
-          user: { select: { id: true, name: true, email: true } },
-          table: { select: { id: true, number: true, capacity: true } },
-          items: {
-            include: {
-              product: { select: { id: true, name: true, price: true, imageUrl: true } }
+      // Processar pagamento: apenas marcar como pago e salvar método
+      // Regra de negócio: a mesa será liberada somente após RECEBER o pedido
+      const result = await prisma.$transaction(async (tx) => {
+        const updatedOrder = await tx.order.update({
+          where: { id: orderId },
+          data: {
+            paymentMethod: paymentMethod,
+            isPaid: true,
+            isActive: false,
+            updatedAt: new Date()
+          },
+          include: {
+            user: { select: { id: true, name: true, email: true } },
+            table: { select: { id: true, number: true, capacity: true } },
+            items: {
+              include: {
+                product: { select: { id: true, name: true, price: true, imageUrl: true } }
+              }
             }
           }
-        }
+        });
+
+        return updatedOrder;
       });
 
       console.log('✅ [ORDER-MANAGER] Pagamento processado:', result.id);
@@ -438,9 +438,6 @@ export class OrderTableManager {
     error?: string;
   }> {
     try {
-      console.log('📦 [ORDER-MANAGER] Marcando pedido como recebido:', orderId);
-
-      // Verificar se pedido existe
       const existingOrder = await prisma.order.findUnique({
         where: { id: orderId },
         include: { table: true }
@@ -450,18 +447,16 @@ export class OrderTableManager {
         return { success: false, error: 'Pedido não encontrado' };
       }
 
-      if (existingOrder.isReceived) {
-        return { success: false, error: 'Pedido já foi recebido' };
+      if (existingOrder.status === 'ENTREGUE' || existingOrder.status === 'FINALIZADO') {
+        return { success: false, error: 'Pedido já foi marcado como entregue/recebido' };
       }
 
-      // Atualizar pedido e verificar mesa
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Marcar pedido como recebido e inativo
         const order = await tx.order.update({
           where: { id: orderId },
           data: {
-            isReceived: true,
-            isActive: false,  // ← FICA INATIVO
+            status: 'ENTREGUE',
+            isActive: existingOrder.isPaid ? false : true,
             updatedAt: new Date()
           },
           include: {
@@ -475,17 +470,25 @@ export class OrderTableManager {
           }
         });
 
-        // 2. Liberar mesa automaticamente (REGRA: UM PEDIDO POR MESA)
         if (existingOrder.tableId) {
-          console.log('🆓 [ORDER-MANAGER] Liberando mesa automaticamente:', existingOrder.tableId);
-          await tx.table.update({
-            where: { id: existingOrder.tableId },
-            data: {
-              status: 'LIVRE',
-              assignedTo: null
+          const activeOrdersCount = await tx.order.count({
+            where: {
+              tableId: existingOrder.tableId,
+              status: {
+                notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
+              }
             }
           });
-          console.log('✅ [ORDER-MANAGER] Mesa liberada com sucesso');
+
+          if (activeOrdersCount === 0) {
+            await tx.table.update({
+              where: { id: existingOrder.tableId },
+              data: {
+                status: 'LIVRE',
+                assignedTo: null
+              }
+            });
+          }
         }
 
         return order;
@@ -494,7 +497,6 @@ export class OrderTableManager {
       return { success: true, data: result };
 
     } catch (error) {
-      console.error('❌ [ORDER-MANAGER] Erro ao marcar pedido como recebido:', error);
       return { success: false, error: 'Erro interno do servidor' };
     }
   }
@@ -526,7 +528,7 @@ export class OrderTableManager {
           where: { id: orderId },
           data: {
             status: 'CANCELADO',
-            isActive: false,  // ← FICA INATIVO
+            isActive: false,
             updatedAt: new Date()
           },
           include: {
@@ -598,7 +600,6 @@ export class OrderTableManager {
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -693,11 +694,10 @@ export class OrderTableManager {
         return { success: false, error: 'Mesa não encontrada' };
       }
 
-      // Buscar pedido ativo na mesa (REGRA: UM PEDIDO POR MESA)
+      // Buscar pedido em andamento na mesa (REGRA: UM PEDIDO POR MESA)
       const activeOrder = await prisma.order.findFirst({
         where: {
           tableId: tableId,
-          isActive: true,
           status: {
             notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
           }
@@ -705,14 +705,22 @@ export class OrderTableManager {
         select: {
           id: true,
           status: true,
-          isActive: true,
-          isReceived: true,
           total: true,
           createdAt: true
         }
       });
 
-      const activeOrders = activeOrder ? [activeOrder] : [];
+      const activeOrders = activeOrder
+        ? [{
+            id: activeOrder.id,
+            status: activeOrder.status,
+            // Deriva isActive e isReceived pelo status para compatibilidade
+            isActive: !['CANCELADO', 'ENTREGUE', 'FINALIZADO'].includes(activeOrder.status as any),
+            isReceived: ['ENTREGUE', 'FINALIZADO'].includes(activeOrder.status as any),
+            total: activeOrder.total,
+            createdAt: activeOrder.createdAt
+          }]
+        : [];
 
       const tableState: TableState = {
         tableId: table.id,
@@ -732,7 +740,9 @@ export class OrderTableManager {
 }
 
 /**
- * Interface de conveniência para uso direto nas APIs
+ * Interface de conveniência (facade) para uso direto em rotas/APIs.
+ * Mapeia operações do OrderTableManager em um objeto exportado
+ * para facilitar importação e uso pontual.
  */
 export const OrderTableAPI = {
   // Selecionar mesa

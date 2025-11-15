@@ -14,10 +14,40 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
-import { Product, Category } from '@/types';
-import { formatCurrency } from '@/lib/utils';
-import { Search, User, LogIn, X, ShoppingCart } from 'lucide-react';
+import { UserRole } from '@/types';
+
+
+
+import { Product, Category, GeneralSettings } from '@/types';
 import Link from 'next/link';
+import { 
+  Settings as SettingsIcon,
+  Save,
+  RefreshCw,
+  Building2,
+  CreditCard,
+  Printer,
+  Database,
+  Clock,
+  Phone,
+  Mail,
+  MapPin,
+  Globe,
+  DollarSign,
+  Calendar,
+  CheckCircle,
+  AlertTriangle,
+  Search, 
+  User,
+  LogIn,
+   X, 
+  ShoppingCart,
+  Settings
+} from 'lucide-react';
+import { stat } from 'fs';
+import { AdminHeader } from '@/components/admin/AdminHeader';
+import { StaffHeader } from '@/components/staff/StaffHeader';
+import { CustomerHeader } from '@/components/customer/CustomerHeader';
 
 export default function HomePage() {
   const { isAuthenticated, user, logout, getRoleLabel } = useApiAuth();
@@ -34,12 +64,12 @@ export default function HomePage() {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Detectar quando a hidratação está completa
-  useEffect(() => {
-    setIsHydrated(true);
+  useEffect(() => { setIsHydrated(true);
   }, []);
-
+  
+  
   // Verificar se é staff e se há mesa na URL
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isStaff = (user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER');
 
   // Renderizar sempre o mesmo conteúdo no servidor e cliente
   const shouldShowStaffFeatures = isHydrated && isStaff;
@@ -81,14 +111,14 @@ export default function HomePage() {
   // Remover debounce manual - agora é feito no hook
   // useEffect removido - o debounce é feito internamente no useOptimizedMenuStatic
 
-  const handleAddToCart = useCallback((product: Product) => {
+  const handleAddToCart = useCallback((product: Product, notes?: string) => {
     console.log('🛒 Adicionando produto ao carrinho:', {
       productId: product.id,
       productName: product.name,
       price: product.price,
       isAvailable: product.isAvailable
     });
-    addItem(product);
+    addItem(product, 1, notes);
     console.log('✅ Produto adicionado com sucesso!');
   }, [addItem]);
 
@@ -102,51 +132,45 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="container-app">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-4 space-y-4 lg:space-y-0">
-            {/* Logo */}
-            <Link href="/" className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-primary-500 rounded-lg flex items-center justify-center">
-                <span className="text-xl font-bold text-white">🍔</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">{publicSettings?.restaurantName || 'Lanchonete'}</h1>
-                <p className="text-sm text-gray-600">Cardápio Online</p>
-              </div>
-            </Link>
+      {/* Header por regra de usuário */}
+      {isHydrated && isAuthenticated ? (
+        (() => {
+          const role = (user?.role || '').toUpperCase();
+          if (role.includes('ADMIN')) return <AdminHeader />;
+          if (role === 'STAFF' || role === 'MANAGER') return <StaffHeader/>;
+          return <CustomerHeader />;
+        })()
+      ) : (
+        <header className="bg-white shadow-sm border-b">
+          <div className="container-app">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between py-4 space-y-4 lg:space-y-0">
+              {/* Logo */}
+              <Link href="/" className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-primary-500 rounded-lg flex items-center justify-center">
+                  <span className="text-xl font-bold text-white">🍔</span>
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">{publicSettings?.restaurantName || 'Lanchonete'}</h1>
+                  <p className="text-sm text-gray-600">Cardápio Online</p>
+                </div>
+              </Link>
 
-            {/* Search Bar */}
-            <div className="flex-1 max-w-md mx-0 lg:mx-8">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <Input
-                  placeholder="Buscar produtos..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-            </div>
-
-            {/* User Actions */}
-            <div className="flex items-center justify-between lg:justify-end space-x-4">
-              {/* Cart Indicator */}
-              {isHydrated && totalItems > 0 && (
-                <Link href={isStaff && tableId ? `/cart?tableId=${tableId}` : '/cart'} className="relative inline-block">
-                  <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
-                    <ShoppingCart className="h-4 w-4" />
-                    <span className="hidden sm:inline text-sm font-medium">Carrinho</span>
-                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                      {totalItems}
-                    </span>
-                  </button>
-                </Link>
-              )}
-              
-              {/* User Menu */}
-              {!isHydrated ? (
+              {/* User Actions */}
+              <div className="flex items-center justify-between lg:justify-end space-x-4">
+                {/* Cart Indicator */}
+                {isHydrated && totalItems > 0 && (
+                  <Link href={isStaff && tableId ? `/cart?tableId=${tableId}` : '/cart'} className="relative inline-block">
+                    <button className="flex items-center space-x-2 px-3 py-2 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors">
+                      <ShoppingCart className="h-4 w-4" />
+                      <span className="hidden sm:inline text-sm font-medium">Carrinho</span>
+                      <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                        {totalItems}
+                      </span>
+                    </button>
+                  </Link>
+                )}
+                
+                {/* Botões de autenticação (convidado) */}
                 <div className="flex items-center space-x-2">
                   <Link href="/login">
                     <Button variant="outline" size="sm" leftIcon={<LogIn className="h-4 w-4" />}>
@@ -161,47 +185,17 @@ export default function HomePage() {
                     </Button>
                   </Link>
                 </div>
-              ) : isAuthenticated ? (
-                <div className="flex items-center space-x-2 lg:space-x-3">
-                  <div className="hidden sm:block text-right">
-                    <p className="text-sm font-medium text-gray-900 truncate max-w-32">{user?.name}</p>
-                    <p className="text-xs text-gray-600">{getRoleLabel()}</p>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Button variant="ghost" size="icon" className="hidden sm:flex">
-                      <User className="h-5 w-5" />
-                    </Button>
-                    <Button variant="outline" onClick={logout} size="sm">
-                      <span className="hidden sm:inline">Sair</span>
-                      <span className="sm:hidden">×</span>
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center space-x-2">
-                  <Link href="/login">
-                    <Button variant="outline" size="sm" leftIcon={<LogIn className="h-4 w-4" />}>
-                      <span className="hidden sm:inline">Entrar</span>
-                      <span className="sm:hidden">Login</span>
-                    </Button>
-                  </Link>
-                  <Link href="/register">
-                    <Button variant="primary" size="sm">
-                      <span className="hidden sm:inline">Cadastrar</span>
-                      <span className="sm:hidden">Cadastro</span>
-                    </Button>
-                  </Link>
-                </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
-      {/* Main Content */}
-      <main className="container-app py-8">
-        {/* Mesa Info para Staff */}
-        {shouldShowStaffFeatures && tableId && (
+   {/* Main Content */}
+      
+    <main className="flex-grow">
+        {/* Mensagem de seleção de mesa para Staff/Manager */}
+          {shouldShowStaffFeatures && tableId && (
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-3">
@@ -214,12 +208,16 @@ export default function HomePage() {
                     Selecione produtos para adicionar ao pedido desta mesa
                   </p>
                   <p className="text-sm text-blue-700 sm:hidden">
-                    Adicionar produtos ao pedido
+                    Adicionar produtos ao pedido 
                   </p>
                 </div>
               </div>
             </div>
+
+
+            
           </div>
+          
         )}
 
         {/* Filters */}
@@ -236,17 +234,7 @@ export default function HomePage() {
               )}
             </div>
             <div className="flex items-center space-x-4">
-              {/* Botão de seleção de mesa para Staff/Manager */}
-              {shouldShowStaffFeatures && (
-                <Button
-                  variant="outline"
-                  onClick={() => router.push('/table-selection')}
-                  className="flex items-center space-x-2"
-                >
-                  <span>🪑</span>
-                  <span>{tableId ? 'Trocar Mesa' : 'Selecionar Mesa'}</span>
-                </Button>
-              )}
+            
               {/* Campo de Busca */}
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -313,6 +301,7 @@ export default function HomePage() {
                   </Button>
                 ))
               )}
+          
             </div>
           </div>
 
@@ -326,14 +315,18 @@ export default function HomePage() {
               {[...Array(8)].map((_, i) => (
                 <ProductSkeleton key={i} />
               ))}
+             
             </div>
+            
           ) : (
+            
             <div className="animate-fade-in">
-              <OptimizedProductList
+               <OptimizedProductList
                 products={products}
                 onAddToCart={handleAddToCart}
-                showAddButton={true}
+               // showAddButton={shouldShowStaffFeatures}
               />
+               
             </div>
           )}
           
@@ -388,17 +381,22 @@ export default function HomePage() {
               </Button>
             </div>
           </div>
-        )}
-      </main>
+        )};
 
-      {/* Footer */}
+        </main> 
+
+    
+    <div className="flex-grow">
+       {/* Footer */}
       <footer className="bg-gray-900 text-white py-8 mt-16">
         <div className="container-app">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8">
             <div>
               <h3 className="font-semibold mb-4">
-                {publicSettings?.restaurantName || 'Lanchonete'}
+               {publicSettings?.restaurantName ? publicSettings.restaurantName : 'Lanchonete nome'}
+            
               </h3>
+             
               <p className="text-gray-400 text-sm">
                 O melhor da comida caseira com a praticidade do delivery.
               </p>
@@ -406,9 +404,38 @@ export default function HomePage() {
             <div>
               <h3 className="font-semibold mb-4">Contato</h3>
               <div className="space-y-2 text-sm text-gray-400">
-                <p>📞 {publicSettings?.restaurantPhone || '(11) 99999-9999'}</p>
-                <p>✉️ {publicSettings?.restaurantEmail || 'contato@lanchonete.com'}</p>
-                <p>📍 {publicSettings?.restaurantAddress || 'Endereço não informado'}</p>
+                <p>
+                  📞 {publicSettings?.restaurantPhone ? (
+                    <a href={`tel:${publicSettings.restaurantPhone.replace(/\s|\(|\)|-/g, '')}`} className="hover:text-primary-400 transition-colors">
+                      {publicSettings.restaurantPhone}
+                    </a>
+                  ) : (
+                    '(11) 99999-9999'
+                  )}
+                </p>
+                <p>
+                  ✉️ {publicSettings?.restaurantEmail ? (
+                    <a href={`mailto:${publicSettings.restaurantEmail}`} className="hover:text-primary-400 transition-colors">
+                      {publicSettings.restaurantEmail}
+                    </a>
+                  ) : (
+                    'contato@lanchonete.com'
+                  )}
+                </p>
+                <p>
+                  📍 {publicSettings?.restaurantAddress ? (
+                    <a
+                      href={`https://www.google.com/maps/search/?q=${encodeURIComponent(publicSettings.restaurantAddress)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="hover:text-primary-400 transition-colors"
+                    >
+                      {publicSettings.restaurantAddress}
+                    </a>
+                  ) : (
+                    'Endereço não informado'
+                  )}
+                </p>
               </div>
             </div>
             <div className="sm:col-span-2 lg:col-span-1">
@@ -421,8 +448,18 @@ export default function HomePage() {
           <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
             <p>&copy; 2025 {publicSettings?.restaurantName || 'Lanchonete'}. Todos os direitos reservados.</p>
           </div>
+      </div>
+        <div className='mt-6 flex justify-center space-x-4'>
+          <h2>precisando de um site igual a este?</h2>   
+          <p>
+            Entre em contato conosco para obter mais informações no celular (14)991247981 (sidnei).
+          </p>
         </div>
-      </footer>
-    </div>
+        
+        </footer>
+</div>
+</div>
+
+
   );
 }

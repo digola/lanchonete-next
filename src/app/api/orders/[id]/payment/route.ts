@@ -1,14 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { OrderTableAPI } from '@/lib/order-table-manager';
+import { prisma } from '@/lib/prisma';
+import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { UserRole } from '@/types';
 
+// Processa pagamento de um pedido específico
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: orderId } = await params;
-    const body = await request.json();
-    const { paymentSession, totalPaid } = body;
+    const { id: orderId } = params;
+
+    // Tentar ler o corpo da requisição com segurança
+    let body: any = null;
+    try {
+      body = await request.json();
+    } catch (e) {
+      return NextResponse.json(
+        { message: 'Corpo da requisição inválido ou ausente' },
+        { status: 400 }
+      );
+    }
+
+    const { paymentSession, totalPaid } = body || {};
 
     console.log('🔍 API Payment Debug:', { orderId, paymentSession, totalPaid });
 
@@ -20,14 +35,30 @@ export async function POST(
     }
 
     // Validar se temos o valor total
-    if (!totalPaid || totalPaid <= 0) {
+    if (typeof totalPaid !== 'number' || isNaN(totalPaid) || totalPaid <= 0) {
       return NextResponse.json(
         { message: 'Valor total inválido' },
         { status: 400 }
       );
     }
 
-    // Processar pagamento
+    // Verificar autenticação e papel
+    const token = getTokenFromRequest(request);
+    if (!token) {
+      return NextResponse.json(
+        { message: 'Token de acesso necessário' },
+        { status: 401 }
+      );
+    }
+
+    const decoded = verifyToken(token);
+    if (!decoded) {
+      return NextResponse.json(
+        { message: 'Token inválido' },
+        { status: 401 }
+      );
+    }
+
     const finalResult = await OrderTableAPI.processPayment(orderId, paymentMethod, totalPaid);
 
     if (finalResult.success) {
@@ -40,13 +71,13 @@ export async function POST(
         // Não falha o pagamento se a notificação falhar
       }
       
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: 'Pagamento processado com sucesso',
-        data: finalResult.data 
+        data: finalResult.data,
       });
     } else {
       return NextResponse.json(
-        { message: finalResult.error },
+        { message: finalResult.error ?? 'Falha ao processar pagamento' },
         { status: 400 }
       );
     }
