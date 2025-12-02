@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -10,10 +10,10 @@ import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrdersCheck';
-import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
+//import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
 import { UnpaidOrdersAlert } from '@/components/UnpaidOrdersAlert';
 import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
-import { UserRole, Order, OrderStatus, Table } from '@/types';
+import { UserRole, Order, OrderStatus,  TableStatus } from '@/types';
 import { 
   Package, 
   Clock,
@@ -34,12 +34,16 @@ import {
   Plus,
   ShoppingCart,
   X,
-  LogOut
+  LogOut,
+  Table
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { printOrder as printOrderUtil } from '@/lib/printOrder';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { StaffHeader } from '@/components/staff/StaffHeader';
+import { OrderDetailsButton } from '@/components/staff/OrderDetailsModal';
+import { table } from 'console';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -64,7 +68,7 @@ const preciseMoneyCalculation = {
   }
 };
 
-export default function ExpedicaoPage() {
+export default function StaffPage() {
   const router = useRouter();
   const { user, isAuthenticated, isLoading } = useApiAuth();
   
@@ -108,7 +112,7 @@ export default function ExpedicaoPage() {
     pagination: any 
   }>('/api/orders?includeItems=true&includeUser=true&includeTable=true');
 
-  const orders = ordersResponse?.data || [];
+  const orders = useMemo(() => ordersResponse?.data || [], [ordersResponse?.data]);
   
   // Debug: verificar dados dos pedidos
   useEffect(() => {
@@ -167,8 +171,8 @@ export default function ExpedicaoPage() {
   // Função para obter cor da badge
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case OrderStatus.CONFIRMADO:
-        return 'bg-blue-100 text-blue-800';
+      //case OrderStatus.CONFIRMADO:
+      //  return 'bg-blue-100 text-blue-800';
       case OrderStatus.PREPARANDO:
         return 'bg-yellow-100 text-yellow-800';
       case OrderStatus.ENTREGUE:
@@ -183,8 +187,8 @@ export default function ExpedicaoPage() {
   // Função para obter label do status
   const getStatusLabel = (status: OrderStatus) => {
     switch (status) {
-      case OrderStatus.CONFIRMADO:
-        return 'Confirmado';
+      //case OrderStatus.CONFIRMADO:
+        //return 'Confirmado';
       case OrderStatus.PREPARANDO:
         return 'Preparando';
       case OrderStatus.ENTREGUE:
@@ -447,9 +451,10 @@ console.log('🔍 Response:', response);
   };
 
   // Estados para modal de adicionar produtos
-  const [selectedProducts, setSelectedProducts] = useState<{productId: string, quantity: number}[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<{productId: string, quantity: number, notes?: string, adicionaisIds?: string[]}[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('');
+  const [productAdicionais, setProductAdicionais] = useState<{[productId: string]: any[]}>({});
 
   // Buscar produtos e categorias (apenas quando necessário)
   const { data: productsResponse, loading: productsLoading, execute: fetchProducts } = useApi<{
@@ -498,6 +503,7 @@ console.log('🔍 Response:', response);
     setSelectedProducts([]);
     setProductSearch('');
     setSelectedCategoryFilter('');
+    setProductAdicionais({});
   };
 
   // Funções para adicionar produtos
@@ -533,8 +539,9 @@ console.log('🔍 Response:', response);
     }
   };
 
-  const addProductToSelection = (product: any) => {
+  const addProductToSelection = async (product: any) => {
     const existing = selectedProducts.find(p => p.productId === product.id);
+    
     if (existing) {
       setSelectedProducts(prev => 
         prev.map(p => 
@@ -544,7 +551,21 @@ console.log('🔍 Response:', response);
         )
       );
     } else {
-      setSelectedProducts(prev => [...prev, { productId: product.id, quantity: 1 }]);
+      // Fetch adicionais para este produto
+      try {
+        const response = await fetch(`/api/products/${product.id}/adicionais`);
+        if (response.ok) {
+          const result = await response.json();
+          setProductAdicionais(prev => ({
+            ...prev,
+            [product.id]: result.data || []
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching adicionais:', error);
+      }
+      
+      setSelectedProducts(prev => [...prev, { productId: product.id, quantity: 1, notes: '', adicionaisIds: [] }]);
     }
   };
 
@@ -612,188 +633,16 @@ console.log('🔍 Response:', response);
     }
   };
 
-  // Função para imprimir pedido (Impressora Térmica 58mm)
-  const printOrder = (order: Order) => {
-    const printWindow = window.open('', '_blank', 'width=220,height=600');
-    if (!printWindow) {
-      alert('Por favor, permita pop-ups para impressão');
-      return;
-    }
-
-    const currentDate = new Date();
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Pedido #${order.id.slice(-8)}</title>
-          <style>
-            @page {
-              size: 58mm auto;
-              margin: 2mm;
-            }
-            
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
-            body {
-              font-family: 'Courier New', monospace;
-              font-size: 10px;
-              line-height: 1.3;
-              width: 54mm;
-              padding: 2mm;
-              background: white;
-            }
-            
-            .header {
-              text-align: center;
-              border-bottom: 1px dashed #000;
-              padding-bottom: 4px;
-              margin-bottom: 4px;
-            }
-            
-            .restaurant-name {
-              font-weight: bold;
-              font-size: 14px;
-              margin-bottom: 2px;
-            }
-            
-            .order-id {
-              font-size: 11px;
-              font-weight: bold;
-              margin-bottom: 2px;
-            }
-            
-            .info-line {
-              font-size: 9px;
-              margin-bottom: 1px;
-            }
-            
-            .section {
-              border-bottom: 1px dashed #000;
-              padding: 4px 0;
-              margin-bottom: 4px;
-            }
-            
-            .item {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 2px;
-              font-size: 9px;
-            }
-            
-            .item-name {
-              flex: 1;
-              padding-right: 4px;
-            }
-            
-            .item-qty {
-              font-weight: bold;
-              margin-right: 4px;
-            }
-            
-            .item-price {
-              font-weight: bold;
-              white-space: nowrap;
-            }
-            
-            .total {
-              text-align: center;
-              font-weight: bold;
-              font-size: 14px;
-              padding: 4px 0;
-              border-top: 1px dashed #000;
-              border-bottom: 1px dashed #000;
-              margin: 4px 0;
-            }
-            
-            .footer {
-              text-align: center;
-              margin-top: 6px;
-              font-size: 8px;
-            }
-            
-            .bold {
-              font-weight: bold;
-            }
-            
-            .center {
-              text-align: center;
-            }
-            
-            @media print {
-              body {
-                width: 58mm;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="restaurant-name">LANCHONETE</div>
-            <div class="order-id">Pedido #${order.id.slice(-8)}</div>
-            <div class="info-line">${currentDate.toLocaleString('pt-BR')}</div>
-          </div>
-          
-          <div class="section">
-            <div class="info-line"><span class="bold">Cliente: </span> ${order.user?.name || 'N/A'}</div>
-            ${order.table 
-              ? `<div class="info-line"><span class="bold">Mesa:</span> ${order.table.number}</div>` 
-              : `<div class="info-line"><span class="bold">Balcão:</span> ${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>`
-            }
-            <div class="info-line"><span class="bold">Status:</span> ${getStatusLabel(order.status)}</div>
-          </div>
-          
-          <div class="section">
-            <div class="bold center" style="margin-bottom: 3px; font-size: 10px;">ITENS DO PEDIDO</div>
-            ${order.items.map(item => `
-              <div class="item">
-                <span class="item-name">
-                  <span class="item-qty">${item.quantity}x</span>${item.product?.name || 'Produto'}
-                </span>
-                <p className="text-xs text-gray-500">${item.notes ? `(${item.notes})` : ''}</p>
-                <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
-              </div>
-            `).join('')}
-          </div>
-          
-          <div class="total">
-            TOTAL: ${formatCurrency(order.total)}
-          </div>
-          
-          ${order.isPaid ? `
-            <div class="section center">
-              <div class="bold" style="font-size: 10px;">PAGO</div>
-              <div class="info-line">Método: ${order.paymentMethod}</div>
-              ${order.paymentProcessedAt ? `<div class="info-line">${new Date(order.paymentProcessedAt).toLocaleString('pt-BR')}</div>` : ''}
-            </div>
-          ` : ''}
-          
-          <div class="footer">
-            <div>Obrigado pela preferência!</div>
-            <div style="margin-top: 2px;">Sistema Lanchonete v1.0</div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    // Aguardar carregamento e imprimir
-    setTimeout(() => {
-    printWindow.print();
-    }, 500);
+  // Função para imprimir pedido usando utilitário compartilhado
+  const printOrder = async (order: Order) => {
+    await printOrderUtil(order);
   };
 
   return (
     <ProtectedRoute requiredRole={UserRole.STAFF}>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
         {/* Indicador de Pedidos Pendentes */}
-        <PendingOrdersIndicator showDetails={true} />
+      
         <StaffHeader></StaffHeader>        
         <div className="max-w-8xl mx-auto px-4 sm:px-5 lg:px-5 py-8">
           {/* Header Moderno */}
@@ -842,12 +691,14 @@ console.log('🔍 Response:', response);
               icon={<ShoppingCart />}
               color="orange"
             />
+            {/* Estatísticas por status 
             <StatsCard
               title="Confirmado"
               value={stats.confirmado.toString()}
               icon={<CheckCircle />}
               color="blue"
             />
+            */}
             <StatsCard
               title="Preparando"
               value={stats.preparando.toString()}
@@ -896,6 +747,7 @@ console.log('🔍 Response:', response);
                   >
                     📋 Todos
                   </Button>
+                  {/*
                   <Button
                     size="sm"
                     variant={selectedStatus === OrderStatus.CONFIRMADO ? 'primary' : 'outline'}
@@ -904,6 +756,7 @@ console.log('🔍 Response:', response);
                   >
                     ✅ Confirmados
                   </Button>
+                  */}
                   <Button
                     size="sm"
                     variant={selectedStatus === OrderStatus.PREPARANDO ? 'primary' : 'outline'}
@@ -1032,6 +885,7 @@ console.log('🔍 Response:', response);
                     <div className="space-y-4 from-gray-50 to-purple-50">
                       {/* Itens do Pedido */}
                       <div>
+                      
                         <h4 className="font-semibold text-gray-900 mb-3 flex items-center text-sm sm:text-base">
                           <Package className="h-4 w-4 mr-2 text-blue-600" />
                           Itens do Pedido
@@ -1044,11 +898,14 @@ console.log('🔍 Response:', response);
                                   {item.quantity}
                                 </span>
                                 <span className="font-medium text-gray-900 text-sm sm:text-base">{item.product?.name || 'Produto'}</span>
-                                  <p className="text-xs text-gray-500">{item.notes}</p>
-                              </div>
+                                                                 </div>
                               <span className="font-bold text-blue-600 text-sm sm:text-base">{formatCurrency(item.price * item.quantity)}</span>
+                              <p className="text-xs text-gray-500">{item.notes}</p>
                             </div>
-                          ))}
+                          ))
+                          
+                          }
+                          
                           {(order.items?.length ?? 0) > 3 && (
                             <p className="text-xs text-gray-500 text-center">
                               +{(order.items?.length ?? 0) - 3} item(ns) adicional(is)
@@ -1065,7 +922,8 @@ console.log('🔍 Response:', response);
                             {/* Botões de Status - apenas para pedidos não finalizados */}
                             {order.status !== OrderStatus.FINALIZADO && (
                               <>
-                                {order.status === OrderStatus.CONFIRMADO && (
+                                {
+                                order.status === OrderStatus.CONFIRMADO && (
                                   <Button
                                     size="sm"
                                     onClick={() => updateOrderStatus(order.id, OrderStatus.PREPARANDO)}
@@ -1112,11 +970,12 @@ console.log('🔍 Response:', response);
                                 <Plus className="h-4 w-4 mr-1 sm:mr-2" />
                                 <span className="hidden sm:inline">Adicionar Produtos</span>
                                 <span className="sm:hidden">Adicionar</span>
+                             
                               </Button>
                             )}
                             
                             {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
-                            {order.status !== OrderStatus.FINALIZADO ||  !order.isPaid && (
+                            {order.status !== OrderStatus.FINALIZADO ||  !order.isPaid && order.isActive && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1128,9 +987,13 @@ console.log('🔍 Response:', response);
                                 <span className="sm:hidden">Receber</span>
                               </Button>
                             )}
-                            
-                            {/* Botão Liberar Mesa - para pedidos pagos de mesa */}
-                            {order.table && order.isPaid && (
+                                                                                 
+                          </>
+                        )}
+                        
+                               {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
+
+                            {order.table?.status === TableStatus.OCUPADA && order.isPaid && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1138,27 +1001,13 @@ console.log('🔍 Response:', response);
                                 onClick={() => openClearTableModal(order)}
                               >
                                 <CheckCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Liberar Mesa após Receber</span>
+                                <span className="hidden sm:inline">Libera Mesa após Receber</span>
                                 <span className="sm:hidden">Liberar</span>
                               </Button>
                             )}
-                            
-                            {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados }
-                            {order.table && (order.status === OrderStatus.FINALIZADO || !order.isPaid) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 col-span-2 sm:col-span-1 font-semibold"
-                                onClick={() => openClearTableModal(order)}
-                              >
-                                <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Limpar Mesa</span>
-                                <span className="sm:hidden">Limpar</span>
-                              </Button>
-                            )*/}
-                          </>
-                        )}
-                        
+
+                                              
+                  
                         {/* Botões sempre visíveis - Imprimir */}
                         <Button
                           size="sm"
@@ -1169,6 +1018,9 @@ console.log('🔍 Response:', response);
                           <span className="hidden sm:inline">Imprimir</span>
                           <span className="sm:hidden">🖨️</span>
                         </Button>
+
+                        {/* Botão Ver Detalhes - Elegante e Destacado */}
+                        <OrderDetailsButton order={order} />
                       </div>
                 </div>
               </CardContent>
@@ -1216,7 +1068,7 @@ console.log('🔍 Response:', response);
               <div className="space-y-6">
                 {/* Total do Pedido */}
                 <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border-2 border-blue-200">
-              <div className="text-center">
+                  <div className="text-center">
                     <p className="text-lg font-semibold text-blue-800 mb-2">Total do Pedido</p>
                     <p className="text-4xl font-bold text-blue-900">
                       {formatCurrency(paymentSession?.originalTotal || 0)}
@@ -1226,8 +1078,63 @@ console.log('🔍 Response:', response);
                         Valor a pagar: {formatCurrency(paymentSession.currentTotal)}
                       </p>
                     )}
+                  </div>
                 </div>
-                </div>
+                {selectedOrder.items && selectedOrder.items.length > 0 && (
+                  <div className="bg-white p-6 rounded-xl border-2 border-gray-200">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-3">Itens do Pedido</h3>
+                    <div className="space-y-3">
+                      {selectedOrder.items.map((item) => {
+                        let parsedCustomizations: any[] = [];
+                        if (item.customizations) {
+                          try {
+                            const parsed = JSON.parse(item.customizations);
+                            if (Array.isArray(parsed)) parsedCustomizations = parsed;
+                          } catch {}
+                        }
+                        return (
+                          <div key={item.id} className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <p className="font-medium text-gray-900">
+                                  {item.quantity}x {item.product?.name || 'Produto'}
+                                </p>
+                                <p className="text-xs text-gray-600">
+                                  {formatCurrency(item.price)} cada
+                                </p>
+                              </div>
+                              <div className="text-sm font-bold text-gray-900">
+                                {formatCurrency(item.price * item.quantity)}
+                              </div>
+                            </div>
+                            {parsedCustomizations.length > 0 && (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {parsedCustomizations.map((c, idx) => (
+                                  <span
+                                    key={idx}
+                                    className="px-2 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded"
+                                  >
+                                    {typeof c === 'string' ? c : (c?.name ?? JSON.stringify(c))}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                            {!parsedCustomizations.length && item.customizations && (
+                              <div className="mt-2 text-xs text-gray-700">
+                                {item.customizations}
+                              </div>
+                            )}
+                            {item.notes && (
+                              <div className="mt-2 text-xs text-gray-700">
+                                Obs: {item.notes}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
                 
                 {/* Input de Valor */}
                 <div className="space-y-4">
@@ -1583,43 +1490,98 @@ console.log('🔍 Response:', response);
                 {selectedProducts.length > 0 && (
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">Produtos Selecionados</h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
                       {selectedProducts.map((selectedProduct) => {
                         const product = products.find(p => p.id === selectedProduct.productId);
                         if (!product) return null;
+                        const adicionais = productAdicionais[selectedProduct.productId] || [];
                         
                         return (
-                          <div key={selectedProduct.productId} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="flex-1">
-                              <h6 className="font-medium text-gray-900 text-sm">{product.name}</h6>
-                              <p className="text-xs text-gray-600">{formatCurrency(product.price)} cada</p>
+                          <div key={selectedProduct.productId} className="flex flex-col p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h6 className="font-medium text-gray-900 text-sm">{product.name}</h6>
+                                <p className="text-xs text-gray-600">{formatCurrency(product.price)} cada</p>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity - 1)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center font-medium text-sm">{selectedProduct.quantity}</span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity + 1)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  +
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeProductFromSelection(selectedProduct.productId)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 w-8 h-8 p-0"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity - 1)}
-                                className="w-8 h-8 p-0"
-                              >
-                                -
-                              </Button>
-                              <span className="w-8 text-center font-medium">{selectedProduct.quantity}</span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity + 1)}
-                                className="w-8 h-8 p-0"
-                              >
-                                +
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeProductFromSelection(selectedProduct.productId)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                            
+                            {/* Adicionais disponíveis */}
+                            {adicionais.length > 0 && (
+                              <div className="pl-0 pt-2 border-t border-blue-200">
+                                <p className="text-xs font-medium text-gray-700 mb-2">Adicionais:</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {adicionais.map((adicional) => {
+                                    const isChecked = selectedProduct.adicionaisIds?.includes(adicional.id) || false;
+                                    return (
+                                      <label key={adicional.id} className="flex items-center space-x-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={(e) => {
+                                            const val = e.target.checked;
+                                            setSelectedProducts(prev => prev.map(p => 
+                                              p.productId === selectedProduct.productId 
+                                                ? {
+                                                    ...p,
+                                                    adicionaisIds: val 
+                                                      ? [...new Set([...(p.adicionaisIds || []), adicional.id])]
+                                                      : (p.adicionaisIds || []).filter(id => id !== adicional.id)
+                                                  }
+                                                : p
+                                            ));
+                                          }}
+                                          className="w-4 h-4 rounded"
+                                        />
+                                        <span className="text-xs text-gray-700">
+                                          {adicional.name}
+                                          {adicional.price > 0 && ` (+${formatCurrency(adicional.price)})`}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Campo de observações */}
+                            <div className="pt-2 border-t border-blue-200">
+                              <input
+                                type="text"
+                                placeholder="Observações (ex.: sem cebola, extra picante)"
+                                value={selectedProduct.notes || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setSelectedProducts(prev => prev.map(p => p.productId === selectedProduct.productId ? { ...p, notes: val } : p));
+                                }}
+                                className="w-full text-sm p-2 border border-gray-200 rounded-md focus:ring-2 focus:ring-blue-400"
+                              />
                             </div>
                           </div>
                         );

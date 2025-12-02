@@ -13,6 +13,19 @@ interface ApiOptions {
   onError?: (error: Error) => void;
 }
 
+/**
+ * useApi
+ *
+ * Hook de GET com suporte a:
+ *  - autenticação via useApiAuth
+ *  - cancelamento (AbortController) e tratamento silencioso de AbortError
+ *  - deduplicação de auto-fetch em desenvolvimento (Strict Mode)
+ *  - callbacks onSuccess/onError
+ *
+ * @param url URL base da requisição
+ * @param options Controle de execução imediata e callbacks
+ * @returns Estado reativo (data, loading, error), execute(url, options) e reset()
+ */
 export const useApi = <T = any>(
   url: string,
   options: ApiOptions = {}
@@ -22,8 +35,8 @@ export const useApi = <T = any>(
   // Janela curta para deduplicar auto-fetch em desenvolvimento (React Strict Mode)
   // Evita que o useEffect dispare duas vezes em dev, causando requisições duplicadas
   const AUTO_FETCH_DEDUPE_WINDOW_MS = 1500;
-  const lastAutoFetchTsMap: Map<string, number> = (globalThis as any).__lastAutoFetchTsMap__ || new Map();
-  (globalThis as any).__lastAutoFetchTsMap__ = lastAutoFetchTsMap;
+  const lastAutoFetchRef = useRef<Map<string, number>>((globalThis as any).__lastAutoFetchTsMap__ || new Map());
+  (globalThis as any).__lastAutoFetchTsMap__ = lastAutoFetchRef.current;
   const [state, setState] = useState<ApiState<T>>({
     data: null,
     loading: false,
@@ -60,7 +73,55 @@ export const useApi = <T = any>(
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
+      // Tentar parsear JSON com proteção: lidar com corpo vazio e content-type
+      let data: any = null;
+      try {
+        const contentType = response.headers.get('content-type') || '';
+        const isJsonContent = contentType.indexOf('application/json') !== -1;
+        const isEmptyResponse = response.status === 204 || response.status === 205;
+        
+        if (isEmptyResponse) {
+          // Resposta vazia (No Content)
+          data = null;
+        } else if (!isJsonContent) {
+          // Não é JSON: tentar ler como texto
+          const text = await response.text();
+          if (text && text.trim().length > 0) {
+            try {
+              // Tentar parsear como JSON mesmo sem content-type correto
+              data = JSON.parse(text);
+            } catch {
+              // Se não for JSON válido, retornar como texto
+              data = text;
+            }
+          } else {
+            data = null;
+          }
+        } else {
+          // É JSON: fazer parse normalmente
+          const text = await response.text();
+          if (text && text.trim().length > 0) {
+            try {
+              data = JSON.parse(text);
+            } catch (parseError) {
+              console.error('Erro ao fazer parse do JSON:', parseError);
+              console.error('Conteúdo recebido:', text.substring(0, 200));
+              // Tentar retornar como texto se o parse falhar
+              data = text;
+            }
+          } else {
+            data = null;
+          }
+        }
+      } catch (parseErr) {
+        console.error('Falha ao processar resposta da API:', parseErr);
+        console.error('URL:', requestUrl);
+        console.error('Status:', response.status);
+        console.error('Content-Type:', response.headers.get('content-type'));
+        
+        // Não lançar erro fatal, apenas retornar null
+        data = null;
+      }
       
       setState({
         data,
@@ -115,13 +176,13 @@ export const useApi = <T = any>(
       try {
         const key = `${url}|${token ? 'auth' : 'guest'}`;
         const now = Date.now();
-        const lastTs = lastAutoFetchTsMap.get(key) ?? 0;
+        const lastTs = lastAutoFetchRef.current.get(key) ?? 0;
 
         if (now - lastTs < AUTO_FETCH_DEDUPE_WINDOW_MS) {
           return; // pular auto-fetch duplicado
         }
 
-        lastAutoFetchTsMap.set(key, now);
+        lastAutoFetchRef.current.set(key, now);
       } catch {}
 
       execute();
@@ -137,6 +198,16 @@ export const useApi = <T = any>(
 
 /**
  * Hook para operações POST/PUT/DELETE
+ */
+/**
+ * useApiMutation
+ *
+ * Hook para operações de escrita (POST/PUT/DELETE). Utiliza o token de
+ * autenticação quando disponível e retorna estado reativo, além da função
+ * mutate(data, method) para executar a mutação.
+ *
+ * @param url Endpoint de destino
+ * @returns Estado reativo (data, loading, error), mutate() e reset()
  */
 export const useApiMutation = <T = any>(url: string) => {
   const { token } = useApiAuth();

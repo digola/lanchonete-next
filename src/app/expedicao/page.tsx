@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
@@ -13,7 +13,7 @@ import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrde
 import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
 import { UnpaidOrdersAlert } from '@/components/UnpaidOrdersAlert';
 import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
-import { UserRole, Order, OrderStatus, Table } from '@/types';
+import { UserRole, Order, OrderStatus, Table, TableStatus } from '@/types';
 import { 
   Package, 
   Clock,
@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
+import { table } from 'console';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -105,7 +106,7 @@ export default function ExpedicaoPage() {
     pagination: any 
   }>('/api/orders?includeItems=true&includeUser=true&includeTable=true');
 
-  const orders = ordersResponse?.data || [];
+  const orders = useMemo(() => ordersResponse?.data || [], [ordersResponse?.data]);
   
   // Debug: verificar dados dos pedidos
   useEffect(() => {
@@ -426,9 +427,10 @@ export default function ExpedicaoPage() {
   };
 
   // Estados para modal de adicionar produtos
-  const [selectedProducts, setSelectedProducts] = useState<{productId: string, quantity: number}[]>([]);
+  const [selectedProducts, setSelectedProducts] = useState<{productId: string, quantity: number, notes?: string, adicionaisIds?: string[]}[]>([]);
   const [productSearch, setProductSearch] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('');
+  const [productAdicionais, setProductAdicionais] = useState<{[productId: string]: any[]}>({});
 
   // Buscar produtos e categorias (apenas quando necessário)
   const { data: productsResponse, loading: productsLoading, execute: fetchProducts } = useApi<{
@@ -472,6 +474,7 @@ export default function ExpedicaoPage() {
     setSelectedProducts([]);
     setProductSearch('');
     setSelectedCategoryFilter('');
+    setProductAdicionais({});
   };
 
   // Funções para adicionar produtos
@@ -507,8 +510,9 @@ export default function ExpedicaoPage() {
     }
   };
 
-  const addProductToSelection = (product: any) => {
+  const addProductToSelection = async (product: any) => {
     const existing = selectedProducts.find(p => p.productId === product.id);
+    
     if (existing) {
       setSelectedProducts(prev => 
         prev.map(p => 
@@ -518,7 +522,21 @@ export default function ExpedicaoPage() {
         )
       );
     } else {
-      setSelectedProducts(prev => [...prev, { productId: product.id, quantity: 1 }]);
+      // Fetch adicionais para este produto
+      try {
+        const response = await fetch(`/api/products/${product.id}/adicionais`);
+        if (response.ok) {
+          const result = await response.json();
+          setProductAdicionais(prev => ({
+            ...prev,
+            [product.id]: result.data || []
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching adicionais:', error);
+      }
+      
+      setSelectedProducts(prev => [...prev, { productId: product.id, quantity: 1, notes: '', adicionaisIds: [] }]);
     }
   };
 
@@ -714,6 +732,7 @@ export default function ExpedicaoPage() {
           
           <div class="section">
             <div class="info-line"><span class="bold">Cliente: </span> ${order.user?.name || 'N/A'}</div>
+           
             ${order.table 
               ? `<div class="info-line"><span class="bold">Mesa:</span> ${order.table.number}</div>` 
               : `<div class="info-line"><span class="bold">Balcão:</span> ${new Date(order.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</div>`
@@ -727,8 +746,11 @@ export default function ExpedicaoPage() {
               <div class="item">
                 <span class="item-name">
                   <span class="item-qty">${item.quantity}x</span>${item.product?.name || 'Produto'}
+                  <p className="text-xs text-gray-500">${item.notes ? `(${item.notes})` : ''}</p>
                 </span>
+              
                 <span class="item-price">${formatCurrency(item.price * item.quantity)}</span>
+                 
               </div>
             `).join('')}
           </div>
@@ -1030,6 +1052,7 @@ export default function ExpedicaoPage() {
                                   {item.quantity}
                                 </span>
                                 <span className="font-medium text-gray-900 text-sm sm:text-base">{item.product?.name || 'Produto'}</span>
+                                <p className="text-xs text-gray-500">{item.notes}</p>
                               </div>
                               <span className="font-bold text-blue-600 text-sm sm:text-base">{formatCurrency(item.price * item.quantity)}</span>
                             </div>
@@ -1102,9 +1125,9 @@ export default function ExpedicaoPage() {
                                 <span className="sm:hidden">Receber</span>
                               </Button>
                             )}
-                            
+                          
                             {/* Botão Liberar Mesa - para pedidos pagos de mesa */}
-                            {order.isPaid && order.table && order.status !== OrderStatus.FINALIZADO && (
+                            {order.status === OrderStatus.FINALIZADO && order.isPaid && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1117,21 +1140,10 @@ export default function ExpedicaoPage() {
                               </Button>
                             )}
                             
-                            {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
-                            {order.table && (order.status === OrderStatus.ENTREGUE || order.status === OrderStatus.FINALIZADO) && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => openClearTableModal(order)}
-                                className="col-span-2 sm:col-span-1"
-                              >
-                                <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Limpar Mesa</span>
-                                <span className="sm:hidden">Limpar</span>
-                              </Button>
-                            )}
+                           
                           </>
                         )}
+                      
                         
                         {/* Botões sempre visíveis - Imprimir */}
                         <Button
@@ -1143,6 +1155,19 @@ export default function ExpedicaoPage() {
                           <span className="hidden sm:inline">Imprimir</span>
                           <span className="sm:hidden">🖨️</span>
                         </Button>
+                         {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
+                            {order.table && order.status === OrderStatus.ENTREGUE &&  order.table.status === TableStatus.OCUPADA && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => openClearTableModal(order)}
+                                className="whitespace-nowrap text-red-600 border-red-300 hover:bg-red-100 col-span-2 sm:col-span-1 font-semibold"
+                              >
+                                <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
+                                <span className="hidden sm:inline">Limpar Mesa1</span>
+                                <span className="sm:hidden">Limpar</span>
+                              </Button>
+                            )}
                       </div>
                 </div>
               </CardContent>
@@ -1557,43 +1582,92 @@ export default function ExpedicaoPage() {
                 {selectedProducts.length > 0 && (
                   <div>
                     <h4 className="font-semibold text-gray-900 mb-3">Produtos Selecionados</h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <div className="space-y-2 max-h-96 overflow-y-auto">
                       {selectedProducts.map((selectedProduct) => {
                         const product = products.find(p => p.id === selectedProduct.productId);
                         if (!product) return null;
+                        const adicionais = productAdicionais[selectedProduct.productId] || [];
                         
                         return (
-                          <div key={selectedProduct.productId} className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="flex-1">
-                              <h6 className="font-medium text-gray-900 text-sm">{product.name}</h6>
-                              <p className="text-xs text-gray-600">{formatCurrency(product.price)} cada</p>
+                          <div key={selectedProduct.productId} className="flex flex-col p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <h6 className="font-medium text-gray-900 text-sm">{product.name}</h6>
+                                <p className="text-xs text-gray-600">{formatCurrency(product.price)} cada</p>
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity - 1)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  -
+                                </Button>
+                                <span className="w-8 text-center font-medium text-sm">{selectedProduct.quantity}</span>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity + 1)}
+                                  className="w-8 h-8 p-0"
+                                >
+                                  +
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => removeProductFromSelection(selectedProduct.productId)}
+                                  className="text-red-600 hover:text-red-700 hover:bg-red-50 w-8 h-8 p-0"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex items-center space-x-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity - 1)}
-                                className="w-8 h-8 p-0"
-                              >
-                                -
-                              </Button>
-                              <span className="w-8 text-center font-medium">{selectedProduct.quantity}</span>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => updateProductQuantity(selectedProduct.productId, selectedProduct.quantity + 1)}
-                                className="w-8 h-8 p-0"
-                              >
-                                +
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => removeProductFromSelection(selectedProduct.productId)}
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
+                            
+                            {/* Adicionais disponíveis */}
+                            {adicionais.length > 0 && (
+                              <div className="pl-0 pt-2 border-t border-blue-200">
+                                <p className="text-xs font-medium text-gray-700 mb-2">Adicionais:</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  {adicionais.map((adicional) => (
+                                    <label key={adicional.id} className="flex items-center space-x-2 cursor-pointer">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedProduct.adicionaisIds?.includes(adicional.id) || false}
+                                        onChange={(e) => {
+                                          const val = e.target.checked;
+                                          setSelectedProducts(prev => prev.map(p => 
+                                            p.productId === selectedProduct.productId 
+                                              ? {
+                                                  ...p,
+                                                  adicionaisIds: val 
+                                                    ? [...(p.adicionaisIds || []), adicional.id]
+                                                    : (p.adicionaisIds || []).filter(id => id !== adicional.id)
+                                                }
+                                              : p
+                                          ));
+                                        }}
+                                        className="w-4 h-4 rounded"
+                                      />
+                                      <span className="text-xs text-gray-700">
+                                        {adicional.name}
+                                        {adicional.price > 0 && ` (+${formatCurrency(adicional.price)})`}
+                                      </span>
+                                    </label>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Campo de observações */}
+                            <div className="pt-2 border-t border-blue-200">
+                              <textarea
+                                placeholder="Observações (ex.: sem cebola, extra picante)"
+                                value={selectedProduct.notes || ''}
+                                onChange={(e) => setSelectedProducts(prev => prev.map(p => p.productId === selectedProduct.productId ? { ...p, notes: e.target.value } : p))}
+                                className="w-full p-2 border border-gray-200 rounded-md text-sm resize-none"
+                                rows={2}
+                              />
                             </div>
                           </div>
                         );

@@ -14,13 +14,37 @@ const initialCartState: CartState = {
   totalPrice: 0,
   isLoading: false,
   error: null,
+  tableId: null,
+  tableNumber: null,
 };
 
+/**
+ * useCart
+ *
+ * Hook para gerenciamento de carrinho com persistência em localStorage,
+ * debounce ao salvar, limpeza automática em mudança de usuário e
+ * utilitários para consulta e formatação.
+ *
+ * Ações: addItem, removeItem, updateQuantity, clearCart, clearCartOnLogout,
+ * reloadCartFromStorage, isInCart, getItemQuantity, formatTotalPrice.
+ *
+ * @returns Estado do carrinho e ações utilitárias.
+ */
 export const useCart = () => {
   const [state, dispatch] = useReducer(cartReducer, initialCartState);
   const { isAuthenticated, user, logout } = useApiAuth();
   const previousUserIdRef = useRef<string | null>(null);
   const isInitializedRef = useRef<boolean>(false);
+  // Identificador único da instância do hook para evitar loops de sincronização
+  const instanceIdRef = useRef<string>(Math.random().toString(36).slice(2));
+
+  // Emite evento customizado para sincronizar outras instâncias do hook no mesmo tab
+  const emitCartUpdated = useCallback((payload: { sourceId: string; items: CartItem[]; totalItems: number; totalPrice: number; tableId?: string | null; tableNumber?: number | null }) => {
+    try {
+      const event = new CustomEvent('cart:updated', { detail: payload });
+      window.dispatchEvent(event);
+    } catch {}
+  }, []);
 
   // Carregar carrinho do localStorage na inicialização
   useEffect(() => {
@@ -41,6 +65,10 @@ export const useCart = () => {
                 addedAt: new Date(item.addedAt),
               }));
               dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
+              // Carregar associação de mesa, se existir
+              if ('tableId' in cartData || 'tableNumber' in cartData) {
+                dispatch({ type: 'SET_TABLE', payload: { tableId: cartData.tableId ?? null, tableNumber: cartData.tableNumber ?? null } });
+              }
               isInitializedRef.current = true;
             } else {
               isInitializedRef.current = true;
@@ -90,6 +118,15 @@ export const useCart = () => {
         // Só salvar se já foi inicializado e não for o estado inicial vazio
         if (isInitializedRef.current && (state.items.length > 0 || state.totalItems > 0 || state.totalPrice > 0)) {
           localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(state));
+          // Emitir evento para que outras instâncias atualizem imediatamente
+          emitCartUpdated({
+            sourceId: instanceIdRef.current,
+            items: state.items,
+            totalItems: state.totalItems,
+            totalPrice: state.totalPrice,
+            tableId: state.tableId ?? null,
+            tableNumber: state.tableNumber ?? null,
+          });
         }
       } catch (error) {
         console.error('❌ Erro ao salvar carrinho:', error);
@@ -100,17 +137,63 @@ export const useCart = () => {
     const timeoutId = setTimeout(saveToStorage, 300);
     
     return () => clearTimeout(timeoutId);
-  }, [state]);
+  }, [state, emitCartUpdated]);
 
-  // Adicionar item ao carrinho
-  const addItem = useCallback((product: Product, quantity: number = 1) => {
+  // Ouvir eventos de atualização do carrinho e sincronizar estado local
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { sourceId: string; items: any[]; tableId?: string | null; tableNumber?: number | null } | undefined;
+      if (!detail) return;
+      // Ignorar eventos desta própria instância
+      if (detail.sourceId === instanceIdRef.current) return;
+      try {
+        const itemsWithDates = (detail.items || []).map((item: any) => ({
+          ...item,
+          addedAt: new Date(item.addedAt),
+        }));
+        dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
+        // Sincronizar associação de mesa
+        if ('tableId' in detail || 'tableNumber' in detail) {
+          dispatch({ type: 'SET_TABLE', payload: { tableId: detail.tableId ?? null, tableNumber: detail.tableNumber ?? null } });
+        }
+      } catch (err) {
+        // fallback: recarregar do storage
+        try {
+          const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+          if (savedCart) {
+            const cartData = JSON.parse(savedCart);
+            const itemsWithDates = (cartData.items || []).map((item: any) => ({
+              ...item,
+              addedAt: new Date(item.addedAt),
+            }));
+            dispatch({ type: 'LOAD_CART', payload: itemsWithDates });
+            if ('tableId' in cartData || 'tableNumber' in cartData) {
+              dispatch({ type: 'SET_TABLE', payload: { tableId: cartData.tableId ?? null, tableNumber: cartData.tableNumber ?? null } });
+            }
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('cart:updated', handler as EventListener);
+    return () => window.removeEventListener('cart:updated', handler as EventListener);
+  }, []);
+
+  // Adicionar item ao carrinho (suporta observações)
+  const addItem = useCallback((product: Product, quantity: number = 1, notes?: string, customizations?: Record<string, any>) => {
 
     if (!product.isAvailable) {
       dispatch({ type: 'SET_ERROR', payload: 'Produto indisponível' });
       return;
     }
 
-    dispatch({ type: 'ADD_ITEM', payload: { product, quantity } });
+    const payload: { product: Product; quantity?: number; notes?: string; customizations?: Record<string, any> } = { product, quantity };
+    if (notes !== undefined) {
+      payload.notes = notes;
+    }
+    if (customizations !== undefined) {
+      payload.customizations = customizations;
+    }
+    dispatch({ type: 'ADD_ITEM', payload });
   }, []);
 
   // Remover item do carrinho
@@ -133,6 +216,11 @@ export const useCart = () => {
   const clearCartOnLogout = useCallback(() => {
     dispatch({ type: 'CLEAR_CART' });
     localStorage.removeItem(CART_STORAGE_KEY);
+  }, []);
+
+  // Definir associação de mesa ao carrinho
+  const setCartTable = useCallback((tableId?: string | null, tableNumber?: number | null) => {
+    dispatch({ type: 'SET_TABLE', payload: { tableId: tableId ?? null, tableNumber: tableNumber ?? null } });
   }, []);
 
   // Forçar recarregamento do carrinho do localStorage
@@ -181,6 +269,8 @@ export const useCart = () => {
     isLoading: state.isLoading,
     error: state.error,
     isEmpty: state.items.length === 0,
+    tableId: state.tableId ?? null,
+    tableNumber: state.tableNumber ?? null,
     
     // Ações
     addItem,
@@ -188,6 +278,7 @@ export const useCart = () => {
     updateQuantity,
     clearCart,
     clearCartOnLogout,
+    setCartTable,
     reloadCartFromStorage,
     isInCart,
     getItemQuantity,

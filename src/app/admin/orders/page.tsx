@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
@@ -81,12 +81,12 @@ export default function AdminOrdersPage() {
     pagination: any 
   }>(buildApiUrl());
 
-  const orders = ordersResponse?.data || [];
+  const orders = useMemo(() => ordersResponse?.data || [], [ordersResponse?.data]);
 
   // Atualizar URL quando filtros mudarem
   useEffect(() => {
     refetchOrders();
-  }, [searchTerm, statusFilter, dateFilter, sortBy, sortOrder]);
+  }, [searchTerm, statusFilter, dateFilter, sortBy, sortOrder, refetchOrders]);
 
   // Retorna o ícone visual correspondente ao status do pedido
   const getStatusIcon = (status: OrderStatus) => {
@@ -514,7 +514,7 @@ export default function AdminOrdersPage() {
                                 className="flex items-center"
                               >
                                 <Eye className="h-4 w-4 mr-1" />
-                                Ver
+                                <span>Detalhes ({order.table ? `Mesa ${order.table.number}` : 'Balcão'})</span>
                               </Button>
                             </div>
                           </div>
@@ -688,7 +688,7 @@ export default function AdminOrdersPage() {
                           className="flex items-center"
                         >
                           <Eye className="h-4 w-4 mr-1" />
-                          Ver
+                          <span>Detalhes ({order.table ? `Mesa ${order.table.number}` : 'Balcão'})</span>
                         </Button>
                       </div>
                     </div>

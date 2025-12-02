@@ -76,6 +76,7 @@ export const ProtectedRoute = ({
     isLoading,
     user,
     requiredRole,
+    requiredRoles,
     requiredPermission,
     hasMinimumRole,
     hasPermission,
