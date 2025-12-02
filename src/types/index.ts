@@ -139,19 +139,6 @@ export interface Table {
   updatedAt: Date;
 }
 
-export interface StockMovement {
-  id: string;
-  productId: string;
-  product?: Product;
-  type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
-  quantity: number;
-  reason: string;
-  reference?: string;
-  userId?: string;
-  user?: User;
-  notes?: string;
-  createdAt: Date;
-}
 
 export interface SystemSettings {
   id: string;

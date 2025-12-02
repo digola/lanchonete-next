@@ -1,15 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasMinimumRole } from '@/lib/auth';
 import { UserRole } from '@/types';
+
+interface RouteParams {
+  params: { id: string };
+}
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const { id: orderId } = await params;
+    const { id: orderId } = params;
     console.log('aqui');
     if (!orderId) {
       return NextResponse.json(
@@ -35,8 +39,8 @@ export async function PUT(
       );
     }
 
-    // Verificar permissão (staff, admins, managers ou o próprio cliente para seus pedidos)
-    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN && decoded.role !== UserRole.MANAGER) {
+    // Verificar permissão (permitir STAFF ou superior; caso contrário, somente o dono do pedido)
+    if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
       // Se for cliente, verificar se é o dono do pedido
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -84,7 +88,7 @@ export async function PUT(
     // Verificar se o pedido está em status que permite adicionar itens
     // STAFF e MANAGER podem adicionar em qualquer status ativo
     // CUSTOMER só pode adicionar em PENDENTE ou CONFIRMADO
-    const isStaffOrManager = decoded.role === UserRole.STAFF || decoded.role === UserRole.ADMIN || decoded.role === UserRole.MANAGER;
+    const isStaffOrManager = hasMinimumRole(decoded.role as UserRole, UserRole.STAFF);
     
     if (isStaffOrManager) {
       // Staff e Manager podem adicionar itens em qualquer status, exceto ENTREGUE e CANCELADO
@@ -122,18 +126,48 @@ export async function PUT(
       );
     }
 
-    // Adicionar os itens ao pedido
-    const orderItems = items.map((item: any) => ({
-      orderId,
-      productId: item.productId,
-      quantity: item.quantity || 1,
-      price: products.find(p => p.id === item.productId)?.price || 0,
-      notes: item.notes || null
-    }));
-    console.log(orderItems +"aqui");
+    // Buscar adicionais para calcular preços corretos
+    const allAdicionalIds = items
+      .flatMap((item: any) => item.adicionaisIds || [])
+      .filter((id: string) => id);
+    
+    const adicionais = allAdicionalIds.length > 0
+      ? await prisma.adicional.findMany({
+          where: { id: { in: allAdicionalIds } }
+        })
+      : [];
+
+    // Adicionar os itens ao pedido, calculando preço final por item (base + adicionais)
+    const orderItems = items.map((item: any) => {
+      const product = products.find(p => p.id === item.productId);
+      const basePrice = product?.price || 0;
+      
+      // Calcular preço dos adicionais
+      const adicionaisPrice = (item.adicionaisIds || [])
+        .reduce((sum: number, adicionalId: string) => {
+          const adicional = adicionais.find(a => a.id === adicionalId);
+          return sum + (adicional?.price || 0);
+        }, 0);
+      
+      const finalPrice = basePrice + adicionaisPrice;
+      
+      // Criar JSON de customizations com adicionaisIds
+      const customizations = item.adicionaisIds && item.adicionaisIds.length > 0
+        ? JSON.stringify({ adicionaisIds: item.adicionaisIds })
+        : null;
+      
+      return {
+        orderId,
+        productId: item.productId,
+        quantity: item.quantity || 1,
+        price: finalPrice,
+        notes: item.notes || null,
+        customizations
+      };
+    });
+    
     await prisma.orderItem.createMany({
       data: orderItems,
-     
     });
 
     // Recalcular o total do pedido

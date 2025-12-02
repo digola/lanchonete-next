@@ -6,12 +6,14 @@ import { Card, CardContent } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency } from '@/lib/utils';
-import { Product } from '@/types';
+import { Product, Adicional } from '@/types';
 import { Clock, AlertTriangle, Plus } from 'lucide-react';
+import { Modal } from '@/components/ui/Modal';
+import { useAdicionais } from '@/hooks/useAdicionais';
 
 interface ProductCardProps {
   product: Product;
-  onAddToCart?: (product: Product) => void;
+  onAddToCart?: (product: Product, notes?: string, customizations?: Record<string, any>) => void;
   onViewDetails?: (product: Product) => void;
   showAddButton?: boolean;
   showDetailsButton?: boolean;
@@ -27,6 +29,15 @@ export const ProductCard = memo(function ProductCard({
   className,
 }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
+  const [isAdicionaisOpen, setIsAdicionaisOpen] = useState(false);
+  const [selectedAdicionaisIds, setSelectedAdicionaisIds] = useState<string[]>([]);
+  const [selectedAdicionaisMap, setSelectedAdicionaisMap] = useState<Record<string, boolean>>({});
+
+  const { adicionais, loading: adicionaisLoading } = useAdicionais(product.id);
+  const productFallbackAdicionais = (product as any).adicionais ?? [];
+  const hasAdicionais = (adicionais && adicionais.length > 0) || (productFallbackAdicionais && productFallbackAdicionais.length > 0);
+  const adicionaisList = (adicionais && adicionais.length > 0) ? adicionais : (productFallbackAdicionais || []);
+  const adicionaisTotal = adicionaisList.reduce((sum: number, a: Adicional) => sum + (selectedAdicionaisMap[a.id] ? (a.price || 0) : 0), 0);
 
   // Memoizar callbacks para evitar re-renderizações desnecessárias
   const handleAddToCart = useCallback(() => {
@@ -34,6 +45,25 @@ export const ProductCard = memo(function ProductCard({
       onAddToCart(product);
     }
   }, [onAddToCart, product]);
+
+  const toggleAdicional = (id: string) => {
+    setSelectedAdicionaisMap(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleConfirmAdicionais = () => {
+    if (!onAddToCart) {
+      setIsAdicionaisOpen(false);
+      return;
+    }
+    const chosen = Object.keys(selectedAdicionaisMap).filter(k => selectedAdicionaisMap[k]);
+    const customizations = {
+      adicionaisIds: chosen,
+      adicionaisTotal,
+    };
+    onAddToCart(product, undefined, customizations);
+    setIsAdicionaisOpen(false);
+    setSelectedAdicionaisMap({});
+  };
 
   const handleViewDetails = useCallback(() => {
     if (onViewDetails) {
@@ -117,6 +147,15 @@ export const ProductCard = memo(function ProductCard({
                 Ver Detalhes
               </Button>
             )}
+            {hasAdicionais && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAdicionaisOpen(true)}
+              >
+                Adicionais
+              </Button>
+            )}
             {showAddButton && product.isAvailable && (
               <Button
                 variant="primary"
@@ -180,6 +219,15 @@ export const ProductCard = memo(function ProductCard({
                 Ver Detalhes
               </Button>
             )}
+            {hasAdicionais && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsAdicionaisOpen(true)}
+              >
+                Adicionais
+              </Button>
+            )}
             {showAddButton && (
               <Button
                 variant="primary"
@@ -193,6 +241,53 @@ export const ProductCard = memo(function ProductCard({
               </Button>
             )}
           </div>
+
+          {/* Modal de Adicionais */}
+          <Modal
+            isOpen={isAdicionaisOpen}
+            onClose={() => setIsAdicionaisOpen(false)}
+            title={`Adicionais — ${product.name}`}
+            size="md"
+          >
+            <div className="space-y-4">
+              {adicionaisLoading && <div>Carregando adicionais...</div>}
+                {!adicionaisLoading && adicionaisList.length === 0 && (
+                  <div>Nenhum adicional disponível para este produto.</div>
+                )}
+              <div className="space-y-3">
+                {adicionaisLoading && <div>Carregando adicionais...</div>}
+                {!adicionaisLoading && adicionaisList.length === 0 && (
+                  <div>Nenhum adicional disponível para este produto.</div>
+                )}
+                {adicionaisList.map((a: Adicional) => (
+                  <label key={a.id} className="flex items-center justify-between border p-3 rounded cursor-pointer">
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="checkbox"
+                        checked={!!selectedAdicionaisMap[a.id]}
+                        onChange={() => toggleAdicional(a.id)}
+                        className="mt-1"
+                      />
+                      <div>
+                        <div className="font-medium">{a.name}</div>
+                        {a.description && <div className="text-sm text-gray-600">{a.description}</div>}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-3">
+                      <div className="text-sm font-semibold">{formatCurrency(a.price)}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <div className="flex items-center justify-between pt-3">
+                <div className="text-sm">Total adicionais: <span className="font-medium">{formatCurrency(adicionaisTotal)}</span></div>
+                <div className="flex space-x-2">
+                  <Button variant="outline" onClick={() => setIsAdicionaisOpen(false)}>Fechar</Button>
+                  <Button onClick={handleConfirmAdicionais} disabled={adicionaisList.length === 0}>Adicionar com adicionais</Button>
+                </div>
+              </div>
+            </div>
+          </Modal>
         </div>
       </CardContent>
     </Card>

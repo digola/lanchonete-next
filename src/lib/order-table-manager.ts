@@ -152,13 +152,14 @@ export class OrderTableManager {
 
       // Calcular total
       let total = 0;
-      const validatedItems: Array<{
+      const preItems: Array<{
         productId: string;
         quantity: number;
-        price: number;
+        basePrice: number;
         notes?: string | undefined;
-        customizations?: string | null;
+        adicionalIds: string[];
       }> = [];
+      const collectedAdicionalIds: string[] = [];
 
       for (const item of data.items) {
         const product = await prisma.product.findUnique({
@@ -173,17 +174,63 @@ export class OrderTableManager {
           return { success: false, error: `Produto ${product.name} não está disponível` };
         }
 
-        const itemTotal = product.price * item.quantity;
-        total += itemTotal;
+        // Normalizar customizations/adicionais
+        let adicionalIds: string[] = [];
+        try {
+          const custom = typeof item.customizations === 'string' 
+            ? JSON.parse(item.customizations) 
+            : item.customizations || {};
+          if (Array.isArray(custom?.adicionaisIds)) {
+            adicionalIds = custom.adicionaisIds as string[];
+          } else if (Array.isArray(custom?.adicionais)) {
+            adicionalIds = custom.adicionais as string[];
+          } else if (Array.isArray((item as any).adicionaisIds)) {
+            adicionalIds = (item as any).adicionaisIds as string[];
+          }
+        } catch {}
 
-        validatedItems.push({
+        if (adicionalIds.length > 0) {
+          collectedAdicionalIds.push(...adicionalIds);
+        }
+
+        preItems.push({
           productId: item.productId,
           quantity: item.quantity,
-          price: Number(product.price),
+          basePrice: Number(product.price),
           notes: item.notes,
-          customizations: item.customizations ? JSON.stringify(item.customizations) : null,
+          adicionalIds,
         });
       }
+
+      // Buscar preços dos adicionais e montar itens finais
+      let adicionalPriceMap: Record<string, number> = {};
+      if (collectedAdicionalIds.length > 0) {
+        const uniqueIds = [...new Set(collectedAdicionalIds)];
+        const adicionais = await prisma.adicional.findMany({ where: { id: { in: uniqueIds } } });
+        adicionais.forEach(a => { adicionalPriceMap[a.id] = a.price || 0; });
+      }
+
+      const validatedItems: Array<{
+        productId: string;
+        quantity: number;
+        price: number;
+        notes?: string | undefined;
+        customizations?: string | null;
+      }> = preItems.map(pi => {
+        const adicionaisPrice = (pi.adicionalIds || []).reduce((sum, id) => sum + (adicionalPriceMap[id] || 0), 0);
+        const finalUnitPrice = pi.basePrice + adicionaisPrice;
+        total += finalUnitPrice * pi.quantity;
+        const customizations = pi.adicionalIds && pi.adicionalIds.length > 0
+          ? JSON.stringify({ adicionaisIds: pi.adicionalIds })
+          : null;
+        return {
+          productId: pi.productId,
+          quantity: pi.quantity,
+          price: finalUnitPrice,
+          notes: pi.notes,
+          customizations,
+        };
+      });
 
       // Criar pedido e ocupar mesa em transação
       const result = await prisma.$transaction(async (tx) => {
@@ -321,7 +368,7 @@ export class OrderTableManager {
         totalToAdd += product.price * product.quantity;
       }
 
-      // Adicionar produtos ao pedido e atualizar total
+      // Adicionar produtos ao pedido e atualizar total com recálculo baseado nos itens
       const result = await prisma.$transaction(async (tx) => {
         // 1. Adicionar novos itens ao pedido
         await tx.orderItem.createMany({
@@ -334,12 +381,21 @@ export class OrderTableManager {
           }))
         });
 
-        // 2. Atualizar total do pedido
-        const newTotal = activeOrder.total + totalToAdd;
+        // 2. Recalcular o total baseado em todos os itens do pedido
+        const orderWithItems = await tx.order.findUnique({
+          where: { id: activeOrder.id },
+          include: {
+            items: true,
+            user: { select: { id: true, name: true, email: true } },
+            table: { select: { id: true, number: true, capacity: true } },
+          }
+        });
+
+        const recalculatedTotal = (orderWithItems?.items || []).reduce((sum, it) => sum + it.price * it.quantity, 0);
         const updatedOrder = await tx.order.update({
           where: { id: activeOrder.id },
           data: {
-            total: newTotal,
+            total: recalculatedTotal,
             updatedAt: new Date()
           },
           include: {

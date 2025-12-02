@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { printOrder as sharedPrintOrder } from '@/lib/printOrder';
 import { Order, OrderStatus } from '@/types';
 import { 
   X,
@@ -53,9 +54,27 @@ export function OrderDetailsModal({
   const [isUpdating, setIsUpdating] = useState(false);
   const [logs, setLogs] = useState<OrderLog[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
+  const [adicionaisMap, setAdicionaisMap] = useState<Record<string, { name: string; price: number }>>({});
+  const computedTotal = useMemo(() => {
+    const items = order?.items || [];
+    return items.reduce((sum, item: any) => {
+      let ids: string[] = [];
+      try {
+        const custom = typeof item.customizations === 'string' ? JSON.parse(item.customizations) : item.customizations;
+        ids = Array.isArray(custom?.adicionaisIds)
+          ? custom.adicionaisIds
+          : Array.isArray(custom?.adicionais)
+            ? custom.adicionais
+            : [];
+      } catch {}
+      const adicTotal = ids.reduce((s, id) => s + (adicionaisMap[id]?.price || 0), 0);
+      const unitBase = (item.product?.price ?? item.price) || 0;
+      return sum + (unitBase + adicTotal) * (item.quantity || 1);
+    }, 0);
+  }, [order, adicionaisMap]);
 
   // Buscar logs do pedido quando o modal abrir
-  const fetchLogs = async () => {
+  const fetchLogs = useCallback(async () => {
     if (!order) return;
     
     setLoadingLogs(true);
@@ -76,12 +95,47 @@ export function OrderDetailsModal({
     } finally {
       setLoadingLogs(false);
     }
-  };
+  }, [order]);
 
   useEffect(() => {
     if (isOpen && order) {
       fetchLogs();
     }
+  }, [isOpen, order, fetchLogs]);
+
+  // Buscar adicionais usados no pedido para exibir nomes e preços
+  useEffect(() => {
+    if (!isOpen || !order) return;
+    const allIds: string[] = [];
+    (order.items || []).forEach((item: any) => {
+      if (!item.customizations) return;
+      try {
+        const custom = typeof item.customizations === 'string' ? JSON.parse(item.customizations) : item.customizations;
+        const ids = Array.isArray(custom?.adicionaisIds)
+          ? custom.adicionaisIds
+          : Array.isArray(custom?.adicionais)
+            ? custom.adicionais
+            : [];
+        if (ids.length > 0) allIds.push(...ids);
+      } catch {}
+    });
+    if (allIds.length === 0) {
+      setAdicionaisMap({});
+      return;
+    }
+    const uniqueIds = [...new Set(allIds)];
+    fetch('/api/adicionais')
+      .then(r => r.json())
+      .then(res => {
+        if (res?.success && Array.isArray(res.data)) {
+          const map: Record<string, { name: string; price: number }> = {};
+          res.data.forEach((a: any) => {
+            if (uniqueIds.includes(a.id)) map[a.id] = { name: a.name, price: a.price || 0 };
+          });
+          setAdicionaisMap(map);
+        }
+      })
+      .catch(() => {});
   }, [isOpen, order]);
 
   if (!isOpen || !order) return null;
@@ -139,129 +193,8 @@ export function OrderDetailsModal({
     }
   };
 
-  const printOrder = () => {
-    const printWindow = window.open('', '_blank', 'width=220,height=600');
-    if (!printWindow) {
-      alert('Por favor, permita pop-ups para impressão');
-      return;
-    }
-
-    const currentDate = new Date();
-    const printContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Pedido ${order.id.slice(-8)}</title>
-          <style>
-            body {
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              line-height: 1.2;
-              margin: 0;
-              padding: 8px;
-              width: 58mm;
-              max-width: 58mm;
-            }
-            
-            .header {
-              text-align: center;
-              border-bottom: 1px dashed #000;
-              padding-bottom: 8px;
-              margin-bottom: 8px;
-            }
-            
-            .restaurant-name {
-              font-size: 14px;
-              font-weight: bold;
-              margin-bottom: 4px;
-            }
-            
-            .order-info {
-              font-size: 10px;
-              margin-bottom: 8px;
-            }
-            
-            .items {
-              margin-bottom: 8px;
-            }
-            
-            .item {
-              margin-bottom: 4px;
-              padding-bottom: 2px;
-              border-bottom: 1px dotted #ccc;
-            }
-            
-            .item-name {
-              font-weight: bold;
-            }
-            
-            .item-details {
-              font-size: 10px;
-              color: #666;
-              margin-left: 4px;
-            }
-            
-            .total {
-              border-top: 1px dashed #000;
-              padding-top: 8px;
-              text-align: center;
-              font-weight: bold;
-              font-size: 14px;
-            }
-            
-            .footer {
-              text-align: center;
-              font-size: 10px;
-              margin-top: 8px;
-              border-top: 1px dashed #000;
-              padding-top: 8px;
-            }
-            
-            @media print {
-              body {
-                width: 58mm;
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <div class="restaurant-name">LANCHONETE</div>
-            <div class="order-info">
-              Pedido #${order.id.slice(-8)}<br>
-              ${order.table ? `Mesa ${order.table.number}` : 'Balcão'}<br>
-              ${currentDate.toLocaleString('pt-BR')}
-            </div>
-          </div>
-          ola
-          <div class="items">
-            ${order.items?.map(item => `
-              <div class="item">
-                <div class="item-name">${item.quantity}x ${item.product?.name || 'Produto'}</div>
-                ${item.customizations ? `<div class="item-details">${item.customizations}</div>` : ''}
-                ${item.notes ? `<div class="item-details">Obs: ${item.notes}</div>` : ''}
-              </div>
-            `).join('')}
-          </div>
-          
-          <div class="total">
-            Total: R$ ${order.total.toFixed(2).replace('.', ',')}
-          </div>
-          
-          <div class="footer">
-            Obrigado pela preferência!
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(printContent);
-    printWindow.document.close();
-    
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
+  const handlePrint = () => {
+    sharedPrintOrder(order as any);
   };
 
   const getAvailableStatusActions = () => {
@@ -418,36 +351,74 @@ export function OrderDetailsModal({
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
-                    {order.items?.map((item, index) => (
-                      <div key={index} className="border border-gray-200 rounded-lg p-4">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="font-medium text-gray-900 mb-1">
-                           
-                              {item.product?.name || 'Produto não encontrado'}
-                            </div>
-                            <div className="text-sm text-gray-600 mb-2">
-                              Quantidade: {item.quantity} x {formatCurrency(item.price)} = {formatCurrency(item.price * item.quantity)}
-                            </div>
-                            {item.customizations && (
-                              <div className="text-sm text-blue-600 mb-1">
-                                <span className="font-medium">Personalizações:</span> {item.customizations}
+                    {order.items?.map((item: any, index: number) => {
+                      let ids: string[] = [];
+                      try {
+                        const custom = typeof item.customizations === 'string' ? JSON.parse(item.customizations) : item.customizations;
+                        ids = Array.isArray(custom?.adicionaisIds)
+                          ? custom.adicionaisIds
+                          : Array.isArray(custom?.adicionais)
+                            ? custom.adicionais
+                            : [];
+                      } catch {}
+                      const itemAdicionais = ids.map((id: string) => adicionaisMap[id]).filter(Boolean);
+                      const adicionaisTotal = itemAdicionais.reduce((sum, a: any) => sum + (a?.price || 0), 0);
+
+                      return (
+                        <div key={index} className="border border-gray-200 rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900 mb-1">
+                                {item.product?.name || 'Produto não encontrado'}
                               </div>
-                            )}
-                            {item.notes && (
-                              <div className="text-sm text-gray-600">
-                                <span className="font-medium">Observações:</span> {item.notes}
+                              <div className="text-sm text-gray-600 mb-2">
+                                {(() => {
+                                  const unitBase = (item.product?.price ?? item.price) || 0;
+                                  const unitTotal = unitBase + adicionaisTotal;
+                                  return (
+                                    <>Quantidade: {item.quantity} x {formatCurrency(unitTotal)} = {formatCurrency(unitTotal * item.quantity)}</>
+                                  );
+                                })()}
                               </div>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <div className="font-semibold text-gray-900">
-                              {formatCurrency(item.price * item.quantity)}
+                              {itemAdicionais.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-yellow-300 bg-yellow-50 p-2 rounded">
+                                  <div className="text-xs font-bold text-yellow-800 mb-1">Adicionais:</div>
+                                  <div className="text-xs text-gray-800 space-y-1">
+                                    {itemAdicionais.map((adic: any, idx: number) => (
+                                      <div key={idx} className="flex justify-between items-center">
+                                        <span className="text-yellow-900">• {adic.name}</span>
+                                        {adic.price > 0 && (
+                                          <span className="text-yellow-800 font-bold">+{formatCurrency(adic.price)}</span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {adicionaisTotal > 0 && (
+                                    <div className="text-xs font-bold text-yellow-900 mt-2 text-right pt-1 border-t border-yellow-200">
+                                      Total Adicionais: +{formatCurrency(adicionaisTotal)}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {item.notes && (
+                                <div className="text-sm text-gray-600 mt-2">
+                                  <span className="font-medium">Observações:</span> {item.notes}
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-right">
+                              <div className="font-semibold text-gray-900">
+                                {(() => {
+                                  const unitBase = (item.product?.price ?? item.price) || 0;
+                                  const unitTotal = unitBase + adicionaisTotal;
+                                  return formatCurrency(unitTotal * item.quantity);
+                                })()}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -521,13 +492,13 @@ export function OrderDetailsModal({
                   <div className="space-y-3">
                     <div className="flex justify-between">
                       <span className="text-gray-600">Subtotal:</span>
-                      <span className="font-medium">{formatCurrency(order.total)}</span>
+                      <span className="font-medium">{formatCurrency(computedTotal)}</span>
                     </div>
                     <div className="border-t pt-3">
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total:</span>
                         <span className="text-2xl font-bold text-green-600">
-                          {formatCurrency(order.total)}
+                          {formatCurrency(computedTotal)}
                         </span>
                       </div>
                     </div>
@@ -552,7 +523,7 @@ export function OrderDetailsModal({
                 <CardContent>
                   <div className="space-y-3">
                     <Button
-                      onClick={printOrder}
+                      onClick={handlePrint}
                       className="w-full flex items-center justify-center"
                     >
                       <Printer className="h-4 w-4 mr-2" />

@@ -9,8 +9,11 @@ import { formatCurrency } from '@/lib/utils';
 import { Minus, Plus, Trash2, ShoppingCart, ArrowLeft, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { table } from 'console';
+import { useRealTables } from '@/hooks/useRealData';
+import { toast } from '@/lib/toast';
 
 export default function CartPage() {
   const {
@@ -22,16 +25,65 @@ export default function CartPage() {
     clearCart,
     formatTotalPrice,
     isEmpty,
+    tableId: cartTableId,
+    tableNumber: cartTableNumber,
+    setCartTable,
   } = useCart();
 
   const { isAuthenticated, user } = useOptimizedAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Suportar tanto ?tableId quanto ?tableNumber na URL (QR pode passar número)
+  const tableIdFromUrl = searchParams?.get('tableId') || null;
+  const tableNumberFromUrl = searchParams?.get('tableNumber') || null;
   const [isProcessing, setIsProcessing] = useState(false);
   const [orderCompleted, setOrderCompleted] = useState(false);
   const [deliveryType, setDeliveryType] = useState('RETIRADA');
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+
+  // Carregar dados de mesas para resolver número a partir do ID (quando só o tableId vier na URL)
+  const { data: realTablesData } = useRealTables([]);
+
+  // Quando houver tableId na URL e o número não estiver definido, tentar resolver pelo dataset de mesas
+  useEffect(() => {
+    try {
+      if (tableIdFromUrl && (cartTableNumber == null)) {
+        const tables = Array.isArray(realTablesData) ? realTablesData : [];
+        const found = tables.find((t: any) => t?.id === tableIdFromUrl);
+        const resolvedNumber = found?.number ?? found?.tableNumber ?? null;
+
+        if (resolvedNumber != null && typeof resolvedNumber === 'number') {
+          setCartTable(tableIdFromUrl, resolvedNumber);
+          // Opcional: atualizar a URL para incluir o número (mantendo o ID)
+          // const params = new URLSearchParams(window.location.search);
+          // params.set('tableNumber', String(resolvedNumber));
+          // window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao resolver número da mesa pelo tableId:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableIdFromUrl, realTablesData]);
+
+  // Quando houver tableNumber na URL e não houver tableId, tentar resolver o ID via dataset de mesas
+  useEffect(() => {
+    try {
+      const parsedNumber = tableNumberFromUrl ? parseInt(tableNumberFromUrl, 10) : (cartTableNumber ?? null);
+      if (!tableIdFromUrl && !cartTableId && parsedNumber != null) {
+        const tables = Array.isArray(realTablesData) ? realTablesData : [];
+        const found = tables.find((t: any) => (t?.number ?? t?.tableNumber) === parsedNumber);
+        if (found?.id) {
+          setCartTable(found.id, parsedNumber);
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao resolver tableId pelo tableNumber:', err);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tableNumberFromUrl, cartTableNumber, realTablesData]);
 
   // Função para finalizar o pedido
   const handleFinalizeOrder = async () => {
@@ -42,7 +94,7 @@ export default function CartPage() {
     }
 
     if (isEmpty || items.length === 0) {
-      alert('Carrinho vazio. Adicione produtos antes de finalizar.');
+      toast.warning('Carrinho vazio', 'Adicione produtos antes de finalizar.');
       return;
     }
 
@@ -56,56 +108,174 @@ export default function CartPage() {
       });
 
       // Preparar dados do pedido
-      const orderData = {
+      const orderData: any = {
         items: items.map(item => ({
           productId: item.productId,
           quantity: item.quantity,
           price: item.price,
           notes: item.notes || null,
-          customizations: item.customizations || null
+          customizations: item.customizations || null,
         })),
         deliveryType: deliveryType,
+        tableId: tableIdFromUrl || cartTableId || null,
+        tableNumber: tableNumberFromUrl || cartTableNumber || null,
         paymentMethod: paymentMethod,
         deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
         notes: orderNotes,
         total: totalPrice
       };
 
+      // Se houver tableId na URL, incluir no payload para salvar o relacionamento order->table
+      if (tableIdFromUrl || cartTableId) {
+        orderData.tableId = tableIdFromUrl || cartTableId;
+      } else if (tableNumberFromUrl || cartTableNumber) {
+        const parsed = tableNumberFromUrl ? parseInt(tableNumberFromUrl, 10) : NaN;
+        const parsedFromCart = cartTableNumber ?? null;
+        const finalParsed = !isNaN(parsed) ? parsed : (parsedFromCart ?? null);
+        if (finalParsed !== null) orderData.tableNumber = finalParsed;
+      }
+
       console.log('📦 Dados do pedido preparados:', orderData);
 
-      // Fazer requisição para criar o pedido no banco
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
-        },
-        body: JSON.stringify(orderData)
-      });
+      // Decidir entre criar pedido (POST) ou adicionar itens ao pedido existente (PUT)
+      const token = localStorage.getItem('auth-token');
+      if (!token) {
+        toast.error('Usuário não autenticado', 'Faça login para finalizar o pedido.');
+        return;
+      }
+
+      let response: Response;
+
+      if (orderData.tableId || orderData.tableNumber !== 'livre') {
+        // Buscar status da mesa para decidir a ação
+        let tableId: string | null = orderData.tableId || null;
+
+        // Se só temos o número, tentar resolver o ID via API
+        if (!tableId && typeof orderData.tableNumber === 'number') {
+          try {
+            const tblRes = await fetch(`/api/tables?number=${orderData.tableNumber}`, {
+              headers: { 'Authorization': `Bearer ${token}` },
+              cache: 'no-store'
+            });
+            const tblJson = await tblRes.json();
+            if (tblRes.ok && Array.isArray(tblJson?.data) && tblJson.data.length > 0) {
+              tableId = tblJson.data[0].id;
+              orderData.tableId = tableId;
+              setCartTable(tableId, orderData.tableNumber);
+            }
+          } catch (e) {
+            console.warn('Não foi possível resolver tableId via número:', e);
+          }
+        }
+
+        let tableStatus: string | null = null;
+        if (tableId) {
+          const tableRes = await fetch(`/api/tables/${tableId}`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            cache: 'no-store'
+          });
+          const tableJson = await tableRes.json();
+          if (!tableRes.ok || !tableJson?.success) {
+            throw new Error(tableJson?.error || 'Erro ao consultar mesa');
+          }
+          tableStatus = tableJson?.data?.status ?? null;
+        }
+
+        if (tableStatus === 'OCUPADA') {
+          // Mesa ocupada: adicionar itens ao pedido ativo existente
+          const pendingStatuses = ['PENDENTE', 'CONFIRMADO', 'PREPARANDO', 'PRONTO'];
+          const ordersRes = await fetch(`/api/orders?tableId=${tableId}&status=${pendingStatuses.join(',')}&limit=1&sortOrder=desc`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            cache: 'no-store'
+          });
+          const ordersJson = await ordersRes.json();
+          if (!ordersRes.ok) {
+            throw new Error(ordersJson?.error || 'Erro ao buscar pedido ativo da mesa');
+          }
+
+          const existingOrder = Array.isArray(ordersJson?.data) ? ordersJson.data[0] : null;
+
+          if (existingOrder?.id) {
+            const itemsPayload = items.map(i => {
+              let adicionaisIds: string[] = [];
+              try {
+                const custom = typeof i.customizations === 'string' 
+                  ? JSON.parse(i.customizations) 
+                  : (i.customizations || {});
+                if (Array.isArray(custom?.adicionaisIds)) {
+                  adicionaisIds = custom.adicionaisIds as string[];
+                } else if (Array.isArray(custom?.adicionais)) {
+                  adicionaisIds = custom.adicionais as string[];
+                }
+              } catch {}
+              return {
+                productId: i.productId,
+                quantity: i.quantity,
+                notes: i.notes || null,
+                ...(adicionaisIds.length > 0 ? { adicionaisIds } : {}),
+              };
+            });
+
+            response = await fetch(`/api/orders/${existingOrder.id}/items`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ items: itemsPayload })
+            });
+            toast.info('Mesa ocupada', 'Itens adicionados ao pedido existente.');
+          } else {
+            // Fallback: não achou pedido ativo, criar novo
+            response = await fetch('/api/orders', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify(orderData)
+            });
+          }
+        } else {
+          // Mesa livre (ou sem status definido): criar novo pedido
+          response = await fetch('/api/orders', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(orderData)
+          });
+        }
+      } else {
+        toast.error('Mesa não associada', 'É necessário associar o pedido a uma mesa.');
+        return;
+      }
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Erro ao criar pedido');
+        throw new Error(result.error || result.message || 'Erro ao criar/atualizar pedido');
       }
 
-      console.log('✅ Pedido criado com sucesso:', result);
+      console.log('✅ Pedido criado/atualizado com sucesso:', result);
 
       // Limpar carrinho após sucesso
       clearCart();
       
       // Mostrar mensagem de sucesso
       setOrderCompleted(true);
+      toast.success('Pedido finalizado', 'Seu pedido foi processado com sucesso.');
       
       // Redirecionar para dashboard após 3 segundos
       setTimeout(() => {
-        router.push('/customer/dashboard');
+        router.push('/staff/');
       }, 3000);
       
     } catch (err) {
-      console.error('❌ Erro ao finalizar pedido:', err);
+      console.error(' Erro ao finalizar pedido:', err);
       const message = err instanceof Error ? err.message : 'Tente novamente.';
-      alert(`Erro ao finalizar pedido: ${message}`);
+      toast.error('Erro ao finalizar pedido', message);
     } finally {
       setIsProcessing(false);
     }
@@ -116,6 +286,10 @@ export default function CartPage() {
     itemsCount: items.length,
     totalItems,
     totalPrice,
+    tableIdFromUrl,
+    tableId: cartTableId,
+    tableNumberFromUrl,
+    tableNumber: cartTableNumber,
     isEmpty,
     items: items,
     localStorage: typeof window !== 'undefined' ? localStorage.getItem('lanchonete-cart-v2') : 'N/A'
@@ -208,6 +382,11 @@ export default function CartPage() {
           <h1 className="text-2xl font-bold text-gray-900">
             Carrinho ({totalItems} {totalItems === 1 ? 'item' : 'itens'})
           </h1>
+          <div className="flex items-center space-x-4">
+            <span className="text-sm text-gray-600">
+              Mesa: {tableNumberFromUrl ?? (cartTableNumber != null ? String(cartTableNumber) : 'não definida')}
+            </span>
+          </div>
           <Button variant="outline" onClick={clearCart}>
             <Trash2 className="h-4 w-4 mr-2" />
             Limpar Carrinho
@@ -250,6 +429,11 @@ export default function CartPage() {
                           {formatCurrency(item.price)}
                         </span>
                       </div>
+                      {item.notes ? (
+                        <div className="mt-1 text-xs text-gray-500">
+                          Obs.: {item.notes}
+                        </div>
+                      ) : null}
                     </div>
 
                     {/* Quantity Controls */}

@@ -16,8 +16,6 @@ import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
 import { UserRole } from '@/types';
 
-
-
 import { Product, Category, GeneralSettings } from '@/types';
 import Link from 'next/link';
 import { 

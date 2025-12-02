@@ -178,6 +178,7 @@ export async function GET(request: NextRequest) {
           id: true,
           number: true,
           capacity: true,
+          status: true,
         },
       };
     }
@@ -301,32 +302,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se todos os produtos existem e calcular total
+    // Verificar produtos, coletar IDs de adicionais e calcular preços finais
     let total = 0;
-    const validatedItems: Array<{
+    const collectedAdicionalIds: string[] = [];
+    const preItems: Array<{
       productId: string;
       quantity: number;
-      price: number;
+      basePrice: number;
       notes?: string;
-      customizations?: string | null;
-      
+      adicionalIds: string[];
+      customizationsRaw?: any;
     }> = [];
 
     for (const item of items) {
       // Sanitizar quantidade (fallback para 1 se inválida) e garantir inteiro
       const rawQty = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
       const qty = Number.isInteger(rawQty) ? rawQty : Math.max(1, Math.floor(rawQty));
-      const product = await prisma.product.findUnique({
-        where: { id: item.productId },
-      });
-
+      const product = await prisma.product.findUnique({ where: { id: item.productId } });
       if (!product) {
         return NextResponse.json(
           { success: false, error: `Produto ${item.productId} não encontrado` },
           { status: 400 }
         );
       }
-
       if (!product.isAvailable) {
         return NextResponse.json(
           { success: false, error: `Produto ${product.name} não está disponível` },
@@ -334,17 +332,63 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      const itemTotal = Number(product.price) * qty;
-      total += itemTotal;
+      let adicionalIds: string[] = [];
+      let customizationsRaw: any = item.customizations || undefined;
+      try {
+        const custom = typeof item.customizations === 'string'
+          ? JSON.parse(item.customizations)
+          : (item.customizations || {});
+        if (Array.isArray(custom?.adicionaisIds)) {
+          adicionalIds = custom.adicionaisIds as string[];
+        } else if (Array.isArray(custom?.adicionais)) {
+          adicionalIds = custom.adicionais as string[];
+        } else if (Array.isArray(item.adicionaisIds)) {
+          adicionalIds = item.adicionaisIds as string[];
+        }
+      } catch {}
 
-      validatedItems.push({
+      if (adicionalIds.length > 0) collectedAdicionalIds.push(...adicionalIds);
+      preItems.push({
         productId: item.productId,
         quantity: qty,
-        price: Number(product.price),
+        basePrice: Number(product.price),
         notes: item.notes,
-        customizations: item.customizations ? JSON.stringify(item.customizations) : null,
+        adicionalIds,
+        customizationsRaw,
       });
     }
+
+    let adicionalPriceMap: Record<string, number> = {};
+    if (collectedAdicionalIds.length > 0) {
+      const uniqueIds = [...new Set(collectedAdicionalIds)];
+      const adicionais = await prisma.adicional.findMany({ where: { id: { in: uniqueIds } } });
+      adicionais.forEach(a => { adicionalPriceMap[a.id] = a.price || 0; });
+    }
+
+    const validatedItems: Array<{
+      productId: string;
+      quantity: number;
+      price: number;
+      notes?: string;
+      customizations?: string | null;
+    }> = preItems.map(pi => {
+      const adicionaisPrice = (pi.adicionalIds || []).reduce((sum, id) => sum + (adicionalPriceMap[id] || 0), 0);
+      const finalUnitPrice = pi.basePrice + adicionaisPrice;
+      total += finalUnitPrice * pi.quantity;
+      const customizations = pi.adicionalIds && pi.adicionalIds.length > 0
+        ? JSON.stringify({ adicionaisIds: pi.adicionalIds })
+        : (pi.customizationsRaw ? JSON.stringify(pi.customizationsRaw) : null);
+      const base = {
+        productId: pi.productId,
+        quantity: pi.quantity,
+        price: finalUnitPrice,
+        customizations,
+      } as { productId: string; quantity: number; price: number; notes?: string; customizations?: string | null };
+      if (typeof pi.notes === 'string' && pi.notes.trim() !== '') {
+        base.notes = pi.notes;
+      }
+      return base;
+    });
 
     // Garantir que total é um número válido
     if (!Number.isFinite(total) || Number.isNaN(total)) {

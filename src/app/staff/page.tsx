@@ -1148,8 +1148,8 @@ console.log('🔍 Response:', response);
                               <Button
                                 size="sm"
                                 variant="outline"
+                                className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 col-span-2 sm:col-span-1 font-semibold"
                                 onClick={() => openClearTableModal(order)}
-                                className="col-span-2 sm:col-span-1"
                               >
                                 <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
                                 <span className="hidden sm:inline">Limpar Mesa</span>
