@@ -18,6 +18,16 @@ interface UseWebSocketOptions {
   maxReconnectAttempts?: number;
 }
 
+/**
+ * useWebSocket
+ *
+ * Hook para gerenciar conexão WebSocket com reconexão automática,
+ * callbacks de ciclo de vida e utilitário de envio de mensagens.
+ *
+ * @param options URL e callbacks (onMessage, onOpen, onClose, onError),
+ *        além de controle de reconexão (intervalo e tentativas máximas)
+ * @returns Estado da conexão (isConnected, connectionStatus) e funções (sendMessage, connect, disconnect)
+ */
 export function useWebSocket({
   url,
   onMessage,

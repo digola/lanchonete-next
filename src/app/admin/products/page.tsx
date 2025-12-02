@@ -33,7 +33,7 @@ import {
 import { Product, Category } from '@/types';
 
 export default function AdminProductsPage() {
-  const { user, token } = useApiAuth();
+  const { user, token, canManageProducts } = useApiAuth();
   // const { addToast } = useToast();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -100,6 +100,10 @@ export default function AdminProductsPage() {
 
   // Funções CRUD
   const handleCreateProduct = async (data: ProductFormData) => {
+    if (!canManageProducts) {
+      toast.error('Sem permissão para criar produtos');
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await fetch('/api/products', {
@@ -112,7 +116,12 @@ export default function AdminProductsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao criar produto');
+        let message = 'Erro ao criar produto';
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {}
+        throw new Error(message);
       }
 
       setShowCreateModal(false);
@@ -126,6 +135,10 @@ export default function AdminProductsPage() {
 
   const handleUpdateProduct = async (data: ProductFormData) => {
     if (!selectedProduct) return;
+    if (!canManageProducts) {
+      toast.error('Sem permissão para editar produtos');
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -139,7 +152,12 @@ export default function AdminProductsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao atualizar produto');
+        let message = 'Erro ao atualizar produto';
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {}
+        throw new Error(message);
       }
 
       setShowEditModal(false);
@@ -154,6 +172,10 @@ export default function AdminProductsPage() {
 
   const handleDeleteProduct = async () => {
     if (!selectedProduct) return;
+    if (!canManageProducts) {
+      toast.error('Sem permissão para deletar produtos');
+      return;
+    }
     
     setIsLoading(true);
     try {
@@ -165,7 +187,12 @@ export default function AdminProductsPage() {
       });
 
       if (!response.ok) {
-        throw new Error('Erro ao deletar produto');
+        let message = 'Erro ao deletar produto';
+        try {
+          const err = await response.json();
+          if (err?.error) message = err.error;
+        } catch {}
+        throw new Error(message);
       }
 
       setShowDeleteConfirm(false);
@@ -200,6 +227,7 @@ export default function AdminProductsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           ...product,
@@ -210,7 +238,12 @@ export default function AdminProductsPage() {
       if (response.ok) {
         refetchProducts();
       } else {
-        alert('Erro ao alterar status do produto');
+        try {
+          const err = await response.json();
+          alert(err?.error || 'Erro ao alterar status do produto');
+        } catch {
+          alert('Erro ao alterar status do produto');
+        }
       }
     } catch (error) {
       alert('Erro ao alterar status do produto');
@@ -255,6 +288,8 @@ export default function AdminProductsPage() {
           <Button
             variant="primary"
             onClick={() => setShowCreateModal(true)}
+            disabled={!canManageProducts}
+            title={canManageProducts ? 'Criar novo produto' : 'Sem permissão para criar produtos'}
           >
             <Plus className="h-4 w-4 mr-2" />
             Novo Produto
@@ -455,6 +490,8 @@ export default function AdminProductsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => toggleProductStatus(product)}
+                          disabled={!canManageProducts}
+                          title={canManageProducts ? (product.isAvailable ? 'Desativar' : 'Ativar') : 'Sem permissão'}
                         >
                           {product.isAvailable ? (
                             <XCircle className="h-4 w-4" />
@@ -474,7 +511,8 @@ export default function AdminProductsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEditProduct(product)}
-                          title="Editar"
+                          title={canManageProducts ? 'Editar' : 'Sem permissão'}
+                          disabled={!canManageProducts}
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -482,7 +520,8 @@ export default function AdminProductsPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteClick(product)}
-                          title="Excluir"
+                          title={canManageProducts ? 'Excluir' : 'Sem permissão'}
+                          disabled={!canManageProducts}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -508,6 +547,9 @@ export default function AdminProductsPage() {
                 <Plus className="h-4 w-4 mr-2" />
                 Criar Primeiro Produto
               </Button>
+              {!canManageProducts && (
+                <p className="text-sm text-gray-500 mt-2">Você não tem permissão para criar produtos.</p>
+              )}
             </div>
           )}
         </CardContent>

@@ -18,7 +18,17 @@ interface SmartQueryOptions {
 }
 
 /**
- * Hook para queries inteligentes que detectam dependências
+ * useSmartQueries
+ *
+ * Hook para executar múltiplas requisições com:
+ *  - dependências entre queries
+ *  - controle de enabled/global
+ *  - staleTime e refetchInterval
+ *  - política de retry exponencial simples
+ *
+ * @param queries Lista de queries com chave, URL (string ou função) e dependências
+ * @param options Controle global (enabled, staleTime, refetchInterval, retryCount, dependencies)
+ * @returns Objeto com resultados por chave, utilitário de refetch e indicadores globais
  */
 export const useSmartQueries = <T = any>(
   queries: Array<{
@@ -197,7 +207,10 @@ export const useSmartQueries = <T = any>(
 };
 
 /**
- * Hook específico para dados do menu com dependências
+ * useMenuSmartQueries
+ *
+ * Atalho de useSmartQueries para categorias e produtos do menu com filtros.
+ * Monta URLs dinamicamente a partir dos filtros e retorna resultados por chave.
  */
 export const useMenuSmartQueries = (filters?: {
   search?: string;
@@ -317,6 +330,11 @@ export const useAdminSmartQueries = (filters?: {
 
 /**
  * Hook para invalidar queries específicas
+ */
+/**
+ * useQueryInvalidation
+ *
+ * Helper para invalidar manualmente queries específicas quando necessário.
  */
 export const useQueryInvalidation = () => {
   const [invalidationKey, setInvalidationKey] = useState(0);

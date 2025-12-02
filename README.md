@@ -91,3 +91,38 @@ MIT. Veja o arquivo LICENSE.
 ## Observações
 - Este repositório está focado em ambiente local (SQLite). Integrações de produção foram removidas para simplificar.
 - Se desejar migrar para Postgres no futuro, será necessário ajustar `DATABASE_URL` e reintroduzir migrations conforme sua necessidade.
+
+## arquitetura e camodas
+
+src/
+├── app/                    # Rotas Next.js App Router
+│   ├── /admin              # Painel administrativo
+│   ├── /staff              # Página de expedição (ATUAL)
+│   ├── /customer           # Área do cliente
+│   └── /api                # Rotas API REST
+│       ├── /admin          # Endpoints administrativos
+│       ├── /auth           # Autenticação
+│       ├── /orders         # Gerenciamento de pedidos
+│       ├── /products       # Catálogo de produtos
+│       ├── /settings       # Configurações públicas
+│       ├── /tables         # Gerenciamento de mesas
+│       └── /users          # Gerenciamento de usuários
+├── components/             # Componentes React reutilizáveis
+│   ├── ui/                 # Componentes base (Card, Button, etc)
+│   ├── admin/              # Componentes administrativos
+│   ├── staff/              # Componentes da expedição
+│   └── customer/           # Componentes do cliente
+├── hooks/                  # Hooks customizados
+│   ├── useApi.ts           # Requisições HTTP genéricas
+│   ├── useApiAuth.ts       # Autenticação
+│   ├── useCart.ts          # Gerenciamento do carrinho
+│   └── useOptimizedAuth.ts # Auth otimizado
+├── lib/                    # Utilitários e helpers
+│   ├── prisma.ts           # Singleton do Prisma
+│   ├── auth.ts             # Lógica de autenticação
+│   ├── utils.ts            # Funções auxiliares
+│   └── orderUtils.ts       # Lógica de pedidos
+├── stores/                 # Estado global (Zustand)
+│   └── authStore.ts        # State de autenticação
+└── types/                  # Tipos TypeScript
+    └── index.ts            # Tipos centralizados

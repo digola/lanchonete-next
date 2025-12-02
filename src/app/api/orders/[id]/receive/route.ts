@@ -91,10 +91,11 @@ export async function PUT(
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Atualizar pedido
       const order = await tx.order.update({
-        where: { id: orderId },
+        where: { id: orderId , isPaid: false, isActive: false},
         data: {
           status: 'FINALIZADO',
           isPaid: true,
+          isActive: false,
           updatedAt: new Date(),
         },
         include: {
@@ -144,18 +145,18 @@ export async function PUT(
 
         console.log('📊 Pedidos ativos na mesa:', activeOrdersCount);
 
-        if (!order.isActive ) {
+        if (order.isActive === false) {
           // Liberar mesa se não há pedidos ativos
           console.log('🆓 Liberando mesa aqui:', existingOrder.tableId);
          
-          await tx.table.update({
-            where: { id: existingOrder.tableId },
-            data: { 
-              status: 'LIVRE',
-              assignedTo: null,
-              isActive: false,
-            },
-          });
+            await tx.table.update({
+              where: { id: existingOrder.tableId },
+              data: { 
+               status: 'LIVRE',
+                assignedTo: null,
+            
+              },
+            });
       
           console.log('✅ Mesa liberada com sucesso');
         } else {

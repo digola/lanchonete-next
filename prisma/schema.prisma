@@ -65,8 +65,44 @@ model Product {
   // Relacionamentos
   category Category @relation(fields: [categoryId], references: [id])
   orderItems OrderItem[]
+  adicionais ProductAdicional[]
 
   @@map("products")
+}
+
+// Modelo Adicional (complementos/toppings)
+model Adicional {
+  id              String    @id @default(cuid())
+  name            String    // ex: "Salada", "Bacon", "Muçarela", "Abacaxi", "Morango"
+  description     String?
+  price           Float     @default(0) // Preço adicional do complemento
+  maxQuantity     Int       @default(1) // Quantidade máxima permitida
+  isAvailable     Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relacionamentos
+  produtos ProductAdicional[]
+
+  @@map("adicionais")
+}
+
+// Modelo de Relação Many-to-Many entre Product e Adicional
+model ProductAdicional {
+  id          String    @id @default(cuid())
+  productId   String
+  adicionalId String
+  isRequired  Boolean   @default(false) // Se é obrigatório escolher este adicional
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relacionamentos
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  adicional Adicional @relation(fields: [adicionalId], references: [id], onDelete: Cascade)
+
+  // Evita duplicatas
+  @@unique([productId, adicionalId])
+  @@map("product_adicionais")
 }
 
 // Modelo Order

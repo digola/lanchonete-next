@@ -28,17 +28,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (type === 'all' || type === 'stock') {
-      // Notificação de estoque baixo
-      notifications.push(
-        await NotificationService.notifyLowStock('prod-1', 'Hambúrguer Clássico', 2, 5)
-      );
-
-      // Notificação de estoque zerado
-      notifications.push(
-        await NotificationService.notifyOutOfStock('prod-2', 'Batata Frita')
-      );
-    }
+    // Removido: notificações de estoque foram descontinuadas
 
     if (type === 'all' || type === 'payment') {
       // Notificação de pagamento

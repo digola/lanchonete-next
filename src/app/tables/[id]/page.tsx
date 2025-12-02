@@ -10,6 +10,7 @@ import { useApiAuth } from '@/hooks/useApiAuth';
 import { useApi } from '@/hooks/useApi';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { Order, OrderStatus, UserRole, Product, Category, Table } from '@/types';
+import { toast } from '@/lib/toast';
 // Removido import do StaffTableAPI - será usado via APIs
 
 // Função utilitária para cálculos monetários precisos
@@ -52,7 +53,7 @@ import {
 export default function TablePage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useApiAuth();
+  const { user, isStaffOrAdmin } = useApiAuth();
   const tableId = params.id as string;
   
   // Estados
@@ -74,9 +75,9 @@ export default function TablePage() {
     originalTotal: number;
     currentTotal: number;
     payments: Array<{
-      method: 'PIX' | 'CARTAO' | 'DINHEIRO';
-      amount: number;
-      timestamp: Date;
+    method: 'PIX' | 'CARTAO' | 'DINHEIRO';
+    amount: number;
+    timestamp: Date;
     }>;
     isActive: boolean;
   } | null>(null);
@@ -88,7 +89,7 @@ export default function TablePage() {
   const { data: ordersResponse, loading: ordersLoading, execute: refetchOrders } = useApi<{ 
     data: Order[]; 
     pagination: any 
-  }>(`/api/orders?tableId=${tableId}&isActive=true&includeItems=true&includeUser=true&sortBy=createdAt&sortOrder=desc`);
+  }>(`/api/orders?tableId=${tableId}&includeItems=true&includeUser=true&status=PENDENTE,CONFIRMADO,PREPARANDO,PRONTO&sortBy=createdAt&sortOrder=desc`);
 
   // Buscar produtos
   const { data: productsResponse, loading: productsLoading, execute: fetchProducts } = useApi<{
@@ -119,9 +120,8 @@ export default function TablePage() {
     }
   }, [showAddProductsModal, productsResponse?.data, categoriesResponse?.data, fetchProducts, fetchCategories]);
 
-  // Verificar se usuário tem permissão
-  const isStaff = user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER';
-  if (!isStaff) {
+  // Verificar se usuário tem permissão (mínimo STAFF)
+  if (!isStaffOrAdmin) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <Card className="w-96">
@@ -146,11 +146,29 @@ export default function TablePage() {
   const addProductsToOrder = async () => {
     if (selectedProducts.length === 0) return;
     
+    // Garantir que mesa está ativa e existe um pedido elegível (PENDENTE ou CONFIRMADO)
+    if (table?.status !== 'OCUPADA') {
+      toast.warning('Mesa não está ativa', 'A mesa precisa estar OCUPADA para adicionar produtos.');
+      return;
+    }
+
+    const eligibleOrder = selectedOrder ?? orders.find(o => !o.isPaid && (o.status === OrderStatus.PENDENTE || o.status === OrderStatus.CONFIRMADO));
+    if (!eligibleOrder) {
+      toast.warning('Pedido não elegível', 'Somente pedidos PENDENTE ou CONFIRMADO e não pagos podem receber produtos.');
+      return;
+    }
+
+    console.log('🛒 Adicionando produtos ao pedido:', {
+      tableId,
+      orderId: eligibleOrder.id,
+      selectedProducts
+    });
+
     setLoading(true);
     try {
       const token = localStorage.getItem('auth-token');
       
-      const response = await fetch(`/api/orders/${orders[0]?.id}/add-products`, {
+      const response = await fetch(`/api/orders/${eligibleOrder.id}/add-products`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -162,21 +180,42 @@ export default function TablePage() {
       });
       
       if (response.ok) {
+        toast.success('Produtos adicionados', 'Os produtos foram adicionados ao pedido da mesa.');
         setShowAddProductsModal(false);
         setSelectedProducts([]);
         setProductSearch('');
         setSelectedCategory('');
+        setSelectedOrder(null);
         refetchOrders();
       } else {
-        const error = await response.json();
-        alert(`Erro: ${error.message || 'Erro ao adicionar produtos'}`);
+        const error = await response.json().catch(() => ({ message: 'Erro ao adicionar produtos' }));
+        console.error('❌ Falha ao adicionar produtos:', error);
+        toast.error('Erro ao adicionar produtos', error.message || 'Tente novamente ou verifique o status do pedido/mesa.');
       }
     } catch (error) {
       console.error('Erro ao adicionar produtos:', error);
-      alert('Erro ao adicionar produtos');
+      toast.error('Erro ao adicionar produtos', 'Ocorreu um erro inesperado.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const openAddProductsModal = () => {
+    // Garante mesa ativa
+    if (table?.status !== 'OCUPADA') {
+      toast.warning('Mesa não está ativa', 'A mesa precisa estar OCUPADA para adicionar produtos.');
+      return;
+    }
+
+    // Seleciona o pedido elegível (PENDENTE ou CONFIRMADO e não pago)
+    const targetOrder = orders.find(o => !o.isPaid && (o.status === OrderStatus.PENDENTE || o.status === OrderStatus.CONFIRMADO));
+    if (!targetOrder) {
+      toast.info('Nenhum pedido elegível', 'Crie um pedido PENDENTE/CONFIRMADO para adicionar produtos.');
+      return;
+    }
+
+    setSelectedOrder(targetOrder);
+    setShowAddProductsModal(true);
   };
 
   // Funções do modal de pagamento
@@ -714,8 +753,82 @@ export default function TablePage() {
                   </div>
                 </div>
               </div>
-            </CardContent>
+          </CardContent>
           </Card>
+
+          {/* Produtos dos pedidos da mesa (agregado) */}
+          {orders.length > 0 && (
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <Package className="h-5 w-5" />
+                  <span>Produtos dos pedidos da mesa</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const allItems = orders.flatMap(order => order.items || []);
+                  if (allItems.length === 0) {
+                    return (
+                      <div className="text-sm text-gray-600">Nenhum produto nos pedidos desta mesa.</div>
+                    );
+                  }
+
+                  // Agregar por productId (fallback para nome)
+                  const aggregated = new Map<string, {
+                    key: string;
+                    name: string;
+                    totalQuantity: number;
+                    totalValue: number;
+                  }>();
+
+                  for (const item of allItems) {
+                    const key = item.productId || item.product?.name || `item-${item.id}`;
+                    const name = item.product?.name || 'Produto não encontrado';
+                    const lineTotal = item.price * item.quantity;
+                    const existing = aggregated.get(key);
+                    if (existing) {
+                      existing.totalQuantity += item.quantity;
+                      existing.totalValue += lineTotal;
+                    } else {
+                      aggregated.set(key, {
+                        key,
+                        name,
+                        totalQuantity: item.quantity,
+                        totalValue: lineTotal,
+                      });
+                    }
+                  }
+
+                  const aggregatedList = Array.from(aggregated.values());
+                  const grandTotal = aggregatedList.reduce((sum, it) => preciseMoneyCalculation.add(sum, it.totalValue), 0);
+
+                  return (
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {aggregatedList.map((it) => (
+                          <div key={it.key} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
+                            <div className="flex-1">
+                              <div className="font-medium text-gray-900">{it.name}</div>
+                              <div className="text-sm text-gray-500">Qtd total: {it.totalQuantity}</div>
+                            </div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {formatCurrency(it.totalValue)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="flex items-center justify-end pt-2">
+                        <div className="text-sm text-gray-600 mr-2">Valor total dos produtos</div>
+                        <div className="text-lg font-semibold text-gray-900">{formatCurrency(grandTotal)}</div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Pedidos Ativos */}
           <div className="space-y-6">
@@ -724,16 +837,20 @@ export default function TablePage() {
                 Pedidos Ativos
               </h2>
               
-              {orders.length > 0 && orders.some(order => !order.isPaid) && (
-                <div className="flex space-x-2">
+              <div className="flex items-center space-x-2">
+                {/* Botão Adicionar Produtos: mesa ativa + pedido PENDENTE/CONFIRMADO e não pago */}
+                {table?.status === 'OCUPADA' && orders.some(order => !order.isPaid && (order.status === OrderStatus.PENDENTE || order.status === OrderStatus.CONFIRMADO)) && (
                   <Button
-                    onClick={() => setShowAddProductsModal(true)}
+                    onClick={openAddProductsModal}
                     className="flex items-center space-x-2"
                   >
                     <Plus className="h-4 w-4" />
                     <span>Adicionar Produtos</span>
                   </Button>
-                  
+                )}
+
+                {/* Botão Processar Pagamento: existe pedido não pago */}
+                {orders.some(order => !order.isPaid) && (
                   <Button
                     onClick={openTablePaymentModal}
                     className="flex items-center space-x-2 bg-green-600 hover:bg-green-700 text-white"
@@ -741,8 +858,8 @@ export default function TablePage() {
                     <CreditCard className="h-4 w-4" />
                     <span>Processar Pagamento</span>
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
               
             </div>
 
@@ -757,7 +874,7 @@ export default function TablePage() {
                     Esta mesa não possui pedidos ativos no momento.
                   </p>
                   <Button
-                    onClick={() => router.push(`/?tableId=${tableId}`)}
+                    onClick={() => router.push(`/cart?tableId=${tableId}&fromTable=1`)}
                     className="flex items-center space-x-2"
                   >
                     <Plus className="h-4 w-4" />
@@ -852,7 +969,7 @@ export default function TablePage() {
                             className="flex items-center space-x-1 text-blue-600 hover:text-blue-700"
                           >
                             <Eye className="h-4 w-4" />
-                            <span>Detalhes</span>
+                            <span>Detalhes ({order.table ? `Mesa ${order.table.number}` : 'Balcão'})</span>
                           </Button>
                           
                           <Button
@@ -1373,6 +1490,7 @@ export default function TablePage() {
                             {selectedOrder.status}
                           </Badge>
                         </div>
+                         
                         <div><span className="font-medium">Criado em:</span> {formatDateTime(selectedOrder.createdAt)}</div>
                         <div><span className="font-medium">Pagamento:</span> 
                           <span className={`ml-2 font-medium ${selectedOrder.isPaid ? 'text-green-600' : 'text-orange-600'}`}>
@@ -1405,8 +1523,10 @@ export default function TablePage() {
                             <div className="flex-1">
                               <div className="font-medium text-gray-900 mb-1">
                                 {item.product?.name || 'Produto não encontrado'}
+                              
                               </div>
                               <div className="text-sm text-gray-600 mb-2">
+                                  
                                 Quantidade: {item.quantity} x {formatCurrency(item.price)} = {formatCurrency(item.price * item.quantity)}
                               </div>
                               {item.customizations && (

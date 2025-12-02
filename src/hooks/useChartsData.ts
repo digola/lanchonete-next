@@ -30,6 +30,16 @@ export interface UseChartsDataOptions {
   enabled?: boolean;
 }
 
+/**
+ * useChartsData
+ *
+ * Hook para carregar dados de gráficos analíticos (faturamento, pedidos,
+ * produtos e mesas) com suporte a período e tipo de gráfico. Expõe refetch
+ * para revalidar manualmente.
+ *
+ * @param options period ('7d' | '30d' | '90d'), chartType e enabled
+ * @returns {object} data, loading, error, refetch
+ */
 export function useChartsData(options: UseChartsDataOptions = {}) {
   const { period = '7d', chartType = 'all', enabled = true } = options;
   

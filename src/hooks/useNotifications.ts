@@ -19,6 +19,16 @@ interface UseNotificationsOptions {
   autoRemoveDelay?: number;
 }
 
+/**
+ * useNotifications
+ *
+ * Hook para gerenciar notificações na aplicação, com suporte a
+ * permissão do navegador, auto-remoção, e ações para marcar como lida,
+ * limpar e solicitar permissão.
+ *
+ * @param options Limites e comportamento de auto-remover
+ * @returns Lista de notificações, permissão e ações utilitárias
+ */
 export function useNotifications(options: UseNotificationsOptions = {}) {
   const {
     maxNotifications = 50,

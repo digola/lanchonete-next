@@ -3,12 +3,16 @@ import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
 import { OrderTableAPI } from '@/lib/order-table-manager';
 
+interface RouteParams {
+  params: { id: string };
+}
+
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: RouteParams
 ) {
   try {
-    const { id: orderId } = await params;
+    const { id: orderId } = params;
     const body = await request.json();
     const { products } = body;
 

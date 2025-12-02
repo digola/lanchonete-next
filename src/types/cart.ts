@@ -17,29 +17,37 @@ export interface CartState {
   totalPrice: number;
   isLoading: boolean;
   error: string | null;
+  // Associação opcional de mesa ao carrinho
+  tableId?: string | null;
+  tableNumber?: number | null;
 }
 
 export type CartAction = 
-  | { type: 'ADD_ITEM'; payload: { product: Product; quantity?: number } }
+  | { type: 'ADD_ITEM'; payload: { product: Product; quantity?: number; notes?: string; customizations?: Record<string, any> } }
   | { type: 'REMOVE_ITEM'; payload: { productId: string } }
   | { type: 'UPDATE_QUANTITY'; payload: { productId: string; quantity: number } }
   | { type: 'CLEAR_CART' }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null }
-  | { type: 'LOAD_CART'; payload: CartItem[] };
+  | { type: 'LOAD_CART'; payload: CartItem[] }
+  | { type: 'SET_TABLE'; payload: { tableId?: string | null; tableNumber?: number | null } };
 
 // Função reducer para gerenciar estado do carrinho
 export const cartReducer = (state: CartState, action: CartAction): CartState => {
   switch (action.type) {
     case 'ADD_ITEM': {
-      const { product, quantity = 1 } = action.payload;
-      
-      const existingItem = state.items.find(item => item.productId === product.id);
+      const { product, quantity = 1, notes, customizations } = action.payload;
+      const normalizedNotes = (notes || '').trim();
+      const normCustom = customizations ? JSON.stringify(customizations) : JSON.stringify({});
+      // Itens com mesmas observações e mesmas customizações podem ser mesclados; com diferenças criam linhas separadas
+      const existingItem = state.items.find(item => 
+        item.productId === product.id && ((item.notes || '').trim() === normalizedNotes) && (JSON.stringify(item.customizations || {}) === normCustom)
+      );
       
       if (existingItem) {
-        // Atualizar quantidade do item existente
+        // Atualizar quantidade do item existente (garantindo combinar apenas com mesmas observações)
         const updatedItems = state.items.map(item =>
-          item.productId === product.id
+          item.productId === product.id && ((item.notes || '').trim() === normalizedNotes) && (JSON.stringify(item.customizations || {}) === normCustom)
             ? { ...item, quantity: item.quantity + quantity }
             : item
         );
@@ -51,15 +59,19 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
           totalPrice: updatedItems.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         };
       } else {
-        // Adicionar novo item
-        const newItem: CartItem = {
-          id: `cart_${product.id}_${Date.now()}`,
+        // Adicionar novo item corretamente como CartItem (não apenas ID)
+        const cartItemId = `cart_${product.id}_${Date.now()}`;
+        const baseItem = {
+          id: cartItemId,
           productId: product.id,
           product,
           quantity,
           price: product.price,
           addedAt: new Date(),
         };
+        const newItem: CartItem = normalizedNotes
+          ? { ...baseItem, notes: normalizedNotes, ...(customizations ? { customizations } : {}) }
+          : { ...baseItem, ...(customizations ? { customizations } : {}) };
 
         const updatedItems = [...state.items, newItem];
         return {
@@ -134,6 +146,15 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
         totalPrice: items.reduce((sum, item) => sum + (item.price * item.quantity), 0),
         isLoading: false,
         error: null,
+      };
+    }
+    
+    case 'SET_TABLE': {
+      const { tableId = null, tableNumber = null } = action.payload;
+      return {
+        ...state,
+        tableId,
+        tableNumber,
       };
     }
     

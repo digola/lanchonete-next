@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { verifyTokenEdge } from './lib/auth';
+import { verifyTokenEdge, hasMinimumRole } from './lib/auth';
 import { UserRole } from './types';
 
 const PUBLIC_ROUTES = ['/login', '/register', '/'];
@@ -32,46 +32,25 @@ export async function middleware(request: NextRequest) {
       throw new Error('Token inválido');
     }
 
-    // Verificar rotas de STAFF
+    // Verificar rotas de STAFF (mínimo STAFF)
     if (STAFF_ROUTES.some(route => pathname.startsWith(route))) {
-      const allowedRolesForStaff = [
-        UserRole.STAFF,
-        UserRole.MANAGER,
-        UserRole.ADMIN,
-        UserRole.ADMINISTRADOR,
-        UserRole.ADMINISTRADOR_LOWER,
-        UserRole.ADMINISTRADOR_TITLE,
-      ];
-      if (!allowedRolesForStaff.includes(decoded.role)) {
+      if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de MANAGER (permitir MANAGER e ADMIN/ADMINISTRADOR)
+    // Verificar rotas de MANAGER (mínimo MANAGER)
     if (MANAGER_ROUTES.some(route => pathname.startsWith(route))) {
-      const allowedRolesForManager = [
-        UserRole.MANAGER,
-        UserRole.ADMIN,
-        UserRole.ADMINISTRADOR,
-        UserRole.ADMINISTRADOR_LOWER,
-        UserRole.ADMINISTRADOR_TITLE,
-      ];
-      if (!allowedRolesForManager.includes(decoded.role)) {
+      if (!hasMinimumRole(decoded.role as UserRole, UserRole.MANAGER)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de ADMIN (permitir variações de ADMINISTRADOR)
+    // Verificar rotas de ADMIN (mínimo ADMIN)
     if (ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      const allowedRolesForAdmin = [
-        UserRole.ADMIN,
-        UserRole.ADMINISTRADOR,
-        UserRole.ADMINISTRADOR_LOWER,
-        UserRole.ADMINISTRADOR_TITLE,
-      ];
-      if (!allowedRolesForAdmin.includes(decoded.role)) {
+      if (!hasMinimumRole(decoded.role as UserRole, UserRole.ADMIN)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }

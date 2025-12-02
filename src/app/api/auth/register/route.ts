@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
         name: name.trim(),
         email: email.toLowerCase().trim(),
         password: hashedPassword,
-        role: 'CLIENTE', // Role padrão para novos usuários
+        role: 'CUSTOMER', // Role padrão para novos usuários (inglês)
         isActive: true,
       },
     });
@@ -155,6 +155,6 @@ export async function GET() {
     message: 'Register endpoint is working',
     method: 'POST',
     requiredFields: ['name', 'email', 'password', 'confirmPassword'],
-    defaultRole: 'CLIENTE',
+    defaultRole: 'CUSTOMER',
   });
 }

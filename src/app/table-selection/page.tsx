@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/Input';
 import { Table as TableType, TableStatus, UserRole } from '@/types';
 import { Search, Users, Clock, CheckCircle, XCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { StaffHeader } from '@/components/staff/StaffHeader';
 
 export default function TableSelectionPage() {
   const { user, isAuthenticated } = useApiAuth();
@@ -19,10 +20,13 @@ export default function TableSelectionPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | 'LIVRE' | 'OCUPADA'>('LIVRE');
   const [selectedTable, setSelectedTable] = useState<TableType | null>(null);
 
-  // Verificar se é staff ou manager
-  const isStaff = user?.role === UserRole.STAFF || user?.role === UserRole.ADMIN || user?.role === UserRole.MANAGER;
+  // Verificar se é staff ou manager (inclui alias do banco: FUNCIONARIO)
+  const isStaff =
+    user?.role === UserRole.STAFF ||
+    user?.role === UserRole.ADMIN ||
+    user?.role === UserRole.MANAGER;
 
-  // Redirecionar se não for staff/manager
+  // Redirecionar se não for staff/manager (apenas quando autenticado)
   useEffect(() => {
     if (isAuthenticated && !isStaff) {
       router.push('/');
@@ -121,6 +125,7 @@ export default function TableSelectionPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
+      <StaffHeader />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
@@ -138,15 +143,7 @@ export default function TableSelectionPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
                 leftIcon={<Search className="h-4 w-4 text-gray-400" />}
               />
-              <select
-                className="form-select block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-300 focus:ring focus:ring-primary-200 focus:ring-opacity-50"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
-              >
-                <option value="all">Todos os Status</option>
-                <option value="LIVRE">Livre</option>
-                <option value="OCUPADA">Ocupada</option>
-              </select>
+            
               <Button 
                 variant="outline" 
                 onClick={() => refetchTables()}

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasMinimumRole } from '@/lib/auth';
 import { OrderStatus, UserRole } from '@/types';
 
 // POST /api/orders/finalize - Finalizar pedido completo da mesa
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar permissão (apenas staff e admin podem finalizar pedidos)
-    if (decoded.role !== UserRole.STAFF && decoded.role !== UserRole.ADMIN) {
+    // Verificar permissão (mínimo STAFF)
+    if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
       return NextResponse.json(
         { success: false, error: 'Apenas funcionários podem finalizar pedidos' },
         { status: 403 }
@@ -196,7 +196,6 @@ export async function POST(request: NextRequest) {
             paymentMethod,
             notes: notes?.trim() || null,
             tableId,
-            finalizedBy: decoded.userId, // Funcionário que finalizou o pedido
             items: {
               create: validatedItems,
             },
@@ -224,13 +223,6 @@ export async function POST(request: NextRequest) {
               select: {
                 id: true,
                 number: true,
-              },
-            },
-            finalizedByUser: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
               },
             },
           },
@@ -262,7 +254,6 @@ export async function POST(request: NextRequest) {
       tableNumber: order.table?.number,
       total: order.total,
       itemsCount: order.items.length,
-      finalizedBy: decoded.userId
     });
 
     return NextResponse.json({

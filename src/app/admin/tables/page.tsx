@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
 import { Modal, ConfirmModal } from '@/components/ui/Modal';
 import { TableForm, type TableFormData } from '@/components/admin/forms';
-import { toast } from '@/lib/toast';
+import { Toast } from '@/components/ui/Toast';
 import { formatDateTime } from '@/lib/utils';
 import { 
   Search,
@@ -25,10 +25,11 @@ import {
   Clock
 } from 'lucide-react';
 import { Table as TableType, TableStatus, UserRole } from '@/types';
+import { toast } from '@/lib/toast';
 
 export default function AdminTablesPage() {
   const { user, token } = useApiAuth();
-  // const { addToast } = useToast();
+
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'LIVRE' | 'OCUPADA' | 'RESERVADA' | 'MANUTENCAO'>('all');
   const [capacityFilter, setCapacityFilter] = useState<'all' | 'small' | 'medium' | 'large'>('all');
@@ -120,7 +121,7 @@ export default function AdminTablesPage() {
 
       setShowCreateModal(false);
       refetchTables();
-      toast.success('Mesa criada com sucesso!');
+      toast.success('Mesa criada com sucesso!');    
     } catch (err: any) {
       toast.error(err.message || 'Erro ao criar mesa');
     } finally {
@@ -149,9 +150,9 @@ export default function AdminTablesPage() {
       setShowEditModal(false);
       setSelectedTable(null);
       refetchTables();
-      toast.success('Mesa atualizada com sucesso!');
+      toast.success('Mesa atualizada com sucesso!');    
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao atualizar mesa');
+      toast.error(err.message || 'Erro ao atualizar mesa');   
     } finally {
       setIsLoading(false);
     }
@@ -176,9 +177,9 @@ export default function AdminTablesPage() {
       setShowDeleteConfirm(false);
       setSelectedTable(null);
       refetchTables();
-      toast.success('Mesa deletada com sucesso!');
+      toast.success('Mesa deletada com sucesso!');  
     } catch (err: any) {
-      toast.error(err.message || 'Erro ao deletar mesa');
+      toast.error(err.message || 'Erro ao deletar mesa ');
     } finally {
       setIsLoading(false);
     }

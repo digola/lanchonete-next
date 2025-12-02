@@ -3,13 +3,9 @@
 // Enums conforme Prisma schema
 export enum UserRole {
   CUSTOMER = 'CUSTOMER',
-  CLIENTE = 'CLIENTE',
   STAFF = 'STAFF',
   MANAGER = 'MANAGER',
   ADMIN = 'ADMIN',
-  ADMINISTRADOR = 'ADMINISTRADOR',
-  ADMINISTRADOR_LOWER = 'administrador',
-  ADMINISTRADOR_TITLE = 'Administrador',
 }
 
 export enum OrderStatus {
@@ -71,13 +67,30 @@ export interface Product {
   isAvailable: boolean;
   preparationTime: number;
   allergens?: string;
+  adicionais?: ProductAdicional[];
   
-  // Campos de estoque
-  stockQuantity?: number;
-  minStockLevel?: number;
-  maxStockLevel?: number;
-  trackStock: boolean;
-  
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Adicional {
+  id: string;
+  name: string;
+  description?: string;
+  price: number;
+  maxQuantity: number;
+  isAvailable: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ProductAdicional {
+  id: string;
+  productId: string;
+  adicionalId: string;
+  product?: Product;
+  adicional?: Adicional;
+  isRequired: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -109,6 +122,7 @@ export interface Order {
   notes?: string;
   tableId?: string;
   table?: Table;
+  adicionaisIds?: string[];
   items: OrderItem[];
   createdAt: Date;
   updatedAt: Date;
@@ -139,6 +153,19 @@ export interface Table {
   updatedAt: Date;
 }
 
+export interface StockMovement {
+  id: string;
+  productId: string;
+  product?: Product;
+  type: 'ENTRADA' | 'SAIDA' | 'AJUSTE';
+  quantity: number;
+  reason: string;
+  reference?: string;
+  userId?: string;
+  user?: User;
+  notes?: string;
+  createdAt: Date;
+}
 
 export interface SystemSettings {
   id: string;
@@ -331,6 +358,7 @@ export interface AppConfig {
   restaurantName: string;
   restaurantAddress: string;
   restaurantPhone: string;
+  restaurantEmail: string;
   deliveryFee: number;
   minOrderValue: number;
   deliveryTime: number;
@@ -549,7 +577,6 @@ export interface BackupSettings {
 // Tipos de notificações
 export enum NotificationType {
   ORDER = 'order',
-  STOCK = 'stock',
   SYSTEM = 'system',
   PAYMENT = 'payment',
   USER = 'user',

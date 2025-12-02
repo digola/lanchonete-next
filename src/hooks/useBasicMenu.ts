@@ -8,7 +8,14 @@ const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TIME = 2 * 60 * 1000; // 2 minutos
 
 /**
- * Hook otimizado para dados do menu com cache e debounce
+ * useBasicMenu
+ *
+ * Hook simples para dados do menu com cache in-memory e debounce no termo
+ * de busca. Utiliza um Map global para armazenar respostas por URL e evita
+ * mostrar loading quando o dado já está em cache.
+ *
+ * @param filters Filtros opcionais (search, categoryId, isAvailable)
+ * @returns Dados do menu, estados de loading/erro e utilitário de refresh
  */
 export const useBasicMenu = (filters?: {
   search?: string;
@@ -225,7 +232,12 @@ export const useBasicMenu = (filters?: {
   };
 };
 
-// Função para limpar o cache manualmente
+/**
+ * clearMenuCache
+ *
+ * Limpa o cache global utilizado por useBasicMenu. Útil após mutações
+ * de dados (ex.: criação/edição de produtos) para forçar recarregamento.
+ */
 export const clearMenuCache = () => {
   cache.clear();
 };

@@ -24,6 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validação: garante que o token JWT é válido
     const decoded = verifyToken(token);
     if (!decoded) {
       return NextResponse.json(
@@ -103,6 +104,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     console.log('🔍 Verificando permissão tables:write para role:', decoded.role);
 
     // Verificar permissão
+    // Autorização: exige permissão 'tables:write'
     if (!hasPermission(decoded.role, 'tables:write')) {
       console.log('❌ Sem permissão para editar - Role:', decoded.role, 'Permissão requerida: tables:write');
       return NextResponse.json(
@@ -237,12 +239,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   }
 }
 
-// DELETE /api/tables/[id] - Deletar mesa
+// DELETE /api/tables/[id] - Deletar mesa (desabilitado)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    // Verificar autenticação
+    // Autenticação e permissão padrão
     const token = getTokenFromRequest(request);
     if (!token) {
       return NextResponse.json(
@@ -265,61 +267,46 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { status: 403 }
       );
     }
+      // Existência: garante que a mesa alvo existe
+      const existingTable = await prisma.table.findUnique({ where: { id } });
+      if (!existingTable) {
+        return NextResponse.json(
+          { success: false, error: 'Mesa não encontrada' },
+          { status: 404 }
+        );
+      }
 
-    // Verificar se a mesa existe
-    const existingTable = await prisma.table.findUnique({
-      where: { id },
-    });
+      // Bloqueio: impede exclusão se houver pedidos vinculados à mesa
+      const ordersCount = await prisma.order.count({ where: { tableId: id } });
+      if (ordersCount > 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'Não é possível deletar mesa que possui pedidos. Altere o status da mesa para manutenção.',
+          },
+          { status: 400 }
+        );
+      }
 
-    if (!existingTable) {
-      return NextResponse.json(
-        { success: false, error: 'Mesa não encontrada' },
-        { status: 404 }
-      );
-    }
-
-    // Verificar se a mesa tem pedidos
-    const ordersCount = await prisma.order.count({
-      where: { tableId: id },
-    });
-
-    if (ordersCount > 0) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Não é possível deletar mesa que possui pedidos. Altere o status da mesa para manutenção.' 
+      // Ação: exclusão definitiva da mesa no banco de dados
+      const deleted = await prisma.table.delete({
+        where: { id },
+        select: {
+          id: true,
+          number: true,
+          capacity: true,
+          status: true,
+          assignedTo: true,
+          createdAt: true,
+          updatedAt: true,
         },
-        { status: 400 }
-      );
-    }
+      });
 
-    // Deletar mesa
-    await prisma.table.delete({
-      where: { id },
-    });
-
-    // Log da atividade (comentado para SQLite - modelo activityLog não existe)
-    // await prisma.activityLog.create({
-    //   data: {
-    //     userId: decoded.userId,
-    //     action: 'DELETE_TABLE',
-    //     entityType: 'Table',
-    //     entityId: id,
-    //     details: JSON.stringify({
-    //       number: existingTable.number,
-    //       capacity: existingTable.capacity,
-    //     }),
-    //     ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-    //     userAgent: request.headers.get('user-agent'),
-    //   },
-    // });
-
-    return NextResponse.json({
-      success: true,
-      message: 'Mesa deletada com sucesso',
-    });
+      // Resposta: confirma sucesso e retorna dados essenciais da mesa deletada
+      return NextResponse.json({ success: true, message: 'Mesa deletada com sucesso', data: deleted });
+   
   } catch (error) {
-    console.error('Erro ao deletar mesa:', error);
     return NextResponse.json(
       { success: false, error: 'Erro interno do servidor' },
       { status: 500 }

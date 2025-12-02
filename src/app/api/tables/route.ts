@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get('status') || '';
     const assignedTo = searchParams.get('assignedTo') || '';
+    const numberParam = searchParams.get('number') || '';
     const includeAssignedUser = searchParams.get('includeAssignedUser') === 'true';
 
     // Construir filtros
@@ -45,6 +46,12 @@ export async function GET(request: NextRequest) {
     }
     if (assignedTo) {
       where.assignedTo = assignedTo;
+    }
+    if (numberParam) {
+      const num = parseInt(numberParam, 10);
+      if (!isNaN(num)) {
+        where.number = num;
+      }
     }
 
     // Buscar mesas

@@ -1,5 +1,9 @@
 import { PrismaClient } from '@prisma/client';
 
+/**
+ * Armazena instância global do Prisma para evitar múltiplas conexões
+ * em ambiente de desenvolvimento (hot reload).
+ */
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
@@ -7,7 +11,10 @@ const globalForPrisma = globalThis as unknown as {
 // Detectar ambiente de produção
 const isProdLike = process.env.NODE_ENV === 'production';
 
-// Configurar DATABASE_URL padrão somente em desenvolvimento local
+/**
+ * Configura DATABASE_URL padrão (SQLite) apenas em desenvolvimento local,
+ * e alerta quando variável está ausente em produção.
+ */
 if (!process.env.DATABASE_URL) {
   if (isProdLike) {
     // Em produção, não usar SQLite e exigir configuração explícita de DATABASE_URL
@@ -18,10 +25,19 @@ if (!process.env.DATABASE_URL) {
   }
 }
 
-// Lazy initialization: cria o client apenas no primeiro acesso
+/**
+ * Lazy initialization: cria o client apenas no primeiro acesso.
+ * Em desenvolvimento, reaproveita instância global para evitar excesso
+ * de conexões ao banco durante hot reload.
+ */
 let prismaClient: PrismaClient | undefined = globalForPrisma.prisma;
 
-export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+// Ampliar tipo para permitir acesso dinâmico a modelos recém-gerados
+/**
+ * Exporta um Proxy que inicializa o PrismaClient sob demanda e permite
+ * acesso dinâmico aos modelos gerados sem necessidade de reimportação.
+ */
+export const prisma: (PrismaClient & { [key: string]: any }) = new Proxy({} as PrismaClient, {
   get(_target, prop, receiver) {
     if (!prismaClient) {
       // Bloquear inicialização sem DATABASE_URL em ambientes de produção
@@ -38,7 +54,10 @@ export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
   }
 });
 
-// Função para conectar ao banco
+/**
+ * Conecta ao banco de dados usando prisma.$connect().
+ * Útil para verificar conectividade durante inicialização.
+ */
 export const connectDatabase = async () => {
   try {
     // força criação do client e conexão
@@ -50,7 +69,9 @@ export const connectDatabase = async () => {
   }
 };
 
-// Função para desconectar do banco
+/**
+ * Desconecta do banco de dados (boa prática em scripts/teardowns).
+ */
 export const disconnectDatabase = async () => {
   try {
     await prisma.$disconnect();
@@ -61,7 +82,9 @@ export const disconnectDatabase = async () => {
   }
 };
 
-// Função para verificar saúde do banco
+/**
+ * Verifica saúde do banco executando SELECT 1 via $queryRaw.
+ */
 export const checkDatabaseHealth = async () => {
   try {
     await prisma.$queryRaw`SELECT 1`;
@@ -71,7 +94,10 @@ export const checkDatabaseHealth = async () => {
   }
 };
 
-// Middleware para logging de queries (apenas em desenvolvimento)
+/**
+ * Middleware de logging de queries (apenas em desenvolvimento).
+ * Registra tempo de execução de cada operação Prisma.
+ */
 if (process.env.NODE_ENV === 'development') {
   // inicializa e aplica middleware somente quando usado
   (async () => {

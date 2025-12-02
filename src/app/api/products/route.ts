@@ -46,6 +46,7 @@ export async function GET(request: NextRequest) {
         take: limit,
       }),
       prisma.product.count({ where }),
+     //onsole.log(where),//debug apos enter apagar
     ]);
 
     return NextResponse.json({
@@ -104,13 +105,7 @@ export async function POST(request: NextRequest) {
       categoryId, 
       isAvailable = true,
       preparationTime = 15,
-      allergens,
-      
-      // Campos de estoque
-      stockQuantity = 0,
-      minStockLevel = 5,
-      maxStockLevel = 100,
-      trackStock = false
+      allergens
     } = body;
 
     // Validações
@@ -171,11 +166,6 @@ export async function POST(request: NextRequest) {
         preparationTime: Number(preparationTime),
         allergens: allergens?.trim(),
         
-        // Campos de estoque (garantir valores válidos)
-        stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
-        minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
-        maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
-        trackStock,
       },
       include: {
         category: true,

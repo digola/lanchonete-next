@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import type { Settings as PrismaSettings } from '@prisma/client';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasMinimumRole } from '@/lib/auth';
+import { UserRole } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +13,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'ADMINISTRADOR')) {
+    if (!user || !hasMinimumRole(user.role as UserRole, UserRole.ADMIN)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -26,13 +28,16 @@ export async function GET(request: NextRequest) {
     });
 
     // Agrupar configurações por categoria
-    const groupedSettings = settings.reduce((acc, setting) => {
+    const groupedSettings = settings.reduce((
+      acc: Record<string, Record<string, PrismaSettings>>,
+      setting: PrismaSettings
+    ) => {
       if (!acc[setting.category]) {
-        acc[setting.category] = {};
+        acc[setting.category] = {} as Record<string, PrismaSettings>;
       }
       acc[setting.category]![setting.key] = setting;
       return acc;
-    }, {} as Record<string, Record<string, any>>);
+    }, {} as Record<string, Record<string, PrismaSettings>>);
 
     return NextResponse.json({
       success: true,
@@ -55,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'ADMINISTRADOR')) {
+    if (!user || !hasMinimumRole(user.role as UserRole, UserRole.ADMIN)) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
@@ -69,20 +74,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verificar se a configuração já existe
-    const existingSetting = await prisma.settings.findUnique({
-      where: { key },
+    // Verificar se a configuração já existe (busca por categoria+key)
+    const existingSetting = await prisma.settings.findFirst({
+      where: { category, key },
     });
 
     let setting;
+    const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
+
     if (existingSetting) {
       // Atualizar configuração existente
       setting = await prisma.settings.update({
-        where: { key },
+        where: { id: existingSetting.id },
         data: {
-          value: JSON.stringify(value),
+          value: storedValue,
           description,
           updatedAt: new Date(),
+          isActive: true,
         },
       });
     } else {
@@ -90,9 +98,10 @@ export async function POST(request: NextRequest) {
       setting = await prisma.settings.create({
         data: {
           key,
-          value: JSON.stringify(value),
+          value: storedValue,
           category,
           description,
+          isActive: true,
         },
       });
     }
@@ -123,7 +132,7 @@ export async function PUT(request: NextRequest) {
     const user = await verifyToken(token);
     console.log('👤 Usuário verificado:', user ? { id: user.userId, role: user.role } : 'Nenhum');
     
-    if (!user || (user.role !== 'ADMIN' && user.role !== 'ADMINISTRADOR')) {
+    if (!user || !hasMinimumRole(user.role as UserRole, UserRole.ADMIN)) {
       console.log('❌ Acesso negado');
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
@@ -149,19 +158,21 @@ export async function PUT(request: NextRequest) {
       const { key, value, category, description } = setting;
 
       try {
-        const existingSetting = await prisma.settings.findUnique({
-          where: { key },
+        const existingSetting = await prisma.settings.findFirst({
+          where: { category, key },
         });
 
         let result;
+        const storedValue = typeof value === 'string' ? value : JSON.stringify(value);
         if (existingSetting) {
           console.log(`🔄 Atualizando configuração existente: ${key}`);
           result = await prisma.settings.update({
-            where: { key },
+            where: { id: existingSetting.id },
             data: {
-              value: JSON.stringify(value),
+              value: storedValue,
               description,
               updatedAt: new Date(),
+              isActive: true,
             },
           });
         } else {
@@ -169,9 +180,10 @@ export async function PUT(request: NextRequest) {
           result = await prisma.settings.create({
             data: {
               key,
-              value: JSON.stringify(value),
+              value: storedValue,
               category,
               description,
+              isActive: true,
             },
           });
         }

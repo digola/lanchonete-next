@@ -3,8 +3,22 @@ import { useAuthStore } from '@/stores/authStore';
 import { UserRole } from '@/types';
 
 /**
- * Hook personalizado para autenticação
- * Fornece acesso ao estado de autenticação e métodos relacionados
+ * useApiAuth
+ *
+ * Hook personalizado para autenticação que encapsula a AuthStore e expõe:
+ *  - Estado: user, isAuthenticated, isLoading, error, token
+ *  - Ações principais: login, register, logout, refreshAuth
+ *  - Ações de perfil: updateProfile, changePassword
+ *  - Ações de estado: setLoading, setError, clearError
+ *  - Verificações: hasPermission, hasRole, hasMinimumRole
+ *  - Utilitários: initializeAuth, checkAuthStatus
+ *  - Helpers: getUserDisplayName, getUserInitials, getRoleColor, getRoleLabel, canAccessRoute
+ *
+ * Efeitos:
+ *  - initializeAuth na montagem (uma vez)
+ *  - verificação periódica do status quando autenticado (com heurística de expiração do token)
+ *
+ * @returns Objeto com estado, ações e utilitários de autenticação prontos para uso
  */
 export const useApiAuth = () => {
   const {
@@ -102,10 +116,19 @@ export const useApiAuth = () => {
     return result;
   };
 
-  // Função para logout com limpeza
-  const logoutWithCleanup = () => {
-    clearError();
-    logout();
+  // Função para logout com estado de loading e limpeza
+  const logoutWithCleanup = async () => {
+    try {
+      clearError();
+      // Ativar estado de loading para feedback visual
+      setLoading(true);
+      // Executar logout síncrono da store
+      await Promise.resolve().then(() => logout());
+      // Manter um pequeno atraso para permitir transições de UI
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Função para atualizar perfil com tratamento de erro
@@ -175,11 +198,14 @@ export const useApiAuth = () => {
   const getRoleColor = () => {
     if (!user) return 'gray';
     
+    // user.role já está normalizado em inglês pela AuthStore
     switch (user.role) {
       case UserRole.ADMIN:
         return 'red';
       case UserRole.STAFF:
         return 'blue';
+      case UserRole.MANAGER:
+        return 'orange';
       case UserRole.CUSTOMER:
         return 'green';
       default:
@@ -191,11 +217,14 @@ export const useApiAuth = () => {
   const getRoleLabel = () => {
     if (!user) return '';
     
+    // Labels amigáveis (mantendo inglês por consistência atual do app)
     switch (user.role) {
       case UserRole.ADMIN:
         return 'Admin';
       case UserRole.STAFF:
         return 'Staff';
+      case UserRole.MANAGER:
+        return 'Manager';
       case UserRole.CUSTOMER:
         return 'Customer';
       default:
@@ -224,14 +253,15 @@ export const useApiAuth = () => {
     try {
       if (!user) return '/login';
 
+      // user.role já normalizado em inglês
       switch (user.role) {
-        case 'ADMIN':
+        case UserRole.ADMIN:
           return '/admin/dashboard';
-        case 'STAFF':
+        case UserRole.STAFF:
           return '/staff';
-        case 'MANAGER':
+        case UserRole.MANAGER:
           return '/expedicao';
-        case 'CUSTOMER':
+        case UserRole.CUSTOMER:
           return '/customer/dashboard';
         default:
           return '/';

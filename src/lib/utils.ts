@@ -2,15 +2,18 @@ import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
 /**
- * Combina classes CSS usando clsx e tailwind-merge
- * Remove conflitos de classes do Tailwind e combina classes condicionais
+ * Combina classes CSS usando clsx e tailwind-merge.
+ * Remove conflitos de classes do Tailwind e combina classes condicionais.
+ *
+ * @example
+ * cn('p-2', condition && 'bg-red-500', 'p-4') // resolve para 'p-4 bg-red-500'
  */
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
 /**
- * Formatar moeda brasileira
+ * Formata número para moeda brasileira (BRL) com locale pt-BR.
  */
 export function formatCurrency(value: number): string {
   return new Intl.NumberFormat('pt-BR', {
@@ -20,7 +23,7 @@ export function formatCurrency(value: number): string {
 }
 
 /**
- * Formatar data brasileira
+ * Formata data para padrão brasileiro dd/mm/aaaa.
  */
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -32,7 +35,7 @@ export function formatDate(date: Date | string): string {
 }
 
 /**
- * Formatar data e hora brasileira
+ * Formata data e hora para padrão brasileiro dd/mm/aaaa hh:mm.
  */
 export function formatDateTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -46,7 +49,8 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
- * Formatar tempo relativo (ex: "há 2 horas")
+ * Formata tempo relativo (ex.: "há 2 horas").
+ * Quando acima de 30 dias, retorna a data formatada.
  */
 export function formatRelativeTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
@@ -76,7 +80,7 @@ export function formatRelativeTime(date: Date | string): string {
 }
 
 /**
- * Gerar slug a partir de string
+ * Gera slug a partir de uma string: minúsculas, sem acentos e com hífens.
  */
 export function slugify(text: string): string {
   return text
@@ -90,7 +94,7 @@ export function slugify(text: string): string {
 }
 
 /**
- * Truncar texto
+ * Trunca texto no tamanho desejado e adiciona reticências.
  */
 export function truncate(text: string, length: number): string {
   if (text.length <= length) return text;
@@ -98,14 +102,15 @@ export function truncate(text: string, length: number): string {
 }
 
 /**
- * Capitalizar primeira letra
+ * Capitaliza a primeira letra da string.
  */
 export function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
 /**
- * Debounce function
+ * Cria uma função debounced: adia a execução até que não haja novas chamadas
+ * por um período (wait).
  */
 export function debounce<T extends (...args: any[]) => any>(
   func: T,
@@ -119,7 +124,8 @@ export function debounce<T extends (...args: any[]) => any>(
 }
 
 /**
- * Throttle function
+ * Cria uma função throttled: garante execução no máximo uma vez por intervalo
+ * (limit), ignorando chamadas no meio do período.
  */
 export function throttle<T extends (...args: any[]) => any>(
   func: T,
@@ -136,7 +142,7 @@ export function throttle<T extends (...args: any[]) => any>(
 }
 
 /**
- * Validar email
+ * Valida email com regex simples.
  */
 export function isValidEmail(email: string): boolean {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -144,7 +150,7 @@ export function isValidEmail(email: string): boolean {
 }
 
 /**
- * Validar CPF
+ * Valida CPF (11 dígitos) com cálculo dos dígitos verificadores.
  */
 export function isValidCPF(cpf: string): boolean {
   // Remove caracteres não numéricos
@@ -178,7 +184,7 @@ export function isValidCPF(cpf: string): boolean {
 }
 
 /**
- * Validar telefone brasileiro
+ * Valida telefone brasileiro (10 ou 11 dígitos).
  */
 export function isValidPhone(phone: string): boolean {
   // Remove caracteres não numéricos
@@ -189,7 +195,7 @@ export function isValidPhone(phone: string): boolean {
 }
 
 /**
- * Formatar telefone brasileiro
+ * Formata telefone brasileiro, suportando padrões de 10 e 11 dígitos.
  */
 export function formatPhone(phone: string): string {
   const cleaned = phone.replace(/[^\d]/g, '');
@@ -204,7 +210,7 @@ export function formatPhone(phone: string): string {
 }
 
 /**
- * Formatar CPF
+ * Formata CPF para o padrão xxx.xxx.xxx-xx.
  */
 export function formatCPF(cpf: string): string {
   const cleaned = cpf.replace(/[^\d]/g, '');
@@ -212,14 +218,15 @@ export function formatCPF(cpf: string): string {
 }
 
 /**
- * Gerar ID único
+ * Gera ID pseudo-único curto (uso não-criptográfico).
  */
 export function generateId(): string {
   return Math.random().toString(36).substr(2, 9);
 }
 
 /**
- * Clonar objeto profundamente
+ * Clona objeto profundamente, com suporte básico a Array e Date.
+ * Não preserva protótipos avançados nem funções.
  */
 export function deepClone<T>(obj: T): T {
   if (obj === null || typeof obj !== 'object') return obj;
@@ -238,7 +245,8 @@ export function deepClone<T>(obj: T): T {
 }
 
 /**
- * Verificar se é objeto vazio
+ * Verifica se valor é vazio: null/undefined, array/string vazios,
+ * ou objeto sem chaves próprias.
  */
 export function isEmpty(obj: any): boolean {
   if (obj == null) return true;
@@ -248,7 +256,7 @@ export function isEmpty(obj: any): boolean {
 }
 
 /**
- * Ordenar array por propriedade
+ * Ordena um array por propriedade (asc/desc) sem mutar o original.
  */
 export function sortBy<T>(array: T[], key: keyof T, direction: 'asc' | 'desc' = 'asc'): T[] {
   return [...array].sort((a, b) => {
@@ -262,7 +270,7 @@ export function sortBy<T>(array: T[], key: keyof T, direction: 'asc' | 'desc' = 
 }
 
 /**
- * Agrupar array por propriedade
+ * Agrupa elementos do array pela representação em string da propriedade.
  */
 export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
   return array.reduce((groups, item) => {
@@ -274,14 +282,14 @@ export function groupBy<T>(array: T[], key: keyof T): Record<string, T[]> {
 }
 
 /**
- * Remover duplicatas de array
+ * Remove duplicatas mantendo a ordem utilizando Set.
  */
 export function unique<T>(array: T[]): T[] {
   return [...new Set(array)];
 }
 
 /**
- * Verificar se é dispositivo móvel
+ * Verifica viewport para determinar se é dispositivo mobile (width < 768).
  */
 export function isMobile(): boolean {
   if (typeof window === 'undefined') return false;
@@ -289,7 +297,7 @@ export function isMobile(): boolean {
 }
 
 /**
- * Verificar se é dispositivo tablet
+ * Verifica viewport para determinar se é dispositivo tablet (768 <= width < 1024).
  */
 export function isTablet(): boolean {
   if (typeof window === 'undefined') return false;
@@ -297,7 +305,7 @@ export function isTablet(): boolean {
 }
 
 /**
- * Verificar se é desktop
+ * Verifica viewport para determinar se é desktop (width >= 1024).
  */
 export function isDesktop(): boolean {
   if (typeof window === 'undefined') return false;
@@ -305,7 +313,7 @@ export function isDesktop(): boolean {
 }
 
 /**
- * Scroll suave para elemento
+ * Realiza scroll suave até o elemento informado, com offset opcional.
  */
 export function smoothScrollTo(element: HTMLElement | null, offset: number = 0): void {
   if (!element) return;
@@ -320,7 +328,8 @@ export function smoothScrollTo(element: HTMLElement | null, offset: number = 0):
 }
 
 /**
- * Copiar texto para clipboard
+ * Copia texto para a área de transferência (clipboard) usando API do navegador.
+ * Retorna true em caso de sucesso; false caso contrário.
  */
 export async function copyToClipboard(text: string): Promise<boolean> {
   try {
@@ -329,5 +338,71 @@ export async function copyToClipboard(text: string): Promise<boolean> {
   } catch (error) {
     console.error('Erro ao copiar para clipboard:', error);
     return false;
+  }
+}
+
+/**
+ * safeJSONParse
+ * Faz parse seguro de JSON, retornando valor default em caso de erro.
+ * Opcionalmente valida o tipo/estrutura básica do resultado.
+ */
+export function safeJSONParse<T = any>(
+  input: string | null | undefined,
+  defaultValue: T,
+  validate?: (value: any) => boolean
+): T {
+  try {
+    if (!input || typeof input !== 'string') return defaultValue;
+    const trimmed = input.trim();
+    if (trimmed === '' || (!trimmed.startsWith('{') && !trimmed.startsWith('['))) {
+      return defaultValue;
+    }
+    const parsed = JSON.parse(trimmed);
+    if (validate && !validate(parsed)) {
+      return defaultValue;
+    }
+    return parsed as T;
+  } catch (err) {
+    console.error('safeJSONParse error:', err);
+    return defaultValue;
+  }
+}
+
+/**
+ * Valida payload básico de JWT (sem assinatura), útil para decodificações client-side.
+ */
+export function isValidJwtPayload(obj: any): boolean {
+  if (!obj || typeof obj !== 'object') return false;
+  const hasRequired = typeof obj.userId === 'string' && typeof obj.email === 'string' && obj.role != null;
+  // exp/iat são opcionais, porém quando presentes devem ser números
+  const expOk = obj.exp == null || typeof obj.exp === 'number';
+  const iatOk = obj.iat == null || typeof obj.iat === 'number';
+  return hasRequired && expOk && iatOk;
+}
+
+/**
+ * Tenta ler string do storage com fallback seguro.
+ */
+export function safeStorageGet(storage: Storage, key: string): string | null {
+  try {
+    return storage.getItem(key);
+  } catch (err) {
+    console.error(`Erro ao ler storage (${key}):`, err);
+    return null;
+  }
+}
+
+/**
+ * Tenta salvar/remover no storage com tratamento de erro.
+ */
+export function safeStorageSet(storage: Storage, key: string, value: string | null): void {
+  try {
+    if (value == null) {
+      storage.removeItem(key);
+    } else {
+      storage.setItem(key, value);
+    }
+  } catch (err) {
+    console.error(`Erro ao escrever storage (${key}):`, err);
   }
 }

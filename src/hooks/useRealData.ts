@@ -57,6 +57,18 @@ class DataCache {
 
 const cache = new DataCache();
 
+/**
+ * useRealData
+ *
+ * Abstração para consumir dados reais com cache, retry e fallback para
+ * dados simulados (mock). Útil em ambientes com APIs instáveis ou em
+ * desenvolvimento.
+ *
+ * @param apiUrl Endpoint real
+ * @param mockData Dados simulados de fallback
+ * @param config Controle de realData, cacheTimeout e tentativas de retry
+ * @returns Estado, refresh e utilitários de cache
+ */
 export function useRealData<T>(
   apiUrl: string,
   mockData: T,
@@ -217,6 +229,11 @@ export function useRealData<T>(
 }
 
 // Hook especializado para produtos
+/**
+ * useRealProducts
+ *
+ * Especialização de useRealData para produtos.
+ */
 export function useRealProducts(mockProducts: any[] = []) {
   return useRealData(
     '/api/products?isAvailable=true&limit=50',
@@ -231,6 +248,11 @@ export function useRealProducts(mockProducts: any[] = []) {
 }
 
 // Hook especializado para pedidos
+/**
+ * useRealOrders
+ *
+ * Especialização de useRealData para pedidos, com filtro opcional por usuário.
+ */
 export function useRealOrders(userId?: string, mockOrders: any[] = []) {
   const apiUrl = userId 
     ? `/api/orders?customerId=${userId}&limit=20&sortBy=createdAt&sortOrder=desc`
@@ -249,6 +271,11 @@ export function useRealOrders(userId?: string, mockOrders: any[] = []) {
 }
 
 // Hook especializado para categorias
+/**
+ * useRealCategories
+ *
+ * Especialização de useRealData para categorias.
+ */
 export function useRealCategories(mockCategories: any[] = []) {
   return useRealData(
     '/api/categories',
@@ -263,6 +290,11 @@ export function useRealCategories(mockCategories: any[] = []) {
 }
 
 // Hook especializado para mesas
+/**
+ * useRealTables
+ *
+ * Especialização de useRealData para mesas.
+ */
 export function useRealTables(mockTables: any[] = []) {
   return useRealData(
     '/api/tables?includeAssignedUser=true',
@@ -277,6 +309,11 @@ export function useRealTables(mockTables: any[] = []) {
 }
 
 // Hook para estatísticas administrativas
+/**
+ * useRealAdminStats
+ *
+ * Especialização de useRealData para estatísticas administrativas.
+ */
 export function useRealAdminStats(mockStats: any = {}) {
   return useRealData(
     '/api/admin/dashboard',

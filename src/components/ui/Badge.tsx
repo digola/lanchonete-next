@@ -159,13 +159,10 @@ const RoleBadge = forwardRef<HTMLDivElement, BadgeProps & { role: string }>(
   ({ role, children, ...props }, ref) => {
     const getRoleVariant = (role: string) => {
       switch (role.toLowerCase()) {
-        case 'administrador':
         case 'admin':
           return 'destructive';
-        case 'funcionario':
         case 'staff':
           return 'primary';
-        case 'cliente':
         case 'client':
         case 'customer':
           return 'success';

@@ -40,13 +40,13 @@ export default function CustomerCartPage() {
     isAvailable: true,
   });
 
-  const handleAddToCart = useCallback((product: Product) => {
+  const handleAddToCart = useCallback((product: Product, notes?: string) => {
     console.log('🛒 Adicionando produto ao carrinho:', {
       productId: product.id,
       productName: product.name,
       price: product.price,
     });
-    addItem(product);
+    addItem(product, 1, notes);
   }, [addItem]);
 
   const handleCategoryFilter = useCallback((categoryId: string) => {

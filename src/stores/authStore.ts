@@ -11,6 +11,9 @@ interface AuthState {
   error: string | null;
   token: string | null;
   refreshToken: string | null;
+  // Flags internas para evitar inicializações duplicadas
+  initialized?: boolean;
+  initializing?: boolean;
 }
 
 interface AuthActions {
@@ -41,20 +44,38 @@ interface AuthActions {
 
 type AuthStore = AuthState & AuthActions;
 
-// Configuração das permissões por role
+// Normaliza qualquer valor de role para as versões em inglês
+const normalizeRole = (role: string | UserRole): UserRole => {
+  const value = String(role).toUpperCase();
+  switch (value) {
+    case 'ADMINISTRADOR':
+    case 'ADMINISTRADOR_LOWER':
+    case 'ADMINISTRADOR_TITLE':
+    case 'ADMINISTRADOR_TITLE'.toUpperCase():
+    case 'ADMINISTRADOR_LOWER'.toUpperCase():
+      return UserRole.ADMIN;
+    case 'FUNCIONARIO':
+      return UserRole.STAFF;
+    case 'CLIENTE':
+      return UserRole.CUSTOMER;
+    case 'CLIENT':
+    case 'CUSTOMER':
+      return UserRole.CUSTOMER;
+    case 'STAFF':
+      return UserRole.STAFF;
+    case 'MANAGER':
+      return UserRole.MANAGER;
+    case 'ADMIN':
+      return UserRole.ADMIN;
+    default:
+      // Fallback seguro para CUSTOMER
+      return UserRole.CUSTOMER;
+  }
+};
+
+// Configuração das permissões por role (apenas inglês)
 const ROLE_PERMISSIONS = {
   [UserRole.CUSTOMER]: [
-    'menu:read',
-    'orders:read',
-    'orders:create',
-    'orders:update',
-    'profile:read',
-    'profile:write',
-    'cart:read',
-    'cart:write',
-    'cart:delete',
-  ],
-  [UserRole.CLIENTE]: [
     'menu:read',
     'orders:read',
     'orders:create',
@@ -94,84 +115,6 @@ const ROLE_PERMISSIONS = {
     'reports:read',
   ],
   [UserRole.ADMIN]: [
-    'users:read',
-    'users:write',
-    'users:delete',
-    'products:read',
-    'products:write',
-    'products:delete',
-    'categories:read',
-    'categories:write',
-    'categories:delete',
-    'orders:read',
-    'orders:write',
-    'orders:delete',
-    'orders:create',
-    'reports:read',
-    'settings:read',
-    'settings:write',
-    'menu:read',
-    'menu:write',
-    'menu:delete',
-    'profile:read',
-    'profile:write',
-    'tables:read',
-    'tables:write',
-    'tables:manage',
-  ],
-  [UserRole.ADMINISTRADOR]: [
-    'users:read',
-    'users:write',
-    'users:delete',
-    'products:read',
-    'products:write',
-    'products:delete',
-    'categories:read',
-    'categories:write',
-    'categories:delete',
-    'orders:read',
-    'orders:write',
-    'orders:delete',
-    'orders:create',
-    'reports:read',
-    'settings:read',
-    'settings:write',
-    'menu:read',
-    'menu:write',
-    'menu:delete',
-    'profile:read',
-    'profile:write',
-    'tables:read',
-    'tables:write',
-    'tables:manage',
-  ],
-  [UserRole.ADMINISTRADOR_LOWER]: [
-    'users:read',
-    'users:write',
-    'users:delete',
-    'products:read',
-    'products:write',
-    'products:delete',
-    'categories:read',
-    'categories:write',
-    'categories:delete',
-    'orders:read',
-    'orders:write',
-    'orders:delete',
-    'orders:create',
-    'reports:read',
-    'settings:read',
-    'settings:write',
-    'menu:read',
-    'menu:write',
-    'menu:delete',
-    'profile:read',
-    'profile:write',
-    'tables:read',
-    'tables:write',
-    'tables:manage',
-  ],
-  [UserRole.ADMINISTRADOR_TITLE]: [
     'users:read',
     'users:write',
     'users:delete',
@@ -269,6 +212,8 @@ export const useAuthStore = create<AuthStore>()(
       error: null,
       token: null,
       refreshToken: null,
+      initialized: false,
+      initializing: false,
 
       // Ações principais
       login: async (credentials: LoginCredentials) => {
@@ -282,9 +227,10 @@ export const useAuthStore = create<AuthStore>()(
 
           if (data.success && data.data) {
             const { user, tokens } = data.data;
+            const normalizedUser = { ...user, role: normalizeRole(user.role) } as User;
             
             set({
-              user,
+              user: normalizedUser,
               isAuthenticated: true,
               token: tokens.accessToken,
               refreshToken: tokens.refreshToken,
@@ -324,9 +270,10 @@ export const useAuthStore = create<AuthStore>()(
 
           if (data.success && data.data) {
             const { user, tokens } = data.data;
+            const normalizedUser = { ...user, role: normalizeRole(user.role) } as User;
             
             set({
-              user,
+              user: normalizedUser,
               isAuthenticated: true,
               token: tokens.accessToken,
               refreshToken: tokens.refreshToken,
@@ -389,9 +336,10 @@ export const useAuthStore = create<AuthStore>()(
 
           if (data.success && data.data) {
             const { user, tokens } = data.data;
+            const normalizedUser = { ...user, role: normalizeRole(user.role) } as User;
             
             set({
-              user,
+              user: normalizedUser,
               isAuthenticated: true,
               token: tokens.accessToken,
               refreshToken: tokens.refreshToken,
@@ -440,8 +388,9 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           if (data.success && data.data) {
+            const normalizedUser = { ...data.data.user, role: normalizeRole(data.data.user.role) } as User;
             set({
-              user: data.data.user,
+              user: normalizedUser,
               isLoading: false,
               error: null,
             });
@@ -504,39 +453,49 @@ export const useAuthStore = create<AuthStore>()(
       hasPermission: (permission: string) => {
         const { user } = get();
         if (!user) return false;
-        return ROLE_PERMISSIONS[user.role]?.includes(permission) || false;
+        const role = normalizeRole(user.role);
+        return ROLE_PERMISSIONS[role]?.includes(permission) || false;
       },
 
       hasRole: (role: UserRole) => {
         const { user } = get();
         if (!user) return false;
-        return user.role === role;
+        return normalizeRole(user.role) === normalizeRole(role);
       },
 
       hasMinimumRole: (minimumRole: UserRole) => {
         const { user } = get();
         if (!user) return false;
-        
         const roleHierarchy = {
           [UserRole.CUSTOMER]: 1,
-          [UserRole.CLIENTE]: 1,
           [UserRole.STAFF]: 2,
           [UserRole.MANAGER]: 3,
           [UserRole.ADMIN]: 4,
-          [UserRole.ADMINISTRADOR]: 4,
-          [UserRole.ADMINISTRADOR_LOWER]: 4,
-          [UserRole.ADMINISTRADOR_TITLE]: 4,
-        };
+        } as const;
 
-        return roleHierarchy[user.role] >= roleHierarchy[minimumRole];
+        const userRank = roleHierarchy[normalizeRole(user.role)];
+        const minRank = roleHierarchy[normalizeRole(minimumRole)];
+        return (userRank ?? 0) >= (minRank ?? 0);
       },
 
       // Utilitários
       initializeAuth: async () => {
-        const storedToken = getStoredToken();
-        if (storedToken) {
-          set({ token: storedToken });
-          await get().checkAuthStatus();
+        // Evitar múltiplas inicializações simultâneas
+        const { initialized, initializing } = get();
+        if (initialized || initializing) {
+          return;
+        }
+
+        try {
+          set({ initializing: true });
+          const storedToken = getStoredToken();
+          if (storedToken) {
+            set({ token: storedToken });
+            await get().checkAuthStatus();
+          }
+          set({ initialized: true });
+        } finally {
+          set({ initializing: false });
         }
       },
 
@@ -549,15 +508,31 @@ export const useAuthStore = create<AuthStore>()(
         const cached = sessionStorage.getItem(cacheKey);
         const now = Date.now();
         
+        // Throttle adicional: se uma verificação ocorreu nos últimos 10 segundos, pular
+        const throttleKey = `auth-check-throttle-${token}`;
+        const lastCheckStr = sessionStorage.getItem(throttleKey);
+        const lastCheck = lastCheckStr ? parseInt(lastCheckStr, 10) : 0;
+        if (now - lastCheck < 10000) {
+          return;
+        }
+        sessionStorage.setItem(throttleKey, String(now));
+        
         if (cached) {
-          const { timestamp, user } = JSON.parse(cached);
-          // Se o cache é válido por menos de 2 minutos, usar cache
-          if (now - timestamp < 120000) {
-            set({
-              user,
-              isAuthenticated: true,
-            });
-            return;
+          try {
+            const parsed = JSON.parse(cached);
+            const timestamp = typeof parsed?.timestamp === 'number' ? parsed.timestamp : 0;
+            const user = parsed?.user ?? null;
+            // Se o cache é válido por menos de 2 minutos, usar cache
+            if (timestamp && now - timestamp < 120000 && user) {
+              set({
+                user,
+                isAuthenticated: true,
+              });
+              return;
+            }
+          } catch (err) {
+            // Cache inválido: limpar entrada problemática
+            try { sessionStorage.removeItem(cacheKey); } catch {}
           }
         }
 
@@ -569,17 +544,18 @@ export const useAuthStore = create<AuthStore>()(
           });
 
           if (data.success && data.data) {
-            const user = data.data.user;
+            const user = { ...data.data.user, role: normalizeRole(data.data.user.role) } as User;
             set({
               user,
               isAuthenticated: true,
             });
             
-            // Cachear resultado por 2 minutos
-            sessionStorage.setItem(cacheKey, JSON.stringify({
-              timestamp: now,
-              user
-            }));
+            // Cachear resultado por 2 minutos com proteção
+            try {
+              sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: now, user }));
+            } catch (err) {
+              console.error('Erro ao cachear auth status:', err);
+            }
           } else {
             // Token inválido, tentar refresh
             await get().refreshAuth();

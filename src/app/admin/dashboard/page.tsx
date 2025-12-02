@@ -358,12 +358,6 @@ export default function AdminDashboard() {
                 Ver Todos os Pedidos
               </Button>
             </Link>
-            <Link href="/admin/inventory">
-              <Button variant="outline" className="w-full justify-start">
-                <Package className="h-4 w-4 mr-2" />
-                Gestão de Estoque
-              </Button>
-            </Link>
           </CardContent>
         </Card>
 

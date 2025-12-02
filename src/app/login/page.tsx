@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useApiAuth } from '@/hooks/useApiAuth';
 import { GuestRoute } from '@/components/ProtectedRoute';
+import { toast } from '@/lib/toast';
 
 interface LoginFormData {
   email: string;
@@ -15,6 +16,7 @@ interface LoginFormData {
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading, error, clearError, isAuthenticated, getDefaultRoute, getLoginRedirectRoute } = useApiAuth();
+  const [isRedirecting, setIsRedirecting] = useState(false);
   
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
@@ -25,6 +27,7 @@ export default function LoginPage() {
   // Redirecionar se já estiver autenticado
   useEffect(() => {
     if (isAuthenticated) {
+      setIsRedirecting(true);
       // Verificar se há uma rota salva no sessionStorage
       const savedRedirect = sessionStorage.getItem('redirectAfterLogin');
       sessionStorage.removeItem('redirectAfterLogin'); // Limpar após usar
@@ -57,6 +60,9 @@ export default function LoginPage() {
     const result = await login(formData);
     
     if (result.success) {
+      // Toast de sucesso de login
+      try { toast.success('Login realizado com sucesso'); } catch {}
+      setIsRedirecting(true);
       const redirectTo = getDefaultRoute();
       router.push(redirectTo);
     }
@@ -204,6 +210,15 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+      {/* Overlay de carregamento durante redirecionamento pós-login */}
+      {isRedirecting && (
+        <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg p-6 flex items-center space-x-3">
+            <div className="spinner"></div>
+            <span className="text-gray-700 font-medium">Carregando...</span>
+          </div>
+        </div>
+      )}
     </GuestRoute>
   );
 }

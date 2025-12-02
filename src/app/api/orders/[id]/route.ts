@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 export const runtime = 'nodejs';
-import { getTokenFromRequest, verifyToken } from '@/lib/auth';
+import { getTokenFromRequest, verifyToken, hasMinimumRole } from '@/lib/auth';
 import { UserRole } from '@/types';
 import { clearCachePattern } from '@/lib/cache';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: orderId } = await params;
+    const { id: orderId } = params;
     
     if (!orderId) {
       return NextResponse.json(
@@ -36,15 +36,8 @@ export async function PUT(
       );
     }
 
-    // Verificar permissão (staff, managers ou qualquer variação de admin; caso contrário, somente o dono do pedido)
-    if (
-      decoded.role !== UserRole.STAFF &&
-      decoded.role !== UserRole.MANAGER &&
-      decoded.role !== UserRole.ADMIN &&
-      decoded.role !== UserRole.ADMINISTRADOR &&
-      decoded.role !== UserRole.ADMINISTRADOR_LOWER &&
-      decoded.role !== UserRole.ADMINISTRADOR_TITLE
-    ) {
+    // Verificar permissão: permitir STAFF ou superior (MANAGER, ADMIN)
+    if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
       // Se for cliente, verificar se é o dono do pedido
       const order = await prisma.order.findUnique({
         where: { id: orderId },
@@ -61,12 +54,12 @@ export async function PUT(
 
     // Obter dados do corpo da requisição
     const body = await request.json();
-    const { status, paymentMethod, isReceived, isActive } = body;
+    const { status, paymentMethod } = body;
 
-    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod, isReceived, isActive });
+    console.log('🔍 Atualizando pedido:', { orderId, status, paymentMethod });
 
     // Validar que pelo menos um campo foi fornecido
-    if (!status && paymentMethod === undefined && isReceived === undefined && isActive === undefined) {
+    if (!status && paymentMethod === undefined) {
       return NextResponse.json(
         { success: false, error: 'Pelo menos um campo deve ser fornecido para atualização' },
         { status: 400 }
@@ -136,7 +129,7 @@ export async function PUT(
     
     if (paymentMethod) {
       // Validar método de pagamento
-      const validPaymentMethods = ['DINHEIRO', 'CARTAO', 'CARTAO_CREDITO', 'CARTAO_DEBITO', 'PIX', 'DIVIDIDO'];
+      const validPaymentMethods = ['DINHEIRO', 'CARTAO', 'PIX'];
       if (!validPaymentMethods.includes(paymentMethod)) {
         console.log('❌ Método de pagamento inválido:', paymentMethod);
         console.log('✅ Métodos válidos:', validPaymentMethods);
@@ -151,8 +144,7 @@ export async function PUT(
     console.log('🔍 Dados de atualização:', updateData);
 
     // Verificar se precisa atualizar status da mesa
-    const shouldUpdateTable = status && (status === 'CANCELADO' || status === 'ENTREGUE' || status === 'FINALIZADO') || 
-                             (isReceived === true); // Também atualizar mesa quando pedido for recebido
+    const shouldUpdateTable = !!(status && (status === 'CANCELADO' || status === 'ENTREGUE' || status === 'FINALIZADO'));
     
     const updatedOrder = await prisma.$transaction(async (tx) => {
       // Criar logs de mudanças antes de atualizar
@@ -186,40 +178,19 @@ export async function PUT(
         });
       }
       
-      if (isReceived !== undefined && isReceived !== existingOrder.isReceived) {
-        logsToCreate.push({
-          orderId,
-          userId: decoded.userId,
-          action: 'UPDATE_RECEIVED',
-          field: 'isReceived',
-          oldValue: JSON.stringify({ isReceived: existingOrder.isReceived }),
-          newValue: JSON.stringify({ isReceived }),
-          reason: `Status de recebimento alterado para ${isReceived ? 'recebido' : 'não recebido'}`,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent'),
-        });
-      }
-      
-      if (isActive !== undefined && isActive !== existingOrder.isActive) {
-        logsToCreate.push({
-          orderId,
-          userId: decoded.userId,
-          action: 'UPDATE_ACTIVE',
-          field: 'isActive',
-          oldValue: JSON.stringify({ isActive: existingOrder.isActive }),
-          newValue: JSON.stringify({ isActive }),
-          reason: `Status ativo alterado para ${isActive ? 'ativo' : 'inativo'}`,
-          ipAddress: request.headers.get('x-forwarded-for') || 'unknown',
-          userAgent: request.headers.get('user-agent'),
-        });
-      }
+      // Campos isReceived/isActive não existem no schema SQLite atual; logs relacionados removidos
 
-      // Criar logs se houver mudanças
+      // Criar logs se houver mudanças (somente se o modelo existir no schema atual)
       if (logsToCreate.length > 0) {
-        await tx.orderLog.createMany({
-          data: logsToCreate,
-        });
-        console.log('📝 Logs de alteração criados:', logsToCreate.length);
+        const clientAny = tx as any;
+        if (clientAny.orderLog && typeof clientAny.orderLog.createMany === 'function') {
+          await clientAny.orderLog.createMany({
+            data: logsToCreate,
+          });
+          console.log('📝 Logs de alteração criados:', logsToCreate.length);
+        } else {
+          console.warn('ℹ️ Modelo orderLog não disponível no schema atual. Logs de alteração serão ignorados.');
+        }
       }
 
       // Atualizar pedido
@@ -264,7 +235,6 @@ export async function PUT(
         const activeOrdersCount = await tx.order.count({
           where: {
             tableId: existingOrder.tableId,
-            isActive: true,
             status: {
               notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
             }
@@ -273,13 +243,13 @@ export async function PUT(
 
         console.log('📊 Pedidos ativos na mesa:', activeOrdersCount);
 
-        if (activeOrdersCount === 0) {
+        if (activeOrdersCount === 0 || status === 'FINALIZADO') {
           // Liberar mesa se não há pedidos ativos
           console.log('🆓 Liberando mesa:', existingOrder.tableId);
           await tx.table.update({
             where: { id: existingOrder.tableId },
             data: { 
-              status: 'LIVRE',
+              //status: 'LIVRE',
               assignedTo: null
             },
           });
@@ -289,101 +259,7 @@ export async function PUT(
         }
       }
 
-      // Atualizar estoque quando pedido for confirmado
-      if (status === 'CONFIRMADO' && existingOrder.status !== 'CONFIRMADO') {
-        console.log('📦 Pedido confirmado - atualizando estoque...');
-        
-        for (const item of existingOrder.items) {
-          // Buscar produto com informações de estoque
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
-            select: { 
-              id: true, 
-              name: true, 
-              trackStock: true, 
-              stockQuantity: true 
-            }
-          });
-
-          if (product && product.trackStock) {
-            const currentStock = product.stockQuantity || 0;
-            const newStock = Math.max(0, currentStock - item.quantity);
-
-            console.log(`📦 Atualizando estoque do produto ${product.name}:`, {
-              currentStock,
-              quantity: item.quantity,
-              newStock
-            });
-
-            // Atualizar estoque do produto
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stockQuantity: newStock }
-            });
-
-            // Criar movimentação de estoque
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId,
-                type: 'SAIDA',
-                quantity: item.quantity,
-                reason: 'VENDA',
-                reference: orderId,
-                userId: decoded.userId,
-                notes: `Venda do pedido ${orderId.slice(-8)}`
-              }
-            });
-          }
-        }
-      }
-
-      // Restaurar estoque quando pedido for cancelado
-      if (status === 'CANCELADO' && existingOrder.status === 'CONFIRMADO') {
-        console.log('❌ Pedido cancelado - restaurando estoque...');
-        
-        for (const item of existingOrder.items) {
-          // Buscar produto com informações de estoque
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
-            select: { 
-              id: true, 
-              name: true, 
-              trackStock: true, 
-              stockQuantity: true 
-            }
-          });
-
-          if (product && product.trackStock) {
-            const currentStock = product.stockQuantity || 0;
-            const newStock = currentStock + item.quantity;
-
-            console.log(`📦 Restaurando estoque do produto ${product.name}:`, {
-              currentStock,
-              quantity: item.quantity,
-              newStock
-            });
-
-            // Atualizar estoque do produto
-            await tx.product.update({
-              where: { id: item.productId },
-              data: { stockQuantity: newStock }
-            });
-
-            // Criar movimentação de estoque
-            await tx.stockMovement.create({
-              data: {
-                productId: item.productId,
-                type: 'ENTRADA',
-                quantity: item.quantity,
-                reason: 'CANCELAMENTO',
-                reference: orderId,
-                userId: decoded.userId,
-                notes: `Cancelamento do pedido ${orderId.slice(-8)}`
-              }
-            });
-          }
-        }
-      }
+      // Operações de estoque removidas para compatibilidade com o schema SQLite local
 
       return order;
     });
@@ -414,10 +290,10 @@ export async function PUT(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
-    const { id: orderId } = await params;
+    const { id: orderId } = params;
     
     if (!orderId) {
       return NextResponse.json(
@@ -483,15 +359,8 @@ export async function GET(
       );
     }
 
-    // Verificar permissão (staff, managers ou qualquer variação de admin; caso contrário, somente o dono do pedido)
-    if (
-      decoded.role !== UserRole.STAFF &&
-      decoded.role !== UserRole.MANAGER &&
-      decoded.role !== UserRole.ADMIN &&
-      decoded.role !== UserRole.ADMINISTRADOR &&
-      decoded.role !== UserRole.ADMINISTRADOR_LOWER &&
-      decoded.role !== UserRole.ADMINISTRADOR_TITLE
-    ) {
+    // Verificar permissão: permitir STAFF ou superior; caso contrário, somente o dono do pedido
+    if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
       if (order.userId !== decoded.userId) {
         return NextResponse.json(
           { success: false, error: 'Acesso negado: você só pode visualizar seus próprios pedidos' },

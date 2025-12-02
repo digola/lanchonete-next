@@ -1,10 +1,29 @@
 'use client';
 
 // Sistema simples de toast sem context
+/**
+ * Sistema simples de notificações (toast) baseado em DOM, sem uso de Context.
+ *
+ * Características:
+ * - Cria dinamicamente um container fixo no canto superior direito.
+ * - Renderiza toasts com ícone e cores conforme o tipo (success, error, warning, info).
+ * - Fecha automaticamente após 5 segundos, com animação de saída.
+ * - Permite fechar manualmente via botão.
+ *
+ * Uso:
+ *   import { toast } from '@/lib/toast';
+ *   toast.success('Pedido criado', 'O pedido #123 foi registrado.');
+ *
+ * Observação: projetado para ambientes client-side (Next.js 'use client').
+ */
 class ToastManager {
   private container: HTMLElement | null = null;
   private toasts: Map<string, HTMLElement> = new Map();
 
+  /**
+   * Cria ou retorna o container de toasts fixo no documento.
+   * @returns Container onde os toasts são anexados.
+   */
   private createContainer() {
     if (this.container) return this.container;
 
@@ -16,6 +35,13 @@ class ToastManager {
     return this.container;
   }
 
+  /**
+   * Cria um toast visual e agenda sua remoção automática.
+   * @param type Tipo de toast: 'success' | 'error' | 'warning' | 'info'.
+   * @param title Título em destaque do toast.
+   * @param description Texto complementar opcional abaixo do título.
+   * @returns ID interno do toast criado.
+   */
   private createToast(type: 'success' | 'error' | 'warning' | 'info', title: string, description?: string) {
     const container = this.createContainer();
     const id = Math.random().toString(36).substr(2, 9);
@@ -66,6 +92,11 @@ class ToastManager {
     return id;
   }
 
+  /**
+   * Retorna classes de background/borda baseadas no tipo de toast.
+   * @param type Tipo do toast.
+   * @returns Classes CSS Tailwind para cores de fundo e borda.
+   */
   private getBackgroundColor(type: string): string {
     switch (type) {
       case 'success': return 'bg-green-50 border-green-200';
@@ -76,6 +107,11 @@ class ToastManager {
     }
   }
 
+  /**
+   * SVG de ícone de acordo com o tipo do toast.
+   * @param type Tipo do toast.
+   * @returns SVG inline.
+   */
   private getIcon(type: string): string {
     switch (type) {
       case 'success':
@@ -91,6 +127,11 @@ class ToastManager {
     }
   }
 
+  /**
+   * Classe de cor principal aplicada ao ícone do toast.
+   * @param type Tipo do toast.
+   * @returns Classe CSS Tailwind.
+   */
   private getIconColor(type: string): string {
     switch (type) {
       case 'success': return 'text-green-600';
@@ -101,6 +142,10 @@ class ToastManager {
     }
   }
 
+  /**
+   * Remove um toast existente com animação de saída.
+   * @param id ID do toast a ser removido.
+   */
   private removeToast(id: string) {
     const toast = this.toasts.get(id);
     if (toast) {
@@ -113,22 +158,44 @@ class ToastManager {
     }
   }
 
+  /**
+   * Mostra um toast de sucesso.
+   * @param title Título do toast.
+   * @param description Descrição opcional.
+   */
   success(title: string, description?: string) {
     this.createToast('success', title, description);
   }
 
+  /**
+   * Mostra um toast de erro.
+   * @param title Título do toast.
+   * @param description Descrição opcional.
+   */
   error(title: string, description?: string) {
     this.createToast('error', title, description);
   }
 
+  /**
+   * Mostra um toast de aviso.
+   * @param title Título do toast.
+   * @param description Descrição opcional.
+   */
   warning(title: string, description?: string) {
     this.createToast('warning', title, description);
   }
 
+  /**
+   * Mostra um toast informativo.
+   * @param title Título do toast.
+   * @param description Descrição opcional.
+   */
   info(title: string, description?: string) {
     this.createToast('info', title, description);
   }
 }
 
-// Instância singleton
+/**
+ * Instância singleton utilizada em toda a aplicação.
+ */
 export const toast = new ToastManager();

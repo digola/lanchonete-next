@@ -1,5 +1,10 @@
 /**
- * Otimizador de queries para melhorar performance
+ * Otimizador de queries para melhorar performance.
+ *
+ * Fornece um cache interno em memória com TTL por chave, evitando execuções
+ * repetidas de funções assíncronas (ex.: consultas ao banco) quando o resultado
+ * recente ainda é válido. Inclui utilitários para decorar funções e criar
+ * versões otimizadas de queries específicas.
  */
 
 interface QueryCache {
@@ -10,12 +15,21 @@ interface QueryCache {
   };
 }
 
+/**
+ * Gerenciador de cache de queries com TTL por entrada.
+ */
 class QueryOptimizer {
   private cache: QueryCache = {};
   private readonly DEFAULT_TTL = 30000; // 30 segundos
 
   /**
-   * Executa query com cache
+   * Executa função de consulta com cache por chave.
+   * Se houver entrada válida, retorna do cache; senão executa a função,
+   * armazena e retorna o resultado.
+   *
+   * @param key Chave única para identificar a consulta.
+   * @param queryFn Função que realiza a consulta/ação e retorna Promise.
+   * @param ttl Tempo de vida (TTL) em ms; padrão DEFAULT_TTL.
    */
   async executeWithCache<T>(
     key: string,
@@ -44,7 +58,7 @@ class QueryOptimizer {
   }
 
   /**
-   * Invalidar cache
+   * Invalida uma chave específica ou tudo se nenhuma chave for fornecida.
    */
   invalidate(key?: string): void {
     if (key) {
@@ -55,7 +69,7 @@ class QueryOptimizer {
   }
 
   /**
-   * Limpar cache expirado
+   * Remove entradas cujo TTL tenha expirado.
    */
   cleanExpired(): void {
     const now = Date.now();
@@ -68,7 +82,7 @@ class QueryOptimizer {
   }
 
   /**
-   * Obter estatísticas do cache
+   * Retorna estatísticas simples do cache atual.
    */
   getStats(): { size: number; keys: string[] } {
     return {
@@ -78,11 +92,19 @@ class QueryOptimizer {
   }
 }
 
-// Instância global do otimizador
+/**
+ * Instância global do otimizador para uso compartilhado.
+ */
 export const queryOptimizer = new QueryOptimizer();
 
 /**
- * Decorator para otimizar funções de query
+ * Decorator para otimizar funções assíncronas de consulta via cache.
+ *
+ * Constrói uma chave composta por cacheKey + args e delega ao queryOptimizer.
+ *
+ * @param fn Função assíncrona original.
+ * @param cacheKey Prefixo de chave para o cache.
+ * @param ttl TTL opcional em ms.
  */
 export function withQueryOptimization<T extends any[], R>(
   fn: (...args: T) => Promise<R>,
@@ -96,7 +118,11 @@ export function withQueryOptimization<T extends any[], R>(
 }
 
 /**
- * Hook para otimizar queries do Prisma
+ * Cria uma função de consulta otimizada (ex.: Prisma) com cache e TTL.
+ *
+ * @param queryFn Função original da consulta.
+ * @param cacheKey Prefixo da chave de cache.
+ * @param ttl TTL em ms; padrão 30000.
  */
 export function createOptimizedQuery<T extends any[], R>(
   queryFn: (...args: T) => Promise<R>,
@@ -107,7 +133,10 @@ export function createOptimizedQuery<T extends any[], R>(
 }
 
 /**
- * Utilitários para otimização de queries específicas
+ * Utilitários com queries comuns otimizadas via Prisma.
+ * Exemplos incluem buscar usuário, pedidos recentes e contagem de pedidos.
+ * TTLs são ajustados de acordo com a natureza dos dados (ex.: usuário 5min,
+ * pedidos 1min).
  */
 export const optimizedQueries = {
   // Query otimizada para buscar usuário
@@ -166,7 +195,10 @@ export const optimizedQueries = {
   ),
 };
 
-// Limpar cache expirado periodicamente
+/**
+ * Limpeza periódica do cache em ambiente de servidor (Node.js).
+ * Executa a cada minuto para remover entradas expiradas.
+ */
 if (typeof window === 'undefined') {
   setInterval(() => {
     queryOptimizer.cleanExpired();

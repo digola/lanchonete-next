@@ -8,6 +8,25 @@ interface UseOptimizedMenuOptions {
   isAvailable?: boolean;
 }
 
+/**
+ * useOptimizedMenu
+ *
+ * Hook responsável por buscar e otimizar o consumo de categorias e produtos
+ * com cache e filtragem local. Utiliza useApiCache internamente com TTLs
+ * diferentes por recurso para reduzir chamadas à API sem perder reatividade.
+ *
+ * - Categorias: TTL de 5 minutos, com stale-while-revalidate
+ * - Produtos: TTL de 2 minutos, com stale-while-revalidate
+ *
+ * Filtros suportados:
+ *  - search: termo de busca aplicado localmente (cliente)
+ *  - categoryId: filtra produtos por categoria na chamada ao backend
+ *  - isAvailable: filtra apenas produtos disponíveis
+ *
+ * @param options Opções de filtro e comportamento
+ * @returns Objeto com listas de categorias e produtos (filtrados), paginação,
+ * estados de loading, funções de refetch e tempo de cache dos produtos.
+ */
 export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
   const { search, categoryId, isAvailable } = options;
 
@@ -15,12 +34,19 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
   const {
     data: categoriesData,
     loading: categoriesLoading,
-    execute: refetchCategories,
-  } = useApiCache<{ data: Category[] }>('/api/categories', {
-    cacheTime: 5 * 60 * 1000, // 5 minutos
-    immediate: true,
-    dedupe: true,
-  });
+    fetchData: refetchCategories,
+  } = useApiCache<{ data: Category[] }>(
+    '/api/categories',
+    async () => {
+      const res = await fetch('/api/categories');
+      if (!res.ok) throw new Error('Falha ao buscar categorias');
+      return res.json();
+    },
+    {
+      ttl: 5 * 60 * 1000, // 5 minutos
+      staleWhileRevalidate: true,
+    }
+  );
 
   // Construir URL de produtos apenas quando necessário
   const productsUrl = useMemo(() => {
@@ -37,13 +63,20 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
   const {
     data: productsData,
     loading: productsLoading,
-    execute: refetchProducts,
-    invalidateCache: invalidateProductsCache,
-  } = useApiCache<{ data: Product[]; pagination: any }>(productsUrl, {
-    cacheTime: 2 * 60 * 1000, // 2 minutos
-    immediate: true,
-    dedupe: true,
-  });
+    fetchData: refetchProducts,
+    cacheTime: productsCacheTime,
+  } = useApiCache<{ data: Product[]; pagination: any }>(
+    productsUrl,
+    async () => {
+      const res = await fetch(productsUrl);
+      if (!res.ok) throw new Error('Falha ao buscar produtos');
+      return res.json();
+    },
+    {
+      ttl: 2 * 60 * 1000, // 2 minutos
+      staleWhileRevalidate: true,
+    }
+  );
 
   const categories = useMemo(() => categoriesData?.data || [], [categoriesData]);
   const products = useMemo(() => productsData?.data || [], [productsData]);
@@ -65,7 +98,7 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
     products: productsLoading,
   };
 
-  const refetch = {
+  const RefetchProducts = {
     categories: refetchCategories,
     products: refetchProducts,
   };
@@ -75,8 +108,8 @@ export function useOptimizedMenu(options: UseOptimizedMenuOptions = {}) {
     products: filteredProducts,
     pagination,
     loading,
-    refetch,
-    invalidateProductsCache,
+    RefetchProducts,
+    cacheTime: productsCacheTime || 0,
   };
 }
 

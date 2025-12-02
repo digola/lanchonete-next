@@ -63,7 +63,7 @@ async function createAdminUser() {
           email: 'admin@lanchonete.com',
           name: 'Administrador do Sistema',
           password: hashedPassword,
-          role: 'ADMINISTRADOR',
+          role: 'ADMIN',
           isActive: true
         }
       });
@@ -80,7 +80,7 @@ async function createAdminUser() {
     // Verificar total de usuários
     const totalUsers = await prisma.user.count();
     const adminUsers = await prisma.user.count({
-      where: { role: 'ADMINISTRADOR' }
+      where: { role: 'ADMIN' }
     });
 
     console.log(`\n📊 Estatísticas:`);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useApiAuth } from '@/hooks/useApiAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -31,8 +32,7 @@ import {
 } from '@/types';
 
 export default function SettingsPage() {
-  const [user, setUser] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user, isAuthenticated, isLoading, canAccessAdmin } = useApiAuth();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'printing' | 'backup'>('general');
   
@@ -90,10 +90,10 @@ export default function SettingsPage() {
 
   // Buscar configurações
   useEffect(() => {
-    if (user) {
+    if (isAuthenticated && user) {
       fetchSettings();
     }
-  }, [user]);
+  }, [isAuthenticated, user]);
 
   const fetchSettings = async () => {
     try {
@@ -106,23 +106,62 @@ export default function SettingsPage() {
 
       if (response.ok) {
         const data = await response.json();
+     
         if (data.success) {
+          /**
+           * parseValue
+           *
+           * Objetivo: normalizar valores retornados pela API de configurações.
+           * O backend pode enviar os valores como:
+           *  - JSON válido (ex.: "\"Lanchonete\"", "[\"monday\",\"tuesday\"]")
+           *  - Texto simples (ex.: "Lanchonete")
+           *  - Listas como CSV (ex.: "monday,tuesday,friday")
+           *
+           * Estratégia:
+           * 1) Tenta fazer JSON.parse(raw). Se for válido, retorna o valor tipado.
+           * 2) Se falhar, retorna o texto puro (raw) como o tipo esperado.
+           * 3) Se o fallback for um array, tenta converter CSV em array de strings.
+           *
+           * Uso: passamos um fallback já tipado para garantir o tipo final e
+           * definir um valor padrão quando não houver dado.
+           */
+          const parseValue = <T,>(entry: { value?: string } | undefined, fallback: T): T => {
+            const raw = entry?.value;
+            if (raw === undefined || raw === null) return fallback;
+            try {
+              return JSON.parse(raw) as T;
+            } catch {
+              if (Array.isArray(fallback)) {
+                return (raw ? raw.split(',').map((s) => s.trim()) : fallback) as unknown as T;
+              }
+              return raw as unknown as T;
+            }
+          };
           // Carregar configurações por categoria
-          if (data.data.general) {
-            const general = data.data.general;
+          if (data.data?.general) {
+            const general = data.data.general || {};
             setGeneralSettings({
-              restaurantName: general.restaurantName?.value ? JSON.parse(general.restaurantName.value) : '',
-              restaurantAddress: general.restaurantAddress?.value ? JSON.parse(general.restaurantAddress.value) : '',
-              restaurantPhone: general.restaurantPhone?.value ? JSON.parse(general.restaurantPhone.value) : '',
-              restaurantEmail: general.restaurantEmail?.value ? JSON.parse(general.restaurantEmail.value) : '',
-              openingTime: general.openingTime?.value ? JSON.parse(general.openingTime.value) : '08:00',
-              closingTime: general.closingTime?.value ? JSON.parse(general.closingTime.value) : '22:00',
-              workingDays: general.workingDays?.value ? JSON.parse(general.workingDays.value) : ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'],
-              timezone: general.timezone?.value ? JSON.parse(general.timezone.value) : 'America/Sao_Paulo',
-              currency: general.currency?.value ? JSON.parse(general.currency.value) : 'BRL',
-              language: general.language?.value ? JSON.parse(general.language.value) : 'pt-BR',
-            });
+              // Campos textuais simples
+              restaurantName: parseValue<string>(general.restaurantName, ''),
+              restaurantAddress: parseValue<string>(general.restaurantAddress, ''),
+              restaurantPhone: parseValue<string>(general.restaurantPhone, ''),
+              restaurantEmail: parseValue<string>(general.restaurantEmail, ''),
+              // Horários (strings no formato HH:mm)
+              openingTime: parseValue<string>(general.openingTime, '08:00'),
+              closingTime: parseValue<string>(general.closingTime, '22:00'),
+              // Dias de funcionamento (array de strings). Aceita JSON ou CSV.
+              workingDays: parseValue<string[]>(
+                general.workingDays,
+                ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+              ),
+              // Metadados regionais
+              timezone: parseValue<string>(general.timezone, 'America/Sao_Paulo'),
+              currency: parseValue<string>(general.currency, 'BRL'),
+             language: parseValue<string>(general.language, 'pt-BR'),
+          });
           }
+            console.log('✅ Configurações gerais carregadas:', data.data.general);
+
         }
       }
     } catch (error) {
@@ -209,16 +248,8 @@ export default function SettingsPage() {
     }
   };
 
-  // Verificar se o usuário é admin
-  const isAdmin = user && (
-    !user.role ||
-    user.role === 'ADMIN' || 
-    user.role === 'ADMINISTRADOR' || 
-    user.role === 'administrador' ||
-    user.role === 'Administrador' ||
-    user.role?.toLowerCase() === 'administrador' ||
-    user.role?.toLowerCase().includes('admin')
-  );
+  // Verificar se o usuário é admin com verificação padronizada
+  const isAdmin = !!canAccessAdmin;
 
   if (isLoading) {
     return (

@@ -72,7 +72,7 @@ export async function PUT(
     const activeOrders = await prisma.order.findMany({
       where: {
         tableId: tableId,
-        isActive: true,
+        isPaid: true,
         status: {
           notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
         }
@@ -228,7 +228,7 @@ export async function GET(
     const activeOrders = await prisma.order.findMany({
       where: {
         tableId: tableId,
-        isActive: true,
+        isPaid: true,
         status: {
           notIn: ['CANCELADO', 'ENTREGUE', 'FINALIZADO']
         }

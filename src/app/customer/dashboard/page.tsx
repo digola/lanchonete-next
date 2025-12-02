@@ -296,7 +296,7 @@ export default function CustomerDashboard() {
                       </p>
                       <Link href={`/customer/orders/${order.id}`}>
                         <Button variant="ghost" size="sm">
-                          Ver Detalhes
+                          Detalhes ({order.table ? `Mesa ${order.table.number}` : 'Balcão'})
                         </Button>
                       </Link>
                     </div>

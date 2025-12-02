@@ -92,13 +92,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       categoryId, 
       isAvailable, 
       preparationTime, 
-      allergens,
-      
-      // Campos de estoque
-      stockQuantity,
-      minStockLevel,
-      maxStockLevel,
-      trackStock
+      allergens
+      // Observação: Campos de estoque existem apenas no schema Postgres.
+      // No schema SQLite atual (desenvolvimento), eles não existem.
+      // Para evitar erros 500 no SQLite, ignoramos eventuais campos de estoque enviados.
     } = body;
 
     // Validações
@@ -130,6 +127,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Validar categoria vazia explicitamente
+    if (categoryId !== undefined && typeof categoryId === 'string' && categoryId.trim() === '') {
+      return NextResponse.json(
+        { success: false, error: 'Categoria é obrigatória' },
+        { status: 400 }
+      );
+    }
+
     // Atualizar produto
     const updatedProduct = await prisma.product.update({
       where: { id },
@@ -138,61 +143,18 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         ...(description !== undefined && { description: description?.trim() }),
         ...(price !== undefined && { price: Number(price) }),
         ...(imageUrl !== undefined && { imageUrl: imageUrl?.trim() }),
-        ...(categoryId !== undefined && { categoryId }),
+        ...(categoryId ? { categoryId } : {}),
         ...(isAvailable !== undefined && { isAvailable }),
         ...(preparationTime !== undefined && { preparationTime: Number(preparationTime) }),
         ...(allergens !== undefined && { allergens: allergens?.trim() }),
-        
-        // Campos de estoque
-        ...(stockQuantity !== undefined && { stockQuantity: Number(stockQuantity) }),
-        ...(minStockLevel !== undefined && { minStockLevel: Number(minStockLevel) }),
-        ...(maxStockLevel !== undefined && { maxStockLevel: Number(maxStockLevel) }),
-        ...(trackStock !== undefined && { trackStock }),
       },
       include: {
         category: true,
       },
     });
 
-    // Verificar estoque baixo e criar notificação se necessário
-    if (updatedProduct.trackStock && 
-        stockQuantity !== undefined && 
-        minStockLevel !== undefined &&
-        Number(stockQuantity) <= Number(minStockLevel)) {
-      try {
-        const { NotificationService } = await import('@/lib/notificationService');
-        await NotificationService.notifyLowStock(
-          updatedProduct.id,
-          updatedProduct.name,
-          Number(stockQuantity),
-          Number(minStockLevel)
-        );
-      } catch (error) {
-        console.error('Erro ao criar notificação de estoque baixo:', error);
-        // Não falha a atualização do produto se a notificação falhar
-      }
-    }
-
-    // Verificar se estoque zerou e marcar como indisponível
-    if (updatedProduct.trackStock && 
-        stockQuantity !== undefined && 
-        Number(stockQuantity) <= 0 &&
-        updatedProduct.isAvailable) {
-      try {
-        await prisma.product.update({
-          where: { id },
-          data: { isAvailable: false }
-        });
-        
-        const { NotificationService } = await import('@/lib/notificationService');
-        await NotificationService.notifyOutOfStock(
-          updatedProduct.id,
-          updatedProduct.name
-        );
-      } catch (error) {
-        console.error('Erro ao marcar produto como indisponível:', error);
-      }
-    }
+    // Observação: Lógica de estoque (notificações, indisponibilidade) removida para schema SQLite.
+    // Em ambientes com schema Postgres onde os campos de estoque existem, reativar blocos conforme necessário.
 
     // Log da atividade (comentado para SQLite - modelo activityLog não existe)
     // await prisma.activityLog.create({
@@ -214,11 +176,15 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       success: true,
       data: updatedProduct,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao atualizar produto:', error);
+    const message = typeof error?.message === 'string' ? error.message : 'Erro interno do servidor';
+    // Tentar identificar erros de validação do Prisma e responder com 400
+    const isPrismaValidation = message?.toLowerCase().includes('invalid') || message?.toLowerCase().includes('argument');
+    const status = isPrismaValidation ? 400 : 500;
     return NextResponse.json(
-      { success: false, error: 'Erro interno do servidor' },
-      { status: 500 }
+      { success: false, error: message },
+      { status }
     );
   }
 }

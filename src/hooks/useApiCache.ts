@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { number } from 'zod';
 
 interface CacheEntry<T> {
   data: T;
@@ -13,6 +14,19 @@ interface CacheOptions {
   staleWhileRevalidate?: boolean; // Return stale data while fetching fresh data
 }
 
+/**
+ * ApiCache
+ *
+ * Cache in-memory simples com TTL, deduplicação de requisições e
+ * invalidação por padrão/regex. Fornece uma instância global (apiCache)
+ * utilizada pelos hooks para evitar chamadas repetidas ao backend.
+ *
+ * Responsabilidades:
+ *  - armazenar entradas com timestamp e TTL
+ *  - retornar nulo quando expirado e limpar entradas
+ *  - deduplicar fetches concorrentes via pendingRequests
+ *  - invalidar por chave ou padrão regex
+ */
 class ApiCache {
   private cache = new Map<string, CacheEntry<any>>();
   private pendingRequests = new Map<string, Promise<any>>();
@@ -60,6 +74,17 @@ class ApiCache {
   }
 
   // Evitar requisições duplicadas
+  /**
+   * getOrFetch
+   *
+   * Retorna dados do cache se válidos; caso contrário, executa fetchFn,
+   * armazena o resultado com TTL e evita requisições duplicadas para a
+   * mesma chave enquanto a primeira está pendente.
+   *
+   * @param key Chave única para a entrada de cache
+   * @param fetchFn Função assíncrona que busca os dados
+   * @param ttl Tempo de vida do cache (ms)
+   */
   async getOrFetch<T>(
     key: string,
     fetchFn: () => Promise<T>,
@@ -102,10 +127,17 @@ class ApiCache {
 }
 
 // Instância global do cache
-const apiCache = new ApiCache();
+export const apiCache = new ApiCache();
 
 /**
- * Hook para cache de API com TTL e stale-while-revalidate
+ * useApiCache
+ *
+ * Hook para cache de API com TTL e stale-while-revalidate. Ele expõe estado
+ * reativo (data, loading, error, isStale, cacheTime) e funções utilitárias
+ * (fetchData, invalidate, refresh).
+ *
+ * Uso típico:
+ *  const { data, loading, fetchData } = useApiCache(key, fetchFn, { ttl })
  */
 export const useApiCache = <T = any>(
   key: string,
@@ -115,13 +147,17 @@ export const useApiCache = <T = any>(
   const [state, setState] = useState<{
     data: T | null;
     loading: boolean;
+    search: boolean;
     error: string | null;
     isStale: boolean;
+    cacheTime: number;
   }>({
     data: null,
+    search: true,
     loading: false,
     error: null,
     isStale: false,
+    cacheTime: 0,
   });
 
   const { ttl = 5 * 60 * 1000, staleWhileRevalidate = true } = options;
@@ -138,9 +174,11 @@ export const useApiCache = <T = any>(
 
       setState({
         data,
-        loading: false,
+         search: false,
+        loading: true,
         error: null,
         isStale: false,
+        cacheTime: ttl,
       });
 
       return data;

@@ -29,8 +29,9 @@ export function ProductSkeleton() {
       {/* Image skeleton */}
       <div className="relative aspect-square bg-gray-100">
         <Skeleton className="h-full w-full" />
+        
       </div>
-      
+ 
       {/* Content skeleton */}
       <div className="p-4 space-y-3">
         {/* Title and description */}
@@ -49,6 +50,7 @@ export function ProductSkeleton() {
         {/* Button */}
         <Skeleton className="h-9 w-full rounded-lg" />
       </div>
+          
     </div>
   );
 }

@@ -4,8 +4,15 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuthStore } from '@/stores/authStore';
 
 /**
- * Hook otimizado para autenticação
- * Reduz chamadas desnecessárias e melhora performance
+ * useOptimizedAuth
+ *
+ * Versão otimizada do hook de autenticação para reduzir verificações
+ * desnecessárias e melhorar performance. Implementa:
+ *  - inicialização única da autenticação
+ *  - verificação periódica com intervalo maior (5 min) e janela mínima (30s)
+ *  - login/logout com limpeza e cache leve para heurísticas locais
+ *
+ * @returns Estado de auth, ações otimizadas e utilitários
  */
 export const useOptimizedAuth = () => {
   const {
@@ -149,15 +156,14 @@ export const useOptimizedAuth = () => {
 
   // Função para obter label de role otimizada
   const getRoleLabel = useCallback(() => {
-    if (!user?.role) return 'Usuário';
-    
+    if (!user?.role) return 'User';
     const roleLabels: Record<string, string> = {
-      'admin': 'Administrador',
-      'staff': 'Funcionário',
-      'customer': 'Cliente',
+      ADMIN: 'Admin',
+      STAFF: 'Staff',
+      MANAGER: 'Manager',
+      CUSTOMER: 'Customer',
     };
-    
-    return roleLabels[user.role] || 'Usuário';
+    return roleLabels[String(user.role).toUpperCase()] || 'User';
   }, [user?.role]);
 
   return {

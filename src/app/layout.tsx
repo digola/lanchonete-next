@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description: 'Sistema completo de gestÃ£o para lanchonetes com cardÃ¡pio online, pedidos e delivery.',
   keywords: ['lanchonete', 'delivery', 'cardÃ¡pio', 'pedidos', 'gestÃ£o', 'nextjs'],
   authors: [{ name: 'Lanchonete Team' }],
-  robots: 'index, follow',
+  nomemy: 'index, follow',
   openGraph: {
     title: 'Lanchonete - Sistema de GestÃ£o',
     description: 'Sistema completo de gestÃ£o para lanchonetes',

@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { useApiAuth } from '@/hooks/useApiAuth';
+import { UserRole } from '@/types';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
 import { AdminHeader } from '@/components/admin/AdminHeader';
 
@@ -10,7 +11,7 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
-  const { user, isLoading } = useApiAuth();
+  const { user, isLoading, hasMinimumRole } = useApiAuth();
 
   // Mostrar loading enquanto verifica autenticação
   if (isLoading) {
@@ -24,16 +25,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
-  // Verificar se o usuário é algum tipo de administrador (flexível)
-  const isAdmin = user && (
-    user.role === 'ADMIN' || 
-    user.role === 'ADMINISTRADOR' || 
-    user.role === 'administrador' ||
-    user.role === 'Administrador' ||
-    user.role?.toLowerCase() === 'administrador' ||
-    user.role?.toLowerCase().includes('admin')
-   
-  );
+  const isAdmin = !!user && hasMinimumRole(UserRole.ADMIN);
    console.log(user);
   if (!user) {
     return (
@@ -57,9 +49,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Acesso Negado</h1>
-          <p className="text-gray-600 mb-4">Você precisa ser Administrador.</p>
+          <p className="text-gray-600 mb-4">Você precisa ser Admin.</p>
           
-        //  {/* Debug Info */}
+          {/* Debug Info */}
           <div className="bg-gray-100 p-4 rounded mb-4 text-left max-w-md mx-auto">
             <h3 className="font-bold mb-2">Debug Info:</h3>
             <p>Role atual: <strong>"{user.role}"</strong></p>

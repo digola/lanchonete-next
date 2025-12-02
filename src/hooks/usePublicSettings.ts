@@ -12,6 +12,15 @@ export interface PublicSettings {
   language: string;
 }
 
+/**
+ * usePublicSettings
+ *
+ * Hook para carregar configurações públicas do restaurante (sem necessidade
+ * de autenticação). Fornece estado reativo e helpers para formatar dias e
+ * horários de funcionamento.
+ *
+ * @returns {object} settings, loading, error, getWorkingDaysText, getWorkingHoursText
+ */
 export function usePublicSettings() {
   const [settings, setSettings] = useState<PublicSettings | null>(null);
   const [loading, setLoading] = useState(true);
@@ -27,8 +36,11 @@ export function usePublicSettings() {
         const data = await response.json();
         
         if (data.success) {
+          console.log('Configurações públicas carregadas usepublic:', data.data);
           setSettings(data.data);
+          
         } else {
+          console.log('Configurações públicas carregadas usepublic:', );
           setError('Erro ao carregar configurações');
         }
       } catch (err) {
@@ -42,7 +54,12 @@ export function usePublicSettings() {
     fetchSettings();
   }, []);
 
-  // Função para formatar os dias de funcionamento
+  /**
+   * getWorkingDaysText
+   *
+   * Formata os dias de funcionamento em um texto amigável.
+   * Aceita array de dias em inglês e retorna rótulos em português.
+   */
   const getWorkingDaysText = () => {
     if (!settings?.workingDays) return 'Consulte nossos horários';
     
@@ -72,7 +89,12 @@ export function usePublicSettings() {
     }
   };
 
-  // Função para formatar o horário de funcionamento
+  /**
+   * getWorkingHoursText
+   *
+   * Formata os horários de abertura/fechamento em um texto amigável
+   * no padrão HHhmm, omitindo minutos quando são "00".
+   */
   const getWorkingHoursText = () => {
     if (!settings?.openingTime || !settings?.closingTime) {
       return 'Consulte nossos horários';
@@ -95,5 +117,7 @@ export function usePublicSettings() {
     error,
     getWorkingDaysText,
     getWorkingHoursText,
+    teste:'teste'
   };
 }
+    

@@ -19,6 +19,17 @@ interface UseOrdersCalendarReturn {
   selectedDate: Date | null;
 }
 
+/**
+ * useOrdersCalendar
+ *
+ * Hook para alimentar um calendário de pedidos. Busca agregados por dia
+ * do mês atual e permite selecionar uma data para listar pedidos daquela
+ * data, além de refetch geral.
+ *
+ * @param initialDate Data inicial selecionada
+ * @param enabled Controla se as requisições devem ser feitas
+ * @returns Estrutura com ordersByDate, selectedDateOrders, estados e ações
+ */
 export function useOrdersCalendar(initialDate?: Date, enabled: boolean = true): UseOrdersCalendarReturn {
   const [selectedDate, setSelectedDate] = useState<Date | null>(initialDate || null);
   const [ordersByDate, setOrdersByDate] = useState<OrdersCalendarData>({});
@@ -100,9 +111,10 @@ export function useOrdersCalendar(initialDate?: Date, enabled: boolean = true): 
     ordersByDate,
     selectedDateOrders,
     isLoading: loading,
-    error: error?.message || null,
     refetch,
     selectDate,
     selectedDate,
+    error: error || null,
+
   };
 }

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Badge } from '@/components/ui/Badge';
 import { ProductSkeleton } from '@/components/ui/Skeleton';
-import { UserRole } from '@/types';
+
 
 import { Product, Category, GeneralSettings } from '@/types';
 import Link from 'next/link';
@@ -109,14 +109,14 @@ export default function HomePage() {
   // Remover debounce manual - agora é feito no hook
   // useEffect removido - o debounce é feito internamente no useOptimizedMenuStatic
 
-  const handleAddToCart = useCallback((product: Product, notes?: string) => {
+  const handleAddToCart = useCallback((product: Product, notes?: string, customizations?: Record<string, any>) => {
     console.log('🛒 Adicionando produto ao carrinho:', {
       productId: product.id,
       productName: product.name,
       price: product.price,
       isAvailable: product.isAvailable
     });
-    addItem(product, 1, notes);
+    addItem(product, 1, notes, customizations);
     console.log('✅ Produto adicionado com sucesso!');
   }, [addItem]);
 
