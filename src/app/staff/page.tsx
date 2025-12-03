@@ -639,7 +639,8 @@ console.log('🔍 Response:', response);
   };
 
   return (
-    <ProtectedRoute requiredRole={UserRole.STAFF}>
+    // Acesso estrito: apenas STAFF e ADMIN podem acessar esta página
+    <ProtectedRoute allowedRoles={[UserRole.STAFF, UserRole.ADMIN]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
         {/* Indicador de Pedidos Pendentes */}
       

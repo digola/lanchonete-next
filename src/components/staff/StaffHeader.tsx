@@ -35,7 +35,7 @@ export function StaffHeader() {
   // Filtros de busca e categoria para o menu
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
-   const isStaff = (user?.role === 'STAFF' || user?.role === 'ADMIN' || user?.role === 'MANAGER');
+   const isStaff = (user?.role === 'STAFF' || user?.role === 'ADMIN' );
   const router = useRouter();
   //usado filtro
    const shouldShowStaffFeatures = isHydrated && isStaff;
@@ -145,8 +145,24 @@ export function StaffHeader() {
                                
                </button>
              </Link>
-           )}
-
+             
+           
+          )}
+          {/*este botao so sera exibido caso o carrinho tenha itens proxima implentaçao nivel facil
+           <div className="flex items-center space-x-2" id="clientName">
+             <div className="flex items-center space-x-2">
+            <label htmlFor="clientName" className="text-sm font-medium text-gray-700">
+              Pedido Balcao:
+             </label>
+                <input
+                  id="clientName"
+                  type="text"
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  placeholder="Digite o nome do cliente"
+                />
+            </div>
+          </div>
+          */}
            {/* Navegação */}
            <nav className="hidden md:flex items-center space-x-6">
              <Link
@@ -171,15 +187,17 @@ export function StaffHeader() {
                Cardápio
              </Link>
            </nav>
-         </div>
-  {shouldShowStaffFeatures && isStaff && (
+
+   </div>
+          
+    {shouldShowStaffFeatures && isStaff && (
                 <Button
                   variant="outline"
                   onClick={() => router.push('/table-selection')}
                   className="flex items-center space-x-2"
                 >
                   <span>🪑</span>
-                  <span>{tableId ? 'Trocar Mesa' : 'Selecionar Mesa'}</span>
+                  <span>{tableId ? 'Trocar Mesa' : 'Selecionar Mesa ante de começar um pedido'}</span>
                 </Button>
               )}
          {/* Direita: Ações do Usuário */}

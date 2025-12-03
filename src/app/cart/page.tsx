@@ -14,6 +14,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { table } from 'console';
 import { useRealTables } from '@/hooks/useRealData';
 import { toast } from '@/lib/toast';
+import { usePublicSettings } from '@/hooks/usePublicSettings';
 
 export default function CartPage() {
   const {
@@ -42,9 +43,42 @@ export default function CartPage() {
   const [paymentMethod, setPaymentMethod] = useState('DINHEIRO');
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+  const [deliveryFee, setDeliveryFee] = useState(0);
+  const [isCalculatingFee, setIsCalculatingFee] = useState(false);
 
   // Carregar dados de mesas para resolver número a partir do ID (quando só o tableId vier na URL)
   const { data: realTablesData } = useRealTables([]);
+  const { settings } = usePublicSettings();
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const calc = async () => {
+      if (deliveryType !== 'DELIVERY') { setDeliveryFee(0); return; }
+      const origin = settings?.restaurantAddress || '';
+      const destination = deliveryAddress.trim();
+      if (!origin || !destination) { setDeliveryFee(0); return; }
+      setIsCalculatingFee(true);
+      try {
+        const res = await fetch('/api/delivery/calculate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ origin, destination }),
+          signal: controller.signal,
+        });
+        const json = await res.json();
+        if (!res.ok || !json?.success) {
+          throw new Error(json?.error || 'Falha ao calcular taxa');
+        }
+        setDeliveryFee(Number(json.data?.fee || 0));
+      } catch (e) {
+        setDeliveryFee(0);
+      } finally {
+        setIsCalculatingFee(false);
+      }
+    };
+    const t = setTimeout(calc, 500);
+    return () => { clearTimeout(t); controller.abort(); };
+  }, [deliveryType, deliveryAddress, settings?.restaurantAddress]);
 
   // Quando houver tableId na URL e o número não estiver definido, tentar resolver pelo dataset de mesas
   useEffect(() => {
@@ -108,6 +142,7 @@ export default function CartPage() {
       });
 
       // Preparar dados do pedido
+      const finalTotal = totalPrice + (deliveryType === 'DELIVERY' ? deliveryFee : 0);
       const orderData: any = {
         items: items.map(item => ({
           productId: item.productId,
@@ -122,7 +157,7 @@ export default function CartPage() {
         paymentMethod: paymentMethod,
         deliveryAddress: deliveryType === 'DELIVERY' ? deliveryAddress : null,
         notes: orderNotes,
-        total: totalPrice
+        total: finalTotal
       };
 
       // Se houver tableId na URL, incluir no payload para salvar o relacionamento order->table
@@ -328,7 +363,7 @@ export default function CartPage() {
               Que tal adicionar alguns produtos deliciosos?
             </p>
             
-            {/* Debug Panel */}
+            {/* Debug Panel
             <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8 max-w-md mx-auto">
               <h3 className="font-semibold text-yellow-800 mb-2">🔧 Debug Panel</h3>
               <div className="text-sm text-yellow-700 space-y-1">
@@ -346,6 +381,7 @@ export default function CartPage() {
                 🔄 Recarregar Página
               </Button>
             </div>
+             */}
             
             <Link href="/">
               <Button variant="primary" size="lg" leftIcon={<ArrowLeft className="h-5 w-5" />}>
@@ -384,7 +420,7 @@ export default function CartPage() {
           </h1>
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">
-              Mesa: {tableNumberFromUrl ?? (cartTableNumber != null ? String(cartTableNumber) : 'não definida')}
+              Mesa: {tableNumberFromUrl ?? (cartTableNumber != null ? String(cartTableNumber) : 'Balcão')}
             </span>
           </div>
           <Button variant="outline" onClick={clearCart}>
@@ -511,13 +547,17 @@ export default function CartPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Taxa de entrega</span>
-                    <span className="font-medium">Grátis</span>
+                    <span className="font-medium">
+                      {deliveryType === 'DELIVERY'
+                        ? (isCalculatingFee ? 'Calculando...' : formatCurrency(deliveryFee))
+                        : formatCurrency(0)}
+                    </span>
                   </div>
                   <div className="border-t pt-3">
                     <div className="flex justify-between">
                       <span className="text-lg font-semibold text-gray-900">Total</span>
                       <span className="text-lg font-bold text-primary-600">
-                        {formatTotalPrice(totalPrice)}
+                        {formatCurrency(totalPrice + (deliveryType === 'DELIVERY' ? deliveryFee : 0))}
                       </span>
                     </div>
                   </div>

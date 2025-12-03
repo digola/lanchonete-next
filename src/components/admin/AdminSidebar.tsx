@@ -34,10 +34,16 @@ const navigation = [
     icon: Package,
   },
   {
+    name: 'Adicionais',
+    href: '/admin/adicionais',
+    icon: Folder,
+  },
+  {
     name: 'Categorias',
     href: '/admin/categories',
     icon: Folder,
   },
+  
   {
     name: 'Usuários',
     href: '/admin/users',

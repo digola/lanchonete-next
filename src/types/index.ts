@@ -122,7 +122,7 @@ export interface Order {
   notes?: string;
   tableId?: string;
   table?: Table;
-  adicionaisIds?: string[];
+  adicionaisName?: string[];
   items: OrderItem[];
   createdAt: Date;
   updatedAt: Date;

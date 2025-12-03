@@ -233,7 +233,7 @@ export default function HomePage() {
             </div>
             <div className="flex items-center space-x-4">
             
-              {/* Campo de Busca */}
+              {/* Campo de Busca talves abilite posteriormente
               <div className="relative flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
@@ -243,7 +243,10 @@ export default function HomePage() {
                   className="pl-10 w-full sm:w-64"
                 />
               </div>
+               */}
             </div>
+             
+            
           </div>
 
           {/* Seleção Rápida por Categoria */}

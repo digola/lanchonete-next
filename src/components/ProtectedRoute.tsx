@@ -9,6 +9,8 @@ interface ProtectedRouteProps {
   children: ReactNode;
   requiredRole?: UserRole;
   requiredRoles?: UserRole[];
+  // Lista de roles permitidos para acesso estrito (sem hierarquia)
+  allowedRoles?: UserRole[];
   requiredPermission?: string;
   fallback?: ReactNode;
   redirectTo?: string;
@@ -21,6 +23,7 @@ export const ProtectedRoute = ({
   children,
   requiredRole,
   requiredRoles,
+  allowedRoles,
   requiredPermission,
   fallback,
   redirectTo,
@@ -59,6 +62,16 @@ export const ProtectedRoute = ({
     if (requiredRoles && requiredRoles.length > 0) {
       const hasAnyRequiredRole = requiredRoles.some(role => hasMinimumRole(role));
       if (!hasAnyRequiredRole) {
+        const defaultRoute = getDefaultRoute();
+        router.push(defaultRoute);
+        return;
+      }
+    }
+
+    // Acesso estrito por lista de roles: bloqueia se role do usuário não estiver em allowedRoles
+    if (allowedRoles && allowedRoles.length > 0) {
+      const userRole = user?.role as UserRole;
+      if (!allowedRoles.includes(userRole)) {
         const defaultRoute = getDefaultRoute();
         router.push(defaultRoute);
         return;
@@ -105,6 +118,14 @@ export const ProtectedRoute = ({
   if (requiredRoles && requiredRoles.length > 0) {
     const hasAnyRequiredRole = requiredRoles.some(role => hasMinimumRole(role));
     if (!hasAnyRequiredRole) {
+      return fallback || <AccessDenied />;
+    }
+  }
+
+  // Renderização condicionada a allowedRoles: só mostra se role atual estiver na lista
+  if (allowedRoles && allowedRoles.length > 0) {
+    const userRole = user?.role as UserRole;
+    if (!allowedRoles.includes(userRole)) {
       return fallback || <AccessDenied />;
     }
   }

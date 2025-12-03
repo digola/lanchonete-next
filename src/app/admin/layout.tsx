@@ -25,6 +25,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
+  // Acesso exclusivo: somente ADMIN pode acessar o layout/admin
   const isAdmin = !!user && hasMinimumRole(UserRole.ADMIN);
    console.log(user);
   if (!user) {
@@ -44,6 +45,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     );
   }
 
+  // Bloqueio de acesso para roles diferentes de ADMIN
   if (!isAdmin) {
     return (
       <div className="min-h-screen flex items-center justify-center">

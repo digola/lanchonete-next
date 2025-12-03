@@ -39,6 +39,8 @@ import {
 import { formatCurrency } from '@/lib/utils';
 import Link from 'next/link';
 import { table } from 'console';
+import { OrderDetailsButton } from '@/components/staff/OrderDetailsModal';
+import { title } from 'process';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -770,6 +772,7 @@ export default function ExpedicaoPage() {
           <div class="footer">
             <div>Obrigado pela preferência!</div>
             <div style="margin-top: 2px;">Sistema Lanchonete v1.0</div>
+          
           </div>
         </body>
       </html>
@@ -784,8 +787,33 @@ export default function ExpedicaoPage() {
     }, 500);
   };
 
+  {/* Função para cancelar pedido e liberar mesa */}
+const cancelOrder = async (order: Order) => {
+  try {
+    const response = await fetch(`/api/orders/${order.id}` , {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+      },
+      body: JSON.stringify({ status: 'CANCELADO' })
+    });
+    const result = await response.json();
+    if (!response.ok || !result?.success) {
+      throw new Error(result?.error || 'Erro ao cancelar pedido');
+    }
+    alert('Pedido cancelado com sucesso!');
+    refetchOrders();
+  } catch (error) {
+    console.error('Erro ao cancelar pedido:', error);
+    alert('Erro ao cancelar pedido');
+  }
+};
+  
+
   return (
-    <ProtectedRoute requiredRole={UserRole.MANAGER}>
+    // Acesso estrito: apenas MANAGER e ADMIN podem acessar a expedição
+    <ProtectedRoute allowedRoles={[UserRole.MANAGER, UserRole.ADMIN]}>
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-50">
         {/* Indicador de Pedidos Pendentes */}
         <PendingOrdersIndicator showDetails={true} />
@@ -1021,10 +1049,16 @@ export default function ExpedicaoPage() {
                       {/* Total e badges - Lado direito no desktop, embaixo no mobile */}
                       <div className="flex items-center justify-between sm:flex-col sm:items-end gap-2">
                         <div className="flex items-center gap-2">
-                          {order.isPaid && (
+                          {order.isPaid && order.isActive === false &&(
                             <Badge className="bg-green-100 text-green-800 border-green-200">
                               <CreditCard className="h-3 w-3 mr-1" />
                               Pago
+                            </Badge>
+                          )}
+                          {order.isActive === true && !order.isActive === false && (
+                            <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
+                              <Clock className="h-3 w-3 mr-1" />
+                             Cancelado
                             </Badge>
                           )}
                         </div>
@@ -1059,7 +1093,7 @@ export default function ExpedicaoPage() {
                           ))}
                           {order.items.length > 3 && (
                             <p className="text-xs text-gray-500 text-center">
-                              +{order.items.length - 3} item(ns) adicional(is)
+                              +{order.items.length - 3} item(ns) adicional(is) "não exbidos nesta lista"
                             </p>
                           )}
                         </div>
@@ -1099,7 +1133,7 @@ export default function ExpedicaoPage() {
                             )}
                             
                             {/* Botão Adicionar Produtos - apenas para pedidos de mesa não finalizados */}
-                            {order.table && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && (
+                            {order.table && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && order.isActive === false && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1110,10 +1144,12 @@ export default function ExpedicaoPage() {
                                 <span className="hidden sm:inline">Adicionar Produtos</span>
                                 <span className="sm:hidden">Adicionar</span>
                               </Button>
-                            )}
+                            )}{
+                              <p className="text-xs text-red-500">Pedido cancelado</p>
+                            }
                             
                             {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
-                            {order.status !== OrderStatus.FINALIZADO && !order.isPaid && (
+                            {order.status !== OrderStatus.FINALIZADO && !order.isPaid && order.isActive === false && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1155,6 +1191,22 @@ export default function ExpedicaoPage() {
                           <span className="hidden sm:inline">Imprimir</span>
                           <span className="sm:hidden">🖨️</span>
                         </Button>
+                          {/* Botão Detalhes do Pedido */}
+                          <OrderDetailsButton order={order} />
+                          {/* Botão Cancelar Pedido e Liberar Mesa sera exibido apenas para pedidos ativos e que não foram finalizados ou entregues */}
+                          {order.status && order.isActive === false && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && ( 
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => cancelOrder(order)}
+                            className="whitespace-nowrap text-red-600 border-red-300 hover:bg-red-100 col-span-2 sm:col-span-1 font-semibold"
+                          >
+                            <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
+                            <span className="hidden sm:inline">Cancelar Pedido </span>
+                            <span className="sm:hidden">Cancelar e Liberar</span>
+                          </Button> 
+
+ ) }
                          {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
                             {order.table && order.status === OrderStatus.ENTREGUE &&  order.table.status === TableStatus.OCUPADA && (
                               <Button
@@ -1414,6 +1466,7 @@ export default function ExpedicaoPage() {
       )}
 
       {/* Modal de Limpeza de Mesa */}
+   
       {showClearTableModal && selectedOrder && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">

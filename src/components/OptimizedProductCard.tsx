@@ -116,8 +116,8 @@ export const OptimizedProductCard = memo(function OptimizedProductCard({
     return name.includes('bebidas') || name.includes('hamburguer') ||  name.includes('acompanhamento')|| name.includes('sobremesa')|| name.includes('pizza');
      
   }, [product.category?.name]);
-  console.log("bucha");
 
+  
   return (
     <Card 
       className={cardClassName}
