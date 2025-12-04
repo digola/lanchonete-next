@@ -7,6 +7,9 @@ const PUBLIC_ROUTES = ['/login', '/register', '/'];
 const STAFF_ROUTES = ['/staff', '/tables'];
 const MANAGER_ROUTES = ['/expedicao'];
 const ADMIN_ROUTES = ['/admin'];
+const STAFF_ALLOWED = [UserRole.STAFF, UserRole.ADMIN];
+const MANAGER_ALLOWED = [UserRole.MANAGER, UserRole.ADMIN];
+const ADMIN_ALLOWED = [UserRole.ADMIN];
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -32,25 +35,25 @@ export async function middleware(request: NextRequest) {
       throw new Error('Token inválido');
     }
 
-    // Verificar rotas de STAFF (mínimo STAFF)
     if (STAFF_ROUTES.some(route => pathname.startsWith(route))) {
-      if (!hasMinimumRole(decoded.role as UserRole, UserRole.STAFF)) {
+      const role = decoded.role as UserRole;
+      if (!STAFF_ALLOWED.includes(role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de MANAGER (mínimo MANAGER)
     if (MANAGER_ROUTES.some(route => pathname.startsWith(route))) {
-      if (!hasMinimumRole(decoded.role as UserRole, UserRole.MANAGER)) {
+      const role = decoded.role as UserRole;
+      if (!MANAGER_ALLOWED.includes(role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }
     }
 
-    // Verificar rotas de ADMIN (mínimo ADMIN)
     if (ADMIN_ROUTES.some(route => pathname.startsWith(route))) {
-      if (!hasMinimumRole(decoded.role as UserRole, UserRole.ADMIN)) {
+      const role = decoded.role as UserRole;
+      if (!ADMIN_ALLOWED.includes(role)) {
         const defaultRoute = new URL('/login', request.url);
         return NextResponse.redirect(defaultRoute);
       }

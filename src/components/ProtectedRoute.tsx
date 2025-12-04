@@ -90,6 +90,7 @@ export const ProtectedRoute = ({
     user,
     requiredRole,
     requiredRoles,
+    allowedRoles,
     requiredPermission,
     hasMinimumRole,
     hasPermission,
