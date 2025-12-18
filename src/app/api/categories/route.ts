@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma, checkDatabaseHealth } from '@/lib/prisma';
 export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 
 // GET /api/categories - Listar categorias
 export async function GET(request: NextRequest) {
   try {
+    const health = await checkDatabaseHealth();
+    if (!health.healthy) {
+      return NextResponse.json({ success: true, data: [], pagination: { page: 1, limit: 0, total: 0, totalPages: 0 } });
+    }
     const { searchParams } = new URL(request.url);
     const search = searchParams.get('search');
     const categoryId = searchParams.get('categoryId');
