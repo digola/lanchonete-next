@@ -28,16 +28,14 @@ const nextConfig = {
     },
   },
   
-  // Configurações de TypeScript para deploy
+  // Configurações de TypeScript
   typescript: {
-    // Ignorar erros de tipo durante o build para deploy rápido
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   
-  // Configurações de ESLint para deploy
+  // Configurações de ESLint
   eslint: {
-    // Ignorar erros de ESLint durante o build para deploy rápido
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   
   // Configuração de imagens
@@ -53,6 +51,12 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: '*.supabase.co',
         port: '',
         pathname: '/**',
       },

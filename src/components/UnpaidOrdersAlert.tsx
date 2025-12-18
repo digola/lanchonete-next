@@ -8,6 +8,7 @@ import { AlertCircle, CreditCard, X, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { Order } from '@/types';
 import { usePendingOrdersWarning } from '@/hooks/usePendingOrdersWarning';
+import { useApiAuth } from '@/hooks/useApiAuth';
 
 interface UnpaidOrdersAlertProps {
   onRefresh?: () => void;
@@ -20,17 +21,18 @@ export function UnpaidOrdersAlert({ onRefresh, className = '' }: UnpaidOrdersAle
   const [isVisible, setIsVisible] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
   const { hasPendingOrders, forceCheck } = usePendingOrdersWarning({ enabled: true, checkInterval: 30000 });
+  const { token } = useApiAuth();
 
   // Buscar pedidos não pagos
   const fetchUnpaidOrders = async () => {
     try {
       setIsLoading(true);
-      const token = localStorage.getItem('auth-token');
-      if (!token) return;
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
+      if (!tokenFromStorage) return;
 
       const response = await fetch('/api/orders?includeUser=true&includeTable=true&status=PENDENTE,CONFIRMADO,PREPARANDO,PRONTO&limit=3', {
         headers: {
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${tokenFromStorage}`
         }
       });
 

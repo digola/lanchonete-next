@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 import { UserRole, Order, OrderStatus } from '@/types';
 import { OrderDetailsModal } from '@/components/admin/OrderDetailsModal';
 import { Calendar } from '@/components/ui/Calendar';
@@ -34,7 +35,7 @@ import {
 // Página principal de gerenciamento de pedidos no admin.
 // Controla filtros, modos de visualização (lista/calendário), busca e ações em massa.
 export default function AdminOrdersPage() {
-  const { user } = useApiAuth();
+  const { user, token } = useApiAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<OrderStatus | 'ALL'>('ALL');
   const [dateFilter, setDateFilter] = useState('');
@@ -151,7 +152,7 @@ export default function AdminOrdersPage() {
     if (selectedOrders.length === 0) return;
 
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       
       for (const orderId of selectedOrders) {
         const response = await fetch(`/api/orders/${orderId}`, {
@@ -172,10 +173,10 @@ export default function AdminOrdersPage() {
 
       setSelectedOrders([]);
       refetchOrders();
-      alert(`${selectedOrders.length} pedidos ${action === 'cancel' ? 'cancelados' : 'confirmados'} com sucesso!`);
+      toast.success('Ação em massa concluída', `${selectedOrders.length} pedidos ${action === 'cancel' ? 'cancelados' : 'confirmados'}.`);
     } catch (error) {
       console.error('Erro na ação em massa:', error);
-      alert('Erro ao executar ação em massa');
+      toast.error('Erro ao executar ação em massa');
     }
   };
 
@@ -216,13 +217,13 @@ export default function AdminOrdersPage() {
   // Atualiza o status de um pedido específico e refaz a consulta
   const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token || ''}`
+          'Authorization': `Bearer ${tokenFromStorage || ''}`
         },
         body: JSON.stringify({ status: newStatus })
       });
@@ -242,7 +243,7 @@ export default function AdminOrdersPage() {
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
       const msg = error instanceof Error ? error.message : 'Erro ao atualizar status do pedido';
-      alert(msg);
+      toast.error('Erro ao atualizar status', msg);
     }
   };
 

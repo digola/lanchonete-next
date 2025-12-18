@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useApiAuth } from '@/hooks/useApiAuth';
+import { toast } from '@/lib/toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
@@ -32,7 +33,7 @@ import {
 } from '@/types';
 
 export default function SettingsPage() {
-  const { user, isAuthenticated, isLoading, canAccessAdmin } = useApiAuth();
+  const { user, isAuthenticated, isLoading, canAccessAdmin, token } = useApiAuth();
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'general' | 'payment' | 'printing' | 'backup'>('general');
   
@@ -89,18 +90,12 @@ export default function SettingsPage() {
   });
 
   // Buscar configurações
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchSettings();
-    }
-  }, [isAuthenticated, user]);
-
-  const fetchSettings = async () => {
+  const fetchSettings = useCallback(async () => {
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       const response = await fetch('/api/admin/settings', {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${tokenFromStorage}`,
         },
       });
 
@@ -108,23 +103,6 @@ export default function SettingsPage() {
         const data = await response.json();
      
         if (data.success) {
-          /**
-           * parseValue
-           *
-           * Objetivo: normalizar valores retornados pela API de configurações.
-           * O backend pode enviar os valores como:
-           *  - JSON válido (ex.: "\"Lanchonete\"", "[\"monday\",\"tuesday\"]")
-           *  - Texto simples (ex.: "Lanchonete")
-           *  - Listas como CSV (ex.: "monday,tuesday,friday")
-           *
-           * Estratégia:
-           * 1) Tenta fazer JSON.parse(raw). Se for válido, retorna o valor tipado.
-           * 2) Se falhar, retorna o texto puro (raw) como o tipo esperado.
-           * 3) Se o fallback for um array, tenta converter CSV em array de strings.
-           *
-           * Uso: passamos um fallback já tipado para garantir o tipo final e
-           * definir um valor padrão quando não houver dado.
-           */
           const parseValue = <T,>(entry: { value?: string } | undefined, fallback: T): T => {
             const raw = entry?.value;
             if (raw === undefined || raw === null) return fallback;
@@ -137,24 +115,19 @@ export default function SettingsPage() {
               return raw as unknown as T;
             }
           };
-          // Carregar configurações por categoria
           if (data.data?.general) {
             const general = data.data.general || {};
             setGeneralSettings({
-              // Campos textuais simples
               restaurantName: parseValue<string>(general.restaurantName, ''),
               restaurantAddress: parseValue<string>(general.restaurantAddress, ''),
               restaurantPhone: parseValue<string>(general.restaurantPhone, ''),
               restaurantEmail: parseValue<string>(general.restaurantEmail, ''),
-              // Horários (strings no formato HH:mm)
               openingTime: parseValue<string>(general.openingTime, '08:00'),
               closingTime: parseValue<string>(general.closingTime, '22:00'),
-              // Dias de funcionamento (array de strings). Aceita JSON ou CSV.
               workingDays: parseValue<string[]>(
                 general.workingDays,
                 ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
               ),
-              // Metadados regionais
               timezone: parseValue<string>(general.timezone, 'America/Sao_Paulo'),
               currency: parseValue<string>(general.currency, 'BRL'),
              language: parseValue<string>(general.language, 'pt-BR'),
@@ -167,7 +140,14 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Erro ao buscar configurações:', error);
     }
-  };
+  }, [token]);
+
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      fetchSettings();
+    }
+  }, [isAuthenticated, user, fetchSettings]);
+
 
   const saveSettings = async () => {
     setSaving(true);
@@ -234,15 +214,15 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         console.log('✅ Sucesso:', data);
-        alert('Configurações salvas com sucesso!');
+        toast.success('Configurações salvas com sucesso!');
       } else {
         const errorData = await response.json();
         console.error('❌ Erro na resposta:', errorData);
-        alert(`Erro ao salvar configurações: ${errorData.error || 'Erro desconhecido'}`);
+        toast.error('Erro ao salvar configurações', errorData.error || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('💥 Erro ao salvar configurações:', error);
-      alert(`Erro ao salvar configurações: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao salvar configurações', error instanceof Error ? error.message : 'Erro desconhecido');
     } finally {
       setSaving(false);
     }

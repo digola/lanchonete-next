@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Badge } from '@/components/ui/Badge';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
+import { toast } from '@/lib/toast';
 
 import { 
   ArrowLeft,
@@ -31,7 +32,7 @@ import { Order, OrderStatus, Product } from '@/types';
 export default function OrderDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useApiAuth();
+  const { user, isAuthenticated, isLoading: authLoading, token } = useApiAuth();
   const orderId = params.id as string;
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -53,7 +54,7 @@ export default function OrderDetailsPage() {
 
       const response = await fetch(`/api/orders/${orderId}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`,
           'Content-Type': 'application/json',
         },
       });
@@ -76,7 +77,7 @@ export default function OrderDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [orderId, isAuthenticated, user?.id]);
+  }, [orderId, isAuthenticated, user?.id, token]);
 
   // Carregar dados quando as condições estiverem prontas
   useEffect(() => {
@@ -90,7 +91,7 @@ export default function OrderDetailsPage() {
     try {
       const response = await fetch('/api/products?isAvailable=true', {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`,
           'Content-Type': 'application/json',
         },
       });
@@ -107,7 +108,7 @@ export default function OrderDetailsPage() {
     } catch (error: any) {
       console.error('Erro ao carregar produtos:', error);
     }
-  }, []);
+  }, [token]);
 
   // Função para adicionar produtos ao pedido
   const addProductsToOrder = useCallback(async () => {
@@ -120,7 +121,7 @@ export default function OrderDetailsPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`,
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`,
         },
         body: JSON.stringify({ items: selectedProducts }),
       });
@@ -131,17 +132,17 @@ export default function OrderDetailsPage() {
         setOrder(data.data);
         setIsAddingProducts(false);
         setSelectedProducts([]);
-        alert('Produtos adicionados com sucesso!');
+        toast.success('Produtos adicionados com sucesso!');
       } else {
-        alert(`Erro ao adicionar produtos: ${data.error || 'Tente novamente'}`);
+        toast.error('Erro ao adicionar produtos', data.error || 'Tente novamente');
       }
     } catch (error: any) {
       console.error('Erro ao adicionar produtos:', error);
-      alert('Erro de conexão. Tente novamente.');
+      toast.error('Erro de conexão', 'Tente novamente.');
     } finally {
       setIsLoading(false);
     }
-  }, [orderId, selectedProducts]);
+  }, [orderId, selectedProducts, token]);
 
   // Função para adicionar produto à seleção
   const addProductToSelection = useCallback((product: any) => {

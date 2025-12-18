@@ -4,15 +4,21 @@ export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 // GET /api/products/[id] - Buscar produto específico
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'ID do produto não fornecido' },
+        { status: 400 }
+      );
+    }
 
     const product = await prisma.product.findUnique({
       where: { id },
@@ -44,7 +50,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 // PUT /api/products/[id] - Atualizar produto
 export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'ID do produto não fornecido' },
+        { status: 400 }
+      );
+    }
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
@@ -192,7 +204,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 // DELETE /api/products/[id] - Deletar produto
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
-    const { id } = params;
+    const { id } = await params;
+    if (!id) {
+      return NextResponse.json(
+        { success: false, error: 'ID do produto não fornecido' },
+        { status: 400 }
+      );
+    }
+   
 
     // Verificar autenticação
     const token = getTokenFromRequest(request);
@@ -237,6 +256,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     });
 
     if (ordersCount > 0) {
+      console.warn(`Tentativa de deletar produto ${id} com ${ordersCount} pedidos vinculados.`);
       return NextResponse.json(
         { 
           success: false, 
@@ -245,6 +265,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         { status: 400 }
       );
     }
+
+    // Remover associações (ex.: adicionais vinculados ao produto) antes de deletar
+    await prisma.productAdicional.deleteMany({
+      where: { productId: id },
+    });
 
     // Deletar produto
     await prisma.product.delete({

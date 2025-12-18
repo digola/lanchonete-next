@@ -8,21 +8,11 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Detectar ambiente de produção
 const isProdLike = process.env.NODE_ENV === 'production';
 
-/**
- * Configura DATABASE_URL padrão (SQLite) apenas em desenvolvimento local,
- * e alerta quando variável está ausente em produção.
- */
-if (!process.env.DATABASE_URL) {
-  if (isProdLike) {
-    // Em produção, não usar SQLite e exigir configuração explícita de DATABASE_URL
-    console.error('❌ DATABASE_URL não definida em produção. Configure a variável de ambiente no servidor.');
-  } else {
-    console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
-    process.env.DATABASE_URL = 'file:./dev.db';
-  }
+const hasDbUrl = !!process.env.DATABASE_URL || !!process.env.DIRECT_URL;
+if (!hasDbUrl) {
+  throw new Error('DATABASE_URL ou DIRECT_URL ausente. Configure conexão com Postgres (Supabase).');
 }
 
 /**
@@ -44,7 +34,12 @@ export const prisma: (PrismaClient & { [key: string]: any }) = new Proxy({} as P
       if (isProdLike && !process.env.DATABASE_URL) {
         throw new Error('DATABASE_URL não definida no ambiente de produção. Configure-a no servidor para habilitar o banco de dados.');
       }
-      prismaClient = new PrismaClient();
+      const url = (process.env.DIRECT_URL || process.env.DATABASE_URL)!;
+      prismaClient = new PrismaClient({
+        datasources: {
+          db: { url },
+        },
+      });
       if (process.env.NODE_ENV !== 'production') {
         globalForPrisma.prisma = prismaClient;
       }

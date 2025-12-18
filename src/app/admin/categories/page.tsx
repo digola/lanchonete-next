@@ -209,10 +209,10 @@ export default function AdminCategoriesPage() {
       if (response.ok) {
         refetchCategories();
       } else {
-        alert('Erro ao alterar status da categoria');
+        toast.error('Erro ao alterar status da categoria');
       }
     } catch (error) {
-      alert('Erro ao alterar status da categoria');
+      toast.error('Erro ao alterar status da categoria');
     }
   };
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+export const runtime = 'nodejs';
 import { getTokenFromRequest, verifyToken, hasPermission } from '@/lib/auth';
+import { createClient } from '@supabase/supabase-js';
 
 export async function POST(request: NextRequest) {
   try {
@@ -64,23 +64,38 @@ export async function POST(request: NextRequest) {
     const extension = file.name.split('.').pop();
     const fileName = `${timestamp}_${randomString}.${extension}`;
 
-    // Criar diretório se não existir
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'images');
-    try {
-      await mkdir(uploadDir, { recursive: true });
-    } catch (error) {
-      // Diretório já existe
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+    const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY) as string;
+    const bucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET as string;
+
+    if (!supabaseUrl || !supabaseKey || !bucket) {
+      return NextResponse.json(
+        { success: false, error: 'Configuração do Supabase ausente' },
+        { status: 500 }
+      );
     }
 
-    // Salvar arquivo
-    const filePath = join(uploadDir, fileName);
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    const path = `images/${fileName}`;
 
-    await writeFile(filePath, buffer);
+    const { error: uploadError } = await supabase
+      .storage
+      .from(bucket)
+      .upload(path, new Uint8Array(bytes), {
+        contentType: file.type,
+        upsert: false,
+      });
 
-    // Retornar URL da imagem
-    const imageUrl = `/uploads/images/${fileName}`;
+    if (uploadError) {
+      return NextResponse.json(
+        { success: false, error: uploadError.message },
+        { status: 500 }
+      );
+    }
+
+    const imageUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`;
 
     return NextResponse.json({
       success: true,

@@ -41,6 +41,7 @@ import Link from 'next/link';
 import { table } from 'console';
 import { OrderDetailsButton } from '@/components/staff/OrderDetailsModal';
 import { title } from 'process';
+import { toast } from '@/lib/toast';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -66,7 +67,7 @@ const preciseMoneyCalculation = {
 };
 
 export default function ExpedicaoPage() {
-  const { user, isAuthenticated, isLoading } = useApiAuth();
+  const { user, isAuthenticated, isLoading, token } = useApiAuth();
   
   // Hook para avisar sobre pedidos pendentes ao fechar o navegador
   usePendingOrdersWarning({
@@ -204,7 +205,7 @@ export default function ExpedicaoPage() {
     
     if (!orderId || orderId === 'undefined') {
       console.error('❌ OrderId inválido:', orderId);
-      alert('Erro: ID do pedido inválido');
+      toast.error('ID inválido', 'Erro: ID do pedido inválido');
       return;
     }
     
@@ -213,7 +214,7 @@ export default function ExpedicaoPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         },
         body: JSON.stringify({ status: newStatus })
       });
@@ -226,7 +227,7 @@ export default function ExpedicaoPage() {
       refetchOrders();
     } catch (error) {
       console.error('Erro ao atualizar pedido:', error);
-      alert('Erro ao atualizar status do pedido3');
+      toast.error('Erro ao atualizar status do pedido', 'Tente novamente.');
     }
   };
 
@@ -391,7 +392,7 @@ export default function ExpedicaoPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -404,12 +405,12 @@ export default function ExpedicaoPage() {
 
       const result = await response.json();
       console.log('✅ Pagamento processado com sucesso:', result);
-      
+      toast.success('Pagamento processado', 'Pedido pago com sucesso.');
       closePaymentModal();
       refetchOrders();
     } catch (error) {
       console.error('❌ Erro ao processar pagamento:', error);
-      alert(`Erro ao processar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao processar pagamento', error instanceof Error ? error.message : 'Erro desconhecido');
     }
   };
 
@@ -492,7 +493,7 @@ export default function ExpedicaoPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`,
         },
         body: JSON.stringify({ items: selectedProducts }),
       });
@@ -502,13 +503,13 @@ export default function ExpedicaoPage() {
       if (response.ok && data.success) {
         setTimeout(() => refetchOrders(), 1000);
         closeAddProductsModal();
-        alert('Produtos adicionados com sucesso!');
+        toast.success('Produtos adicionados', 'Itens adicionados ao pedido.');
       } else {
-        alert(`Erro ao adicionar produtos: ${data.error || 'Tente novamente'}`);
+        toast.error('Erro ao adicionar produtos', data.error || 'Tente novamente');
       }
     } catch (error) {
       console.error('Erro ao adicionar produtos:', error);
-      alert('Erro de conexão. Tente novamente.');
+      toast.error('Erro de conexão', 'Tente novamente.');
     }
   };
 
@@ -577,7 +578,7 @@ export default function ExpedicaoPage() {
       const response = await fetch(`/api/tables/${selectedOrder.table.id}/clear`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         }
       });
 
@@ -589,7 +590,7 @@ export default function ExpedicaoPage() {
       }
 
       console.log('✅ Mesa limpa com sucesso!');
-      alert('Mesa limpa com sucesso!');
+      toast.success('Mesa limpa', 'A mesa foi marcada como livre.');
       closeClearTableModal();
       
       // Atualizar lista de pedidos e mesas
@@ -602,7 +603,7 @@ export default function ExpedicaoPage() {
       
     } catch (error) {
       console.error('Erro ao limpar mesa:', error);
-      alert(`Erro ao limpar mesa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao limpar mesa', error instanceof Error ? error.message : 'Erro desconhecido');
     }
   };
 
@@ -610,7 +611,7 @@ export default function ExpedicaoPage() {
   const printOrder = (order: Order) => {
     const printWindow = window.open('', '_blank', 'width=220,height=600');
     if (!printWindow) {
-      alert('Por favor, permita pop-ups para impressão');
+      toast.info('Permita pop-ups para impressão');
       return;
     }
 
@@ -789,12 +790,14 @@ export default function ExpedicaoPage() {
 
   {/* Função para cancelar pedido e liberar mesa */}
 const cancelOrder = async (order: Order) => {
+  const ok = window.confirm('Confirmar cancelamento do pedido?');
+  if (!ok) return;
   try {
     const response = await fetch(`/api/orders/${order.id}` , {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+        'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
       },
       body: JSON.stringify({ status: 'CANCELADO' })
     });
@@ -802,11 +805,11 @@ const cancelOrder = async (order: Order) => {
     if (!response.ok || !result?.success) {
       throw new Error(result?.error || 'Erro ao cancelar pedido');
     }
-    alert('Pedido cancelado com sucesso!');
+    toast.success('Pedido cancelado', 'O pedido foi cancelado.');
     refetchOrders();
   } catch (error) {
     console.error('Erro ao cancelar pedido:', error);
-    alert('Erro ao cancelar pedido');
+    toast.error('Erro ao cancelar pedido', error instanceof Error ? error.message : 'Erro desconhecido');
   }
 };
   
@@ -1055,7 +1058,7 @@ const cancelOrder = async (order: Order) => {
                               Pago
                             </Badge>
                           )}
-                          {order.isActive === true && !order.isActive === false && (
+                          { order.status === OrderStatus.CANCELADO && (
                             <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
                               <Clock className="h-3 w-3 mr-1" />
                              Cancelado
@@ -1133,7 +1136,7 @@ const cancelOrder = async (order: Order) => {
                             )}
                             
                             {/* Botão Adicionar Produtos - apenas para pedidos de mesa não finalizados */}
-                            {order.table && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && order.isActive === false && (
+                            {order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.CANCELADO && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1144,12 +1147,10 @@ const cancelOrder = async (order: Order) => {
                                 <span className="hidden sm:inline">Adicionar Produtos</span>
                                 <span className="sm:hidden">Adicionar</span>
                               </Button>
-                            )}{
-                              <p className="text-xs text-red-500">Pedido cancelado</p>
-                            }
+                            )}
                             
                             {/* Botão Receber Pedido - para TODOS os pedidos não finalizados (mesa e balcão) */}
-                            {order.status !== OrderStatus.FINALIZADO && !order.isPaid && order.isActive === false && (
+                            {order.status === OrderStatus.FINALIZADO && !order.isPaid && order.isActive === true && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1163,18 +1164,7 @@ const cancelOrder = async (order: Order) => {
                             )}
                           
                             {/* Botão Liberar Mesa - para pedidos pagos de mesa */}
-                            {order.status === OrderStatus.FINALIZADO && order.isPaid && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-100 col-span-2 sm:col-span-1 font-semibold"
-                                onClick={() => openClearTableModal(order)}
-                              >
-                                <CheckCircle className="h-4 w-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Liberar Mesa</span>
-                                <span className="sm:hidden">Liberar</span>
-                              </Button>
-                            )}
+                            
                             
                            
                           </>
@@ -1194,7 +1184,7 @@ const cancelOrder = async (order: Order) => {
                           {/* Botão Detalhes do Pedido */}
                           <OrderDetailsButton order={order} />
                           {/* Botão Cancelar Pedido e Liberar Mesa sera exibido apenas para pedidos ativos e que não foram finalizados ou entregues */}
-                          {order.status && order.isActive === false && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && ( 
+                          {order.isActive === true && order.status !== OrderStatus.FINALIZADO && order.status !== OrderStatus.ENTREGUE && order.status !== OrderStatus.CANCELADO && ( 
                           <Button
                             size="sm"
                             variant="outline"
@@ -1208,7 +1198,7 @@ const cancelOrder = async (order: Order) => {
 
  ) }
                          {/* Botão Limpar Mesa - apenas para pedidos de mesa entregues/finalizados */}
-                            {order.table && order.status === OrderStatus.ENTREGUE &&  order.table.status === TableStatus.OCUPADA && (
+                            {order.table && order.status === OrderStatus.FINALIZADO &&  order.table.status === TableStatus.OCUPADA && (
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -1216,7 +1206,7 @@ const cancelOrder = async (order: Order) => {
                                 className="whitespace-nowrap text-red-600 border-red-300 hover:bg-red-100 col-span-2 sm:col-span-1 font-semibold"
                               >
                                 <Trash2 className="h-4 w-4 mr-1 sm:mr-2" />
-                                <span className="hidden sm:inline">Limpar Mesa1</span>
+                                <span className="hidden sm:inline">Limpar Mesa</span>
                                 <span className="sm:hidden">Limpar</span>
                               </Button>
                             )}
@@ -1455,7 +1445,7 @@ const cancelOrder = async (order: Order) => {
                     className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Processar Pagamento
+                    Processar Pagamento 
                   </Button>
                 )}
                 </div>

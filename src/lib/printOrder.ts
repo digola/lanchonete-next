@@ -1,5 +1,6 @@
 import { Order } from '@/types';
 import { formatCurrency } from './utils';
+import { toast } from './toast';
 
 /**
  * Função utilitária para imprimir pedidos em impressora térmica 58mm
@@ -52,7 +53,7 @@ export async function printOrder(order: Order): Promise<void> {
 
   const printWindow = window.open('', '_blank', 'width=220,height=600');
   if (!printWindow) {
-    alert('Por favor, permita pop-ups para impressão');
+    toast.info('Permita pop-ups para impressão');
     return;
   }
 
@@ -258,4 +259,3 @@ export async function printOrder(order: Order): Promise<void> {
     printWindow.print();
   }, 500);
 }
-

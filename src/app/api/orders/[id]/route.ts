@@ -125,6 +125,9 @@ export async function PUT(
     
     if (status) {
       updateData.status = status;
+      if (status === 'CANCELADO') {
+        updateData.isActive = false;
+      }
     }
     
     if (paymentMethod) {

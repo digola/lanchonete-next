@@ -53,7 +53,7 @@ import {
 export default function TablePage() {
   const params = useParams();
   const router = useRouter();
-  const { user, isStaffOrAdmin } = useApiAuth();
+  const { user, isStaffOrAdmin, token } = useApiAuth();
   const tableId = params.id as string;
   
   // Estados
@@ -351,13 +351,13 @@ export default function TablePage() {
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       
       const response = await fetch(`/api/orders/${paymentSession.orderId}/payment`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${tokenFromStorage}`
         },
         body: JSON.stringify({
           paymentSession: paymentSession,
@@ -366,16 +366,16 @@ export default function TablePage() {
       });
       
       if (response.ok) {
-        alert('Pagamento processado com sucesso!');
+        toast.success('Pagamento processado com sucesso!');
         closeTablePaymentModal();
         refetchOrders();
       } else {
         const error = await response.json();
-        alert(`Erro: ${error.message || 'Erro ao processar pagamento'}`);
+        toast.error('Erro ao processar pagamento', error.message || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro ao processar pagamento:', error);
-      alert('Erro ao processar pagamento');
+      toast.error('Erro ao processar pagamento');
     } finally {
       setLoading(false);
     }
@@ -386,13 +386,13 @@ export default function TablePage() {
   const markAsReceived = async (orderId: string) => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       
       const response = await fetch(`/api/orders/${orderId}/receive`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${tokenFromStorage}`
         }
       });
       
@@ -401,11 +401,11 @@ export default function TablePage() {
         refetchTable();
       } else {
         const error = await response.json();
-        alert(`Erro: ${error.message || 'Erro ao marcar como recebido'}`);
+        toast.error('Erro ao marcar como recebido', error.message || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro ao marcar como recebido:', error);
-      alert('Erro ao marcar como recebido');
+      toast.error('Erro ao marcar como recebido');
     } finally {
       setLoading(false);
     }
@@ -417,13 +417,13 @@ export default function TablePage() {
     
     setLoading(true);
     try {
-      const token = localStorage.getItem('auth-token');
+      const tokenFromStorage = token || localStorage.getItem('auth-token');
       
       const response = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${tokenFromStorage}`
         },
         body: JSON.stringify({
           status: 'CANCELADO'
@@ -435,11 +435,11 @@ export default function TablePage() {
         refetchTable();
       } else {
         const error = await response.json();
-        alert(`Erro: ${error.message || 'Erro ao cancelar pedido'}`);
+        toast.error('Erro ao cancelar pedido', error.message || 'Erro desconhecido');
       }
     } catch (error) {
       console.error('Erro ao cancelar pedido:', error);
-      alert('Erro ao cancelar pedido');
+      toast.error('Erro ao cancelar pedido');
     } finally {
       setLoading(false);
     }
@@ -449,7 +449,7 @@ export default function TablePage() {
   const printOrder = (order: Order) => {
     const printWindow = window.open('', '_blank', 'width=220,height=600');
     if (!printWindow) {
-      alert('Por favor, permita pop-ups para impressão');
+      toast.info('Permita pop-ups para impressão');
       return;
     }
 
@@ -1224,7 +1224,7 @@ export default function TablePage() {
                       <CreditCard className="h-6 w-6 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-bold text-white">Processar Pagamento</h2>
+                      <h2 className="text-xl font-bold text-white">Processar Pagamento </h2>
                       <p className="text-green-100 text-sm">Mesa {table?.number} - Pedido #{selectedOrder.id.slice(-8)}</p>
                     </div>
                   </div>
@@ -1435,7 +1435,7 @@ export default function TablePage() {
                         ) : (
                           <CreditCard className="h-4 w-4 mr-2" />
                         )}
-                        Processar Pagamento
+                        Processar Pagamento 
                       </Button>
                     )}
                   </div>

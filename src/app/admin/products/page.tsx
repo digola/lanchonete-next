@@ -240,13 +240,13 @@ export default function AdminProductsPage() {
       } else {
         try {
           const err = await response.json();
-          alert(err?.error || 'Erro ao alterar status do produto');
+          toast.error('Erro ao alterar status do produto', err?.error || undefined);
         } catch {
-          alert('Erro ao alterar status do produto');
+          toast.error('Erro ao alterar status do produto');
         }
       }
     } catch (error) {
-      alert('Erro ao alterar status do produto');
+      toast.error('Erro ao alterar status do produto');
     }
   };
 

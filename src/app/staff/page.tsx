@@ -8,6 +8,7 @@ import { PageHeader } from '@/components/ui/PageHeader';
 import { StatsCard } from '@/components/ui/StatsCard';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { useApiAuth } from '@/hooks/useApiAuth';
+import { toast } from '@/lib/toast';
 import { useApi } from '@/hooks/useApi';
 import { LogoutWithPendingOrdersCheck } from '@/components/LogoutWithPendingOrdersCheck';
 //import { PendingOrdersIndicator } from '@/components/PendingOrdersIndicator';
@@ -43,7 +44,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { StaffHeader } from '@/components/staff/StaffHeader';
 import { OrderDetailsButton } from '@/components/staff/OrderDetailsModal';
-import { table } from 'console';
+import { Console, table } from 'console';
+import { useAdicionais, useAllAdicionais } from '@/hooks/useAdicionais';
 
 // Função utilitária para cálculos monetários precisos
 const preciseMoneyCalculation = {
@@ -70,7 +72,7 @@ const preciseMoneyCalculation = {
 
 export default function StaffPage() {
   const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useApiAuth();
+  const { user, isAuthenticated, isLoading, token } = useApiAuth();
   
   // Hook para avisar sobre pedidos pendentes ao fechar o navegador
   usePendingOrdersWarning({
@@ -208,7 +210,7 @@ export default function StaffPage() {
     
     if (!orderId || orderId === 'undefined') {
       console.error('❌ OrderId inválido:', orderId);
-      alert('Erro: ID do pedido inválido');
+      toast.error('ID inválido', 'Erro: ID do pedido inválido');
       return;
     }
     
@@ -217,7 +219,7 @@ export default function StaffPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         },
         body: JSON.stringify({ status: newStatus })
       });
@@ -230,7 +232,7 @@ console.log('🔍 Response:', response);
       refetchOrders();
     } catch (error) {
       console.error('Erro ao atualizar pedido:', error);
-      alert('Erro ao atualizar status do pedido3: ' );
+      toast.error('Erro ao atualizar status', 'Tente novamente.');
     }
   };
 
@@ -395,7 +397,7 @@ console.log('🔍 Response:', response);
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         },
         body: JSON.stringify(requestBody)
       });
@@ -431,7 +433,7 @@ console.log('🔍 Response:', response);
       refetchOrders();
     } catch (error) {
       console.error('❌ Erro ao processar pagamento:', error);
-      alert(`Erro ao processar pagamento: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao processar pagamento', error instanceof Error ? error.message : 'Erro desconhecido');
     }
   };
 
@@ -519,7 +521,7 @@ console.log('🔍 Response:', response);
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`,
         },
         body: JSON.stringify({ items: selectedProducts }),
       });
@@ -529,13 +531,13 @@ console.log('🔍 Response:', response);
       if (response.ok && data.success) {
         setTimeout(() => refetchOrders(), 1000);
         closeAddProductsModal();
-        alert('Produtos adicionados com sucesso!');
+        toast.success('Produtos adicionados', 'Itens adicionados ao pedido.');
       } else {
-        alert(`Erro ao adicionar produtos: ${data.error || 'Tente novamente'}`);
+        toast.error('Erro ao adicionar produtos', data.error || 'Tente novamente');
       }
     } catch (error) {
       console.error('Erro ao adicionar produtos:', error);
-      alert('Erro de conexão. Tente novamente.');
+      toast.error('Erro de conexão', 'Tente novamente.');
     }
   };
 
@@ -601,10 +603,10 @@ console.log('🔍 Response:', response);
       console.log('🧹 Tentando limpar mesa:', selectedOrder.table.id);
       console.log('🧹 Mesa atual:', selectedOrder.table);
       
-      const response = await fetch(`/api/tables/${selectedOrder.table.id}/clear`, {
+      const response = await fetch(`/api/orders/${selectedOrder.table.id}/clear`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('auth-token')}`
+          'Authorization': `Bearer ${token || localStorage.getItem('auth-token')}`
         }
       });
 
@@ -616,7 +618,7 @@ console.log('🔍 Response:', response);
       }
 
       console.log('✅ Mesa limpa com sucesso!');
-      alert('Mesa limpa com sucesso!');
+      toast.success('Mesa limpa', 'A mesa foi marcada como livre.');
       closeClearTableModal();
       
       // Atualizar lista de pedidos e mesas
@@ -629,7 +631,7 @@ console.log('🔍 Response:', response);
       
     } catch (error) {
       console.error('Erro ao limpar mesa:', error);
-      alert(`Erro ao limpar mesa: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      toast.error('Erro ao limpar mesa', error instanceof Error ? error.message : 'Erro desconhecido');
     }
   };
 
@@ -1021,7 +1023,7 @@ console.log('🔍 Response:', response);
                         </Button>
 
                         {/* Botão Ver Detalhes - Elegante e Destacado */}
-                        <OrderDetailsButton order={order} />
+                        <OrderDetailsButton order={order} /> 
                       </div>
                 </div>
               </CardContent>
@@ -1045,7 +1047,7 @@ console.log('🔍 Response:', response);
                     <CreditCard className="h-6 w-6 text-white" />
                       </div>
                       <div>
-                    <h2 className="text-xl font-bold text-white">Processar Pagamento</h2>
+                    <h2 className="text-xl font-bold text-white">Processar Pagamento </h2>
                     <p className="text-green-100 text-sm">
                           {selectedOrder.table 
                             ? `Mesa ${selectedOrder.table.number}` 
@@ -1102,34 +1104,29 @@ console.log('🔍 Response:', response);
                                 </p>
                                 <p className="text-xs text-gray-600">
                                   {formatCurrency(item.price)} cada
+                                  
                                 </p>
+                                                             
                               </div>
                               <div className="text-sm font-bold text-gray-900">
                                 {formatCurrency(item.price * item.quantity)}
                               </div>
                             </div>
-                            {parsedCustomizations.length > 0 && (
+                            {parsedCustomizations.length <= 0 && (
                               <div className="mt-2 flex flex-wrap gap-2">
                                 {parsedCustomizations.map((c, idx) => (
                                   <span
                                     key={idx}
                                     className="px-2 py-1 text-xs bg-blue-50 text-blue-700 border border-blue-200 rounded"
                                   >
+                                    olal
                                     {typeof c === 'string' ? c : (c?.name ?? JSON.stringify(c))}
                                   </span>
                                 ))}
                               </div>
                             )}
-                            {!parsedCustomizations.length && item.customizations && (
-                              <div className="mt-2 text-xs text-gray-700">
-                                {item.customizations}
-                              </div>
-                            )}
-                            {item.notes && (
-                              <div className="mt-2 text-xs text-gray-700">
-                                Obs: {item.notes}
-                              </div>
-                            )}
+                           
+                         
                           </div>
                         );
                       })}
@@ -1312,7 +1309,7 @@ console.log('🔍 Response:', response);
                     className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <CreditCard className="h-4 w-4 mr-2" />
-                    Processar Pagamento
+                    Processar Pagamento 
                   </Button>
                 )}
                 </div>
