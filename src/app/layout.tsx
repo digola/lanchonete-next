@@ -1,4 +1,4 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { Inter, Poppins } from 'next/font/google';
 import './globals.css';
 // import { ClientToastProvider } from '@/components/ui/ClientToastProvider';
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   description: 'Sistema completo de gestÃ£o para lanchonetes com cardÃ¡pio online, pedidos e delivery.',
   keywords: ['lanchonete', 'delivery', 'cardÃ¡pio', 'pedidos', 'gestÃ£o', 'nextjs'],
   authors: [{ name: 'Lanchonete Team' }],
-  nomemy: 'index, follow',
+  robots: 'index, follow',
   openGraph: {
     title: 'Lanchonete - Sistema de GestÃ£o',
     description: 'Sistema completo de gestÃ£o para lanchonetes',
