@@ -172,10 +172,10 @@ export async function POST(request: NextRequest) {
         allergens: allergens?.trim(),
         
         // Campos de estoque (garantir valores válidos)
-        stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
-        minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
-        maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
-        trackStock,
+       // stockQuantity: Number.isFinite(Number(stockQuantity)) ? Number(stockQuantity) : 0,
+       // minStockLevel: Number.isFinite(Number(minStockLevel)) ? Number(minStockLevel) : 5,
+      //  maxStockLevel: Number.isFinite(Number(maxStockLevel)) ? Number(maxStockLevel) : 100,
+       // trackStock,
       },
       include: {
         category: true,

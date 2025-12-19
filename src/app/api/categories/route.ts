@@ -20,8 +20,9 @@ export async function GET(request: NextRequest) {
     const orderBy = { [sortBy]: sortOrder as 'asc' | 'desc' };
 
     const where: any = {};
-    if (search) {
-      where.name = { contains: search, mode: 'insensitive' };
+    if (search && search.trim()) {
+      const term = search.trim();
+      where.name = { contains: term };
     }
     if (categoryId) {
       where.id = categoryId;

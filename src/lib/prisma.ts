@@ -7,11 +7,17 @@ const globalForPrisma = globalThis as unknown as {
 // Detectar ambiente de produção
 const isProdLike = process.env.NODE_ENV === 'production';
 
-// Configurar DATABASE_URL padrão somente em desenvolvimento local
 if (!process.env.DATABASE_URL) {
   if (isProdLike) {
-    // Em produção, não usar SQLite e exigir configuração explícita de DATABASE_URL
-    console.error('❌ DATABASE_URL não definida em produção. Configure a variável de ambiente no servidor.');
+    const candidate =
+      process.env.POSTGRES_PRISMA_URL ||
+      process.env.POSTGRES_URL ||
+      undefined;
+    if (candidate) {
+      process.env.DATABASE_URL = candidate;
+    } else {
+      console.error('❌ DATABASE_URL não definida em produção. Configure a variável de ambiente (DATABASE_URL ou POSTGRES_PRISMA_URL) no servidor.');
+    }
   } else {
     console.warn('⚠️ DATABASE_URL não definida. Usando SQLite para desenvolvimento local.');
     process.env.DATABASE_URL = 'file:./dev.db';
@@ -67,7 +73,13 @@ export const checkDatabaseHealth = async () => {
     await prisma.$queryRaw`SELECT 1`;
     return { healthy: true, message: 'Database is healthy' };
   } catch (error) {
-    return { healthy: false, message: 'Database connection failed' };
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'string'
+        ? error
+        : 'Database connection failed';
+    return { healthy: false, message };
   }
 };
 

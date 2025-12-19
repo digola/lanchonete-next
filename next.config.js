@@ -28,21 +28,13 @@ const nextConfig = {
     },
   },
   
-  // Configurações de TypeScript para deploy
+  // Configurações de TypeScript
   typescript: {
-    // Ignorar erros de tipo durante o build para deploy rápido
-    ignoreBuildErrors: true,
-  },
-  
-  // Configurações de ESLint para deploy
-  eslint: {
-    // Ignorar erros de ESLint durante o build para deploy rápido
-    ignoreDuringBuilds: true,
+    ignoreBuildErrors: false,
   },
   
   // Configuração de imagens
   images: {
-    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'],
     remotePatterns: [
       {
         protocol: 'https',

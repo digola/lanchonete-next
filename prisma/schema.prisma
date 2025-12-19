@@ -1,14 +1,12 @@
-// Schema SQLite para desenvolvimento local
-// Este arquivo substitui o schema.prisma quando usando SQLite
+// Schema para produção (PostgreSQL)
 
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
-  // Usar caminho local para evitar depender de env em geração de cliente
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 // Modelo User

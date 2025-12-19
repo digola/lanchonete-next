@@ -27,22 +27,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
     }
 
-    // Buscar produtos com controle de estoque
+    // Buscar produtos (sem campos de estoque no schema atual)
     const products = await prisma.product.findMany({
-      where: {
-        trackStock: true,
-        stockQuantity: { not: null },
-        minStockLevel: { not: null }
-      },
       include: {
         category: {
           select: { name: true }
         }
       },
-      orderBy: [
-        { stockQuantity: 'asc' },
-        { name: 'asc' }
-      ]
+      orderBy: [{ name: 'asc' }]
     });
 
     // Categorizar alertas
@@ -57,9 +49,10 @@ export async function GET(request: NextRequest) {
     };
 
     products.forEach(product => {
-      const stockQuantity = product.stockQuantity || 0;
-      const minStockLevel = product.minStockLevel || 0;
-      const maxStockLevel = product.maxStockLevel || 100;
+      const p: any = product;
+      const stockQuantity = p.stockQuantity ?? 0;
+      const minStockLevel = p.minStockLevel ?? 0;
+      const maxStockLevel = p.maxStockLevel ?? 100;
 
       if (stockQuantity <= 0) {
         alerts.outOfStock.push({
