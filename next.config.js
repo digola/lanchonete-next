@@ -33,14 +33,8 @@ const nextConfig = {
     ignoreBuildErrors: false,
   },
   
-  // Configurações de ESLint
-  eslint: {
-    ignoreDuringBuilds: false,
-  },
-  
   // Configuração de imagens
   images: {
-    domains: ['localhost', 'res.cloudinary.com', 'images.unsplash.com'],
     remotePatterns: [
       {
         protocol: 'https',

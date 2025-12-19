@@ -239,7 +239,6 @@ async function main() {
           total: xBurger.price * 1,
           deliveryType: 'RETIRADA',
           paymentMethod: 'DINHEIRO',
-          isPaid: false,
           notes: 'Pedido de seed com observações',
           tableId: mesa1.id,
           items: {
